@@ -17,7 +17,6 @@ export const MAIN_NAV: NavItem[] = [
   { id: 'research', label: 'Research', icon: 'travel_explore' },
   { id: 'history', label: 'History', icon: 'history' },
   { id: 'notes', label: 'Notes', icon: 'sticky_note_2' },
-  { id: 'docs', label: 'Docs', icon: 'menu_book' },
 ];
 
 export const LAB_NAV: NavItem[] = [
@@ -30,6 +29,7 @@ export const PROFILE_NAV: NavItem[] = [
   { id: 'profile', label: 'Profile', icon: 'person_outline' },
   { id: 'models', label: 'Models', icon: 'hub' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
+  { id: 'docs', label: 'Documentation', icon: 'menu_book' },
 ];
 
 export const TITLES: Record<ActiveTab, string> = {

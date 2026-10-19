@@ -41,6 +41,17 @@ export const ChatWorkspace: React.FC = () => {
   const [puterModelSearch, setPuterModelSearch] = useState('');
   const [puterBusy, setPuterBusy] = useState(false);
   const [puterError, setPuterError] = useState<string | null>(null);
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const modelMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!modelMenuOpen) return;
+    const closeOnOutside = (event: MouseEvent) => { if (event.target instanceof Node && !modelMenuRef.current?.contains(event.target)) setModelMenuOpen(false); };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setModelMenuOpen(false); };
+    document.addEventListener('mousedown', closeOnOutside);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => { document.removeEventListener('mousedown', closeOnOutside); window.removeEventListener('keydown', closeOnEscape); };
+  }, [modelMenuOpen]);
 
   useEffect(() => { try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages)); } catch { /* storage full */ } end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, busy]);
   const grow = () => { const el = ta.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; } };
@@ -201,14 +212,8 @@ export const ChatWorkspace: React.FC = () => {
   const lastIsAssistant = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="shrink-0 px-gutter lg:px-space-lg py-space-sm flex items-center justify-between gap-space-md">
-        <div className="flex items-center gap-space-sm min-w-0"><h1 className="font-headline-md text-headline-md">Chat</h1>
-          <span className="hidden sm:flex items-center gap-space-xs px-space-sm py-0.5 rounded-full bg-surface-container font-code-sm text-code-sm min-w-0"><span className={`w-1.5 h-1.5 rounded-circle ${chatMode === 'puter' ? (puterSignedIn && puterModel ? 'bg-tertiary' : 'bg-outline') : active ? 'bg-tertiary' : 'bg-outline'}`} /><span className={`truncate ${chatMode === 'puter' ? (puterSignedIn && puterModel ? 'text-on-surface-variant' : 'text-outline') : active ? 'text-on-surface-variant' : 'text-outline'}`}>{chatMode === 'puter' ? (puterSignedIn ? (puterModel || 'Choose a Puter model') : 'Puter not connected') : active ? `${providerLabel(active.provider)} · ${active.model}` : 'No model connected'}</span></span></div>
-        <div className="flex flex-wrap items-center justify-end gap-space-xs">
-          {messages.length > 0 && <button type="button" onClick={clear} className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors"><Icon name="delete_sweep" className="text-[18px]" /><span className="hidden sm:inline">Clear</span></button>}
-        </div>
-      </div>
+    <div className="relative h-full flex flex-col">
+      {messages.length > 0 && <button type="button" onClick={clear} title="Clear conversation" aria-label="Clear conversation" className="absolute top-3 right-3 lg:right-5 z-10 flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-surface/80 backdrop-blur-md border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors"><Icon name="delete_sweep" className="text-[18px]" /><span className="hidden sm:inline">Clear</span></button>}
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-gutter lg:px-space-lg pb-space-lg flex flex-col gap-space-lg min-h-full">
@@ -250,42 +255,37 @@ export const ChatWorkspace: React.FC = () => {
       </div>
 
       <div className="shrink-0 px-gutter lg:px-space-lg pb-safe pb-space-md pt-space-xs">
-        <div className="max-w-3xl mx-auto flex flex-col gap-space-sm">
-          <div className="flex flex-wrap items-center gap-space-sm">
-            <label className="sr-only" htmlFor="breezy-chat-mode">Chat mode</label>
-            <select id="breezy-chat-mode" aria-label="Chat mode" value={chatMode} onChange={(e) => { const mode = e.target.value as 'provider' | 'puter'; setChatMode(mode); localStorage.setItem('breezy_chat_mode_v1', mode); setError(null); }} className="min-w-[130px] bg-surface-container-low rounded-xl hairline px-space-sm min-h-[38px] font-label-md text-label-md focus:outline-none">
-              <option value="provider">Connected model</option>
-              <option value="puter">Puter.js</option>
-            </select>
-            {chatMode === 'provider' ? (
-              <>
-                <label className="sr-only" htmlFor="breezy-chat-model">Model</label>
-                <select id="breezy-chat-model" aria-label="Chat model" value={activeModelValue} onChange={(e) => chooseProviderModel(e.target.value)} disabled={selectableModels.length === 0} className="min-w-0 flex-1 sm:flex-none sm:max-w-[min(28rem,60%)] bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[38px] font-body-sm text-body-sm focus:outline-none disabled:opacity-60">
-                  <option value="">{selectableModels.length ? 'Choose a connected model' : 'No connected models'}</option>
-                  {selectableModels.map((model) => <option key={`${model.provider}::${model.id}`} value={`${model.provider}::${model.id}`}>{providerLabel(model.provider)} · {model.name}</option>)}
-                  {active && !selectableModels.some((model) => model.provider === active.provider && model.id === active.model) && <option value={activeModelValue}>{providerLabel(active.provider)} · {active.model}</option>}
-                </select>
-                {!active && <a href="#models" className="inline-flex items-center gap-space-xs min-h-[38px] px-space-sm rounded-xl text-primary hover:bg-surface-container-high font-label-md text-label-md"><Icon name="tune" className="text-[17px]" />Configure models</a>}
-              </>
-            ) : puterSignedIn ? (
-              <>
-                <input value={puterModelSearch} onChange={(e) => setPuterModelSearch(e.target.value)} aria-label="Search Puter models" placeholder="Search models…" className="min-w-0 flex-1 bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[38px] font-body-sm text-body-sm focus:outline-none" />
-                <select aria-label="Puter model" value={puterModel} disabled={puterBusy || puterModels.length === 0} onChange={(e) => { setPuterModel(e.target.value); localStorage.setItem('breezy_puter_model_v1', e.target.value); setError(null); }} className="min-w-0 flex-1 sm:flex-none sm:max-w-[45%] bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[38px] font-body-sm text-body-sm focus:outline-none disabled:opacity-50">
-                  <option value="">Choose a Puter model</option>
-                  {puterModels.filter((model) => { const q = puterModelSearch.trim().toLowerCase(); return !q || model.id.toLowerCase().includes(q) || (model.name || '').toLowerCase().includes(q) || (model.provider || '').toLowerCase().includes(q); }).map((model) => <option key={model.id} value={model.id}>{model.name || model.id}{model.provider ? ` · ${model.provider}` : ''}</option>)}
-                </select>
-                <button type="button" onClick={() => void refreshPuter()} disabled={puterBusy} className="px-space-sm min-h-[38px] rounded-xl bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Refreshing…' : 'Refresh'}</button>
-                <button type="button" onClick={() => void disconnectPuter()} disabled={puterBusy} className="px-space-sm min-h-[38px] rounded-xl text-on-surface-variant hover:bg-surface-container-high font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Working…' : 'Disconnect'}</button>
-              </>
-            ) : (
-              <>
-                <span className="flex-1 min-w-[10rem] font-body-sm text-body-sm text-on-surface-variant">Use your Puter account and its own usage allowance.</span>
-                <button type="button" onClick={() => void connectPuter()} disabled={puterBusy} className="px-space-md min-h-[38px] rounded-xl bg-primary text-on-primary font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Connecting…' : 'Connect Puter'}</button>
-              </>
-            )}
+        <div className="max-w-3xl mx-auto flex flex-col gap-space-xs">
+          <div className="relative flex items-center justify-between gap-space-sm" ref={modelMenuRef}>
+            <button type="button" aria-haspopup="menu" aria-expanded={modelMenuOpen} aria-label="Choose chat model" onClick={() => setModelMenuOpen((open) => !open)} className="min-w-0 max-w-full inline-flex items-center gap-space-sm rounded-full px-space-md py-space-sm bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-on-surface transition-colors">
+              <Icon name={chatMode === 'puter' ? 'cloud' : 'hub'} className="text-[17px] text-primary shrink-0" />
+              <span className="min-w-0 text-left flex flex-col leading-tight"><span className="font-label-md text-label-md truncate">{chatMode === 'puter' ? 'Puter.js' : active ? active.model : 'Choose a model'}</span><span className="font-code-sm text-code-sm text-on-surface-variant truncate">{chatMode === 'puter' ? (puterSignedIn ? (puterModel || 'Select a model') : 'Account not connected') : active ? providerLabel(active.provider) : (selectableModels.length ? 'Select a connected model' : 'No connected models')}</span></span>
+              <Icon name={modelMenuOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_up'} className="text-[18px] text-on-surface-variant shrink-0" />
+            </button>
+            <span className="hidden sm:inline font-code-sm text-code-sm text-outline-variant">Shift + Return for a new line</span>
+            {modelMenuOpen && <div role="menu" aria-label="Choose model" className="absolute bottom-full left-0 mb-space-sm w-[min(26rem,calc(100vw-2rem))] max-h-[min(65vh,28rem)] overflow-y-auto rounded-2xl border border-outline-variant/50 bg-surface-container-low shadow-2xl coat p-space-sm z-40">
+              {chatMode === 'provider' ? <>
+                <div className="px-space-sm py-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Connected models</div>
+                {selectableModels.map((model) => <button key={model.provider + '::' + model.id} type="button" role="menuitemradio" aria-checked={activeModelValue === model.provider + '::' + model.id} onClick={() => { chooseProviderModel(model.provider + '::' + model.id); setChatMode('provider'); localStorage.setItem('breezy_chat_mode_v1', 'provider'); setModelMenuOpen(false); }} className={activeModelValue === model.provider + '::' + model.id ? 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors bg-surface-container-high text-on-surface' : 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}>
+                  <Icon name={activeModelValue === model.provider + '::' + model.id ? 'check_circle' : 'radio_button_unchecked'} className="text-[18px] shrink-0 text-primary" /><span className="min-w-0 flex-1"><span className="block font-body-md text-body-md truncate">{model.name}</span><span className="block font-code-sm text-code-sm text-on-surface-variant">{providerLabel(model.provider)}</span></span>
+                </button>)}
+                {active && !selectableModels.some((model) => model.provider === active.provider && model.id === active.model) && <button type="button" role="menuitemradio" aria-checked="true" onClick={() => setModelMenuOpen(false)} className="w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl bg-surface-container-high text-left"><Icon name="check_circle" className="text-[18px] text-primary" /><span className="min-w-0 flex-1"><span className="block font-body-md text-body-md truncate">{active.model}</span><span className="block font-code-sm text-code-sm text-on-surface-variant">{providerLabel(active.provider)}</span></span></button>}
+                {!selectableModels.length && <p className="px-space-sm py-space-md font-body-sm text-body-sm text-on-surface-variant">No connected models are available yet. Configure a provider in Models first.</p>}
+                <button type="button" role="menuitem" onClick={() => { setChatMode('puter'); localStorage.setItem('breezy_chat_mode_v1', 'puter'); setPuterModelSearch(''); }} className="w-full mt-space-xs pt-space-sm border-t border-outline-variant/30 flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"><Icon name="cloud" className="text-[18px]" /><span className="flex-1 font-body-md text-body-md">Use Puter.js</span><Icon name="chevron_right" className="text-[18px]" /></button>
+              </> : <>
+                <div className="flex items-center justify-between px-space-sm py-space-xs"><span className="font-label-sm text-label-sm uppercase tracking-wider text-outline">Puter.js models</span><button type="button" onClick={() => void refreshPuter()} disabled={puterBusy} className="font-label-sm text-label-sm text-primary disabled:opacity-50">{puterBusy ? 'Refreshing…' : 'Refresh'}</button></div>
+                {!puterSignedIn ? <div className="p-space-sm"><p className="font-body-sm text-body-sm text-on-surface-variant mb-space-sm">Connect your Puter account to load its live model catalog.</p><button type="button" onClick={() => void connectPuter()} disabled={puterBusy} className="w-full min-h-[40px] rounded-xl bg-primary text-on-primary font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Connecting…' : 'Connect Puter'}</button></div> : <>
+                  <input value={puterModelSearch} onChange={(e) => setPuterModelSearch(e.target.value)} aria-label="Search Puter models" placeholder="Search models…" className="w-full bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[40px] font-body-sm text-body-sm focus:outline-none mb-space-xs" />
+                  {puterModels.filter((model) => { const q = puterModelSearch.trim().toLowerCase(); return !q || model.id.toLowerCase().includes(q) || (model.name || '').toLowerCase().includes(q) || (model.provider || '').toLowerCase().includes(q); }).map((model) => <button key={model.id} type="button" role="menuitemradio" aria-checked={puterModel === model.id} onClick={() => { setPuterModel(model.id); localStorage.setItem('breezy_puter_model_v1', model.id); setError(null); setModelMenuOpen(false); }} className={puterModel === model.id ? 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors bg-surface-container-high text-on-surface' : 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}><Icon name={puterModel === model.id ? 'check_circle' : 'radio_button_unchecked'} className="text-[18px] text-primary" /><span className="min-w-0 flex-1"><span className="block font-body-md text-body-md truncate">{model.name || model.id}</span><span className="block font-code-sm text-code-sm text-on-surface-variant">{model.provider || model.id}</span></span></button>)}
+                  {!puterModels.length && <p className="px-space-sm py-space-md font-body-sm text-body-sm text-on-surface-variant">No models were returned by Puter yet.</p>}
+                  <button type="button" onClick={() => void disconnectPuter()} disabled={puterBusy} className="w-full mt-space-xs pt-space-sm border-t border-outline-variant/30 px-space-sm py-space-sm text-left font-label-md text-label-md text-on-surface-variant hover:text-on-surface disabled:opacity-50">Disconnect Puter</button>
+                </>}
+                <button type="button" onClick={() => { setChatMode('provider'); localStorage.setItem('breezy_chat_mode_v1', 'provider'); setModelMenuOpen(false); }} className="w-full mt-space-xs pt-space-sm border-t border-outline-variant/30 flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"><Icon name="arrow_back" className="text-[18px]" /><span className="font-body-md text-body-md">Connected models</span></button>
+              </>}
+            </div>}
           </div>
           {puterError && chatMode === 'puter' && <p role="alert" className="text-error font-body-sm text-body-sm">{puterError}</p>}
-          <p className="text-center font-code-sm text-code-sm text-outline-variant">Shift + Return for a new line. Replies are not checked against sources.</p>
+          <p className="font-code-sm text-code-sm text-outline-variant">Replies are not checked against sources.</p>
         </div>
       </div>
     </div>
