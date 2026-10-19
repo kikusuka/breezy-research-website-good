@@ -14,7 +14,7 @@ describe('workspace navigation', () => {
   });
 
   it('keeps profile and configuration destinations in the profile menu', () => {
-    expect(PROFILE_NAV.map((item) => item.id)).toEqual(['profile', 'models', 'settings']);
+    expect(PROFILE_NAV.map((item) => item.id)).toEqual(['profile', 'models', 'settings', 'docs']);
   });
 
   it('keeps Build and Canvas available as laboratory workspaces', () => {
