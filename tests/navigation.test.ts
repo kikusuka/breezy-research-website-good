@@ -10,6 +10,7 @@ describe('workspace navigation', () => {
     expect(ids).toContain('notes');
     expect(ids).not.toContain('models');
     expect(ids).not.toContain('settings');
+    expect(ids).not.toContain('docs');
   });
 
   it('keeps profile and configuration destinations in the profile menu', () => {
