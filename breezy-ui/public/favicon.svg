@@ -1,0 +1,23 @@
+<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="breezy-cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#4cd6fb" />
+      <stop offset="50%" stopColor="#00b4d8" />
+      <stop offset="100%" stopColor="#0077b6" />
+    </linearGradient>
+    <linearGradient id="breezy-accent-grad" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#7bd0ff" />
+      <stop offset="60%" stopColor="#4cd6fb" />
+      <stop offset="100%" stopColor="#0096c7" />
+    </linearGradient>
+    <linearGradient id="breezy-glow-grad" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stopColor="#4edea3" stopOpacity="0.8" />
+      <stop offset="100%" stopColor="#4cd6fb" stopOpacity="0.9" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="44" height="44" rx="12" fill="#141820" stroke="#272a30" stroke-width="2" />
+  <path d="M 12 16 C 12 14 14 12 17 12 L 29 12 C 34 12 37 15 37 19 C 37 22.5 34.5 25 31 25.5 L 19 25.5 C 16.5 25.5 14.5 24 14.5 21.5 C 14.5 19 16.5 17.5 19 17.5 L 30 17.5" stroke="url(#breezy-cyan-grad)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 36 32 C 36 34 34 36 31 36 L 19 36 C 14 36 11 33 11 29 C 11 25.5 13.5 23 17 22.5 L 29 22.5 C 31.5 22.5 33.5 24 33.5 26.5 C 33.5 29 31.5 30.5 29 30.5 L 18 30.5" stroke="url(#breezy-accent-grad)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="24" cy="24" r="3.2" fill="url(#breezy-glow-grad)" />
+  <circle cx="24" cy="24" r="1.2" fill="#ffffff" />
+</svg>

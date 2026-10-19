@@ -1,0 +1,10 @@
+{
+  "routes": [
+    { "path": "/", "title": "Breezy Playground" },
+    { "path": "/#chat", "title": "Research" },
+    { "path": "/#notes", "title": "History" },
+    { "path": "/#models", "title": "Models" },
+    { "path": "/#settings", "title": "Settings" },
+    { "path": "/#docs", "title": "Docs" }
+  ]
+}
