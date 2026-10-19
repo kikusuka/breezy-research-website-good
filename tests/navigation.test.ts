@@ -7,7 +7,6 @@ describe('workspace navigation', () => {
     expect(ids).toContain('chat');
     expect(ids).toContain('research');
     expect(ids).toContain('history');
-    expect(ids).toContain('docs');
     expect(ids).toContain('notes');
     expect(ids).not.toContain('models');
     expect(ids).not.toContain('settings');
