@@ -30,6 +30,7 @@ export const PROFILE_NAV: NavItem[] = [
   { id: 'profile', label: 'Profile', icon: 'person_outline' },
   { id: 'models', label: 'Models', icon: 'hub' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
+  { id: 'docs', label: 'Documentation', icon: 'menu_book' },
 ];
 
 export const TITLES: Record<ActiveTab, string> = {
