@@ -5,6 +5,7 @@ interface BreezyLogoProps {
   size?: number;
   showWordmark?: boolean;
   wordmarkClassName?: string;
+  imageClassName?: string;
 }
 
 /** Use the single approved brand asset everywhere; don't recreate the mark in SVG/CSS. */
@@ -13,6 +14,7 @@ export const BreezyLogo: React.FC<BreezyLogoProps> = ({
   size = 32,
   showWordmark = false,
   wordmarkClassName = '',
+  imageClassName = '',
 }) => (
   <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
     <img
@@ -20,7 +22,7 @@ export const BreezyLogo: React.FC<BreezyLogoProps> = ({
       alt="Breezy"
       width={size}
       height={size}
-      className="shrink-0 object-contain"
+      className={`shrink-0 object-contain ${imageClassName}`.trim()}
       draggable={false}
     />
     {showWordmark && (
