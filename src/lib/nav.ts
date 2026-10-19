@@ -17,7 +17,6 @@ export const MAIN_NAV: NavItem[] = [
   { id: 'research', label: 'Research', icon: 'travel_explore' },
   { id: 'history', label: 'History', icon: 'history' },
   { id: 'notes', label: 'Notes', icon: 'sticky_note_2' },
-  { id: 'docs', label: 'Docs', icon: 'menu_book' },
 ];
 
 export const LAB_NAV: NavItem[] = [
