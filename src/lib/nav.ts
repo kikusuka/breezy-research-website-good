@@ -5,7 +5,7 @@ export const VALID_TABS: ActiveTab[] = [
 ];
 
 export const parseHash = (): ActiveTab => {
-  const hash = window.location.hash.replace(/^#\\/?/, '').split('?')[0].toLowerCase() as ActiveTab;
+  const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0].toLowerCase() as ActiveTab;
   return VALID_TABS.includes(hash) ? hash : 'landing';
 };
 
