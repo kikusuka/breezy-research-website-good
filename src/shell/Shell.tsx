@@ -6,7 +6,7 @@ import { userProfileService } from '../services/userProfileService';
 
 declare const __APP_VERSION__: string;
 const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '3.0';
-export const initialsOf = (name: string) => { const v = name.trim(); return v ? v.split(/\\s+/).slice(0, 2).map((x) => x[0]?.toUpperCase() || '').join('') : 'B'; };
+export const initialsOf = (name: string) => { const v = name.trim(); return v ? v.split(/\s+/).slice(0, 2).map((x) => x[0]?.toUpperCase() || '').join('') : 'B'; };
 
 interface ShellProps { tab: ActiveTab; go: (t: ActiveTab) => void; backendOnline: boolean; endpointName: string; children: React.ReactNode; }
 
