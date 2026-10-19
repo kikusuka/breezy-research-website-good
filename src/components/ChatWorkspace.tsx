@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiClient } from '../services/apiClient';
-import { providerConfigService } from '../services/providerConfigService';
-import { effectiveProviderService } from '../services/effectiveProviderService';
+import { providerConfigService, AVAILABLE_MODELS } from '../services/providerConfigService';
+import { useModelState, announceConfigChange } from '../lib/useModelState';
 import { ChatMessage } from '../types';
 import { Icon } from '../shell/Icon';
 import { Markdown } from '../ui/Markdown';
@@ -16,7 +16,24 @@ export const ChatWorkspace: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => { try { const s = localStorage.getItem(CHAT_STORAGE_KEY); return s ? JSON.parse(s) : []; } catch { return []; } });
   const [input, setInput] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null); const [copied, setCopied] = useState<number | null>(null);
   const ta = useRef<HTMLTextAreaElement>(null); const end = useRef<HTMLDivElement>(null); const ctrl = useRef<AbortController | null>(null);
-  const active = effectiveProviderService.getActiveRoutableModel();
+  const modelState = useModelState();
+  const active = modelState.active;
+  const selectableModels = Object.entries(AVAILABLE_MODELS).flatMap(([provider, models]) => {
+    const hasCredentials = Boolean(providerConfigService.getKey(provider)) ||
+      (provider === 'gemini' && modelState.serverGemini) ||
+      (provider === 'ollama' && Boolean(modelState.config.ollamaBaseUrl)) ||
+      (provider === 'openai-compatible' && Boolean(modelState.config.openaiCompatibleBaseUrl && modelState.config.keys.openaiCompatible));
+    return hasCredentials ? models.map((model) => ({ ...model, provider })) : [];
+  });
+  const activeModelValue = active ? `${active.provider}::${active.model}` : '';
+  const chooseProviderModel = (value: string) => {
+    const [provider, ...modelParts] = value.split('::');
+    const model = modelParts.join('::');
+    if (!provider || !model) return;
+    providerConfigService.saveConfig({ ...modelState.config, defaultProvider: provider as any, defaultModel: model });
+    announceConfigChange();
+    setError(null);
+  };
   const [chatMode, setChatMode] = useState<'provider' | 'puter'>(() => localStorage.getItem('breezy_chat_mode_v1') === 'puter' ? 'puter' : 'provider');
   const [puterSignedIn, setPuterSignedIn] = useState(false);
   const [puterModels, setPuterModels] = useState<PuterModel[]>([]);
@@ -187,36 +204,11 @@ export const ChatWorkspace: React.FC = () => {
     <div className="h-full flex flex-col">
       <div className="shrink-0 px-gutter lg:px-space-lg py-space-sm flex items-center justify-between gap-space-md">
         <div className="flex items-center gap-space-sm min-w-0"><h1 className="font-headline-md text-headline-md">Chat</h1>
-          <span className="hidden sm:flex items-center gap-space-xs px-space-sm py-0.5 rounded-full bg-surface-container font-code-sm text-code-sm min-w-0"><span className={`w-1.5 h-1.5 rounded-circle ${chatMode === 'puter' ? (puterSignedIn && puterModel ? 'bg-tertiary' : 'bg-outline') : active ? 'bg-tertiary' : 'bg-outline'}`} /><span className={`truncate ${chatMode === 'puter' ? (puterSignedIn && puterModel ? 'text-on-surface-variant' : 'text-outline') : active ? 'text-on-surface-variant' : 'text-outline'}`}>{chatMode === 'puter' ? (puterSignedIn ? (puterModel || 'Choose a Puter model') : 'Puter not connected') : active ? `${providerLabel(active.provider)} · ${active.model}` : ''}</span></span></div>
+          <span className="hidden sm:flex items-center gap-space-xs px-space-sm py-0.5 rounded-full bg-surface-container font-code-sm text-code-sm min-w-0"><span className={`w-1.5 h-1.5 rounded-circle ${chatMode === 'puter' ? (puterSignedIn && puterModel ? 'bg-tertiary' : 'bg-outline') : active ? 'bg-tertiary' : 'bg-outline'}`} /><span className={`truncate ${chatMode === 'puter' ? (puterSignedIn && puterModel ? 'text-on-surface-variant' : 'text-outline') : active ? 'text-on-surface-variant' : 'text-outline'}`}>{chatMode === 'puter' ? (puterSignedIn ? (puterModel || 'Choose a Puter model') : 'Puter not connected') : active ? `${providerLabel(active.provider)} · ${active.model}` : 'No model connected'}</span></span></div>
         <div className="flex flex-wrap items-center justify-end gap-space-xs">
-          <select aria-label="Chat mode" value={chatMode} onChange={(e) => { const mode = e.target.value as 'provider' | 'puter'; setChatMode(mode); localStorage.setItem('breezy_chat_mode_v1', mode); setError(null); }} className="max-w-[170px] bg-surface-container-low rounded-xl hairline px-space-sm min-h-[36px] font-label-md text-label-md focus:outline-none">
-            <option value="provider">Configured model</option>
-            <option value="puter">Puter.js</option>
-          </select>
-          {chatMode === 'provider' && !active && <a href="#models" className="flex items-center gap-space-xs px-space-md min-h-[36px] rounded-xl bg-[#F59E0B]/10 text-[#F59E0B] font-label-md text-label-md"><Icon name="link" className="text-[16px]" />Connect a model</a>}
-          {chatMode === 'puter' && !puterSignedIn && <button type="button" onClick={() => void connectPuter()} disabled={puterBusy} className="flex items-center gap-space-xs px-space-md min-h-[36px] rounded-xl bg-primary text-on-primary font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Connecting…' : 'Connect Puter'}</button>}
-          {chatMode === 'puter' && puterSignedIn && <button type="button" onClick={() => void disconnectPuter()} disabled={puterBusy} className="px-space-sm min-h-[36px] rounded-xl text-on-surface-variant hover:bg-surface-container-high font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Working…' : 'Disconnect'}</button>}
           {messages.length > 0 && <button type="button" onClick={clear} className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors"><Icon name="delete_sweep" className="text-[18px]" /><span className="hidden sm:inline">Clear</span></button>}
         </div>
       </div>
-
-      {chatMode === 'puter' && (
-        <div className="shrink-0 px-gutter lg:px-space-lg pb-space-sm">
-          <div className="max-w-3xl mx-auto flex flex-col sm:flex-row gap-space-sm sm:items-center">
-            {puterSignedIn ? (
-              <>
-                <input value={puterModelSearch} onChange={(e) => setPuterModelSearch(e.target.value)} aria-label="Search Puter models" placeholder="Search live Puter models…" className="min-w-0 flex-1 bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[40px] font-body-sm text-body-sm focus:outline-none" />
-                <select aria-label="Puter model" value={puterModel} disabled={puterBusy || puterModels.length === 0} onChange={(e) => { setPuterModel(e.target.value); localStorage.setItem('breezy_puter_model_v1', e.target.value); setError(null); }} className="min-w-0 sm:max-w-[55%] bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[40px] font-body-sm text-body-sm focus:outline-none disabled:opacity-50">
-                  <option value="">Choose a Puter model</option>
-                  {puterModels.filter((model) => { const q = puterModelSearch.trim().toLowerCase(); return !q || model.id.toLowerCase().includes(q) || (model.name || '').toLowerCase().includes(q) || (model.provider || '').toLowerCase().includes(q); }).map((model) => <option key={model.id} value={model.id}>{model.name || model.id}{model.provider ? ` · ${model.provider}` : ''}</option>)}
-                </select>
-                <button type="button" onClick={() => void refreshPuter()} disabled={puterBusy} className="px-space-sm min-h-[40px] rounded-xl bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Refreshing…' : 'Refresh models'}</button>
-              </>
-            ) : <p className="font-body-sm text-body-sm text-on-surface-variant">Connect your Puter account to load its live model catalog. Puter handles its own account and usage allowance.</p>}
-          </div>
-          {puterError && <p role="alert" className="max-w-3xl mx-auto mt-space-xs text-error font-body-sm text-body-sm">{puterError}</p>}
-        </div>
-      )}
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-gutter lg:px-space-lg pb-space-lg flex flex-col gap-space-lg min-h-full">
@@ -248,13 +240,52 @@ export const ChatWorkspace: React.FC = () => {
       <div className="shrink-0 px-gutter lg:px-space-lg pb-space-md pt-space-xs">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-end gap-space-sm bg-surface-container rounded-[1.75rem] coat hairline p-space-sm pl-space-lg focus-within:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5),0_0_0_4px_rgba(76,214,251,0.08)] transition-shadow">
-            <textarea ref={ta} rows={1} value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" placeholder={chatMode === 'puter' ? (!puterSignedIn ? 'Connect Puter above to start chatting' : puterModel ? 'Message using Puter.js…' : 'Choose a Puter model above to start chatting') : active ? 'Message Breezy…' : 'Connect a model in Models to start chatting'}
+            <textarea ref={ta} rows={1} value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" placeholder={chatMode === 'puter' ? (!puterSignedIn ? 'Connect Puter below to start chatting' : puterModel ? 'Message using Puter.js…' : 'Choose a Puter model below to start chatting') : active ? 'Message Breezy…' : 'Choose a model below or configure one in Models'}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
               className="flex-1 min-w-0 bg-transparent resize-none py-[10px] text-base lg:text-body-lg font-body-lg placeholder:text-outline focus:outline-none max-h-[180px]" />
             {busy ? <button type="button" aria-label="Stop" onClick={() => ctrl.current?.abort()} className="w-11 h-11 shrink-0 rounded-full bg-surface-container-highest text-on-surface flex items-center justify-center hover:bg-outline-variant transition-colors"><Icon name="stop" className="text-[22px]" fill /></button>
               : <button type="button" aria-label="Send" onClick={() => send()} disabled={!input.trim()} className="w-11 h-11 shrink-0 rounded-full bg-primary text-on-primary flex items-center justify-center glow-primary hover:bg-primary-fixed transition-all disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed"><Icon name="arrow_upward" className="text-[22px]" /></button>}
           </div>
-          <p className="text-center font-code-sm text-code-sm text-outline-variant mt-space-xs">Shift + Return for a new line. Replies are not checked against sources.</p>
+        </div>
+      </div>
+
+      <div className="shrink-0 px-gutter lg:px-space-lg pb-safe pb-space-md pt-space-xs">
+        <div className="max-w-3xl mx-auto flex flex-col gap-space-sm">
+          <div className="flex flex-wrap items-center gap-space-sm">
+            <label className="sr-only" htmlFor="breezy-chat-mode">Chat mode</label>
+            <select id="breezy-chat-mode" aria-label="Chat mode" value={chatMode} onChange={(e) => { const mode = e.target.value as 'provider' | 'puter'; setChatMode(mode); localStorage.setItem('breezy_chat_mode_v1', mode); setError(null); }} className="min-w-[130px] bg-surface-container-low rounded-xl hairline px-space-sm min-h-[38px] font-label-md text-label-md focus:outline-none">
+              <option value="provider">Connected model</option>
+              <option value="puter">Puter.js</option>
+            </select>
+            {chatMode === 'provider' ? (
+              <>
+                <label className="sr-only" htmlFor="breezy-chat-model">Model</label>
+                <select id="breezy-chat-model" aria-label="Chat model" value={activeModelValue} onChange={(e) => chooseProviderModel(e.target.value)} disabled={selectableModels.length === 0} className="min-w-0 flex-1 sm:flex-none sm:max-w-[min(28rem,60%)] bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[38px] font-body-sm text-body-sm focus:outline-none disabled:opacity-60">
+                  <option value="">{selectableModels.length ? 'Choose a connected model' : 'No connected models'}</option>
+                  {selectableModels.map((model) => <option key={`${model.provider}::${model.id}`} value={`${model.provider}::${model.id}`}>{providerLabel(model.provider)} · {model.name}</option>)}
+                  {active && !selectableModels.some((model) => model.provider === active.provider && model.id === active.model) && <option value={activeModelValue}>{providerLabel(active.provider)} · {active.model}</option>}
+                </select>
+                {!active && <a href="#models" className="inline-flex items-center gap-space-xs min-h-[38px] px-space-sm rounded-xl text-primary hover:bg-surface-container-high font-label-md text-label-md"><Icon name="tune" className="text-[17px]" />Configure models</a>}
+              </>
+            ) : puterSignedIn ? (
+              <>
+                <input value={puterModelSearch} onChange={(e) => setPuterModelSearch(e.target.value)} aria-label="Search Puter models" placeholder="Search models…" className="min-w-0 flex-1 bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[38px] font-body-sm text-body-sm focus:outline-none" />
+                <select aria-label="Puter model" value={puterModel} disabled={puterBusy || puterModels.length === 0} onChange={(e) => { setPuterModel(e.target.value); localStorage.setItem('breezy_puter_model_v1', e.target.value); setError(null); }} className="min-w-0 flex-1 sm:flex-none sm:max-w-[45%] bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[38px] font-body-sm text-body-sm focus:outline-none disabled:opacity-50">
+                  <option value="">Choose a Puter model</option>
+                  {puterModels.filter((model) => { const q = puterModelSearch.trim().toLowerCase(); return !q || model.id.toLowerCase().includes(q) || (model.name || '').toLowerCase().includes(q) || (model.provider || '').toLowerCase().includes(q); }).map((model) => <option key={model.id} value={model.id}>{model.name || model.id}{model.provider ? ` · ${model.provider}` : ''}</option>)}
+                </select>
+                <button type="button" onClick={() => void refreshPuter()} disabled={puterBusy} className="px-space-sm min-h-[38px] rounded-xl bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Refreshing…' : 'Refresh'}</button>
+                <button type="button" onClick={() => void disconnectPuter()} disabled={puterBusy} className="px-space-sm min-h-[38px] rounded-xl text-on-surface-variant hover:bg-surface-container-high font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Working…' : 'Disconnect'}</button>
+              </>
+            ) : (
+              <>
+                <span className="flex-1 min-w-[10rem] font-body-sm text-body-sm text-on-surface-variant">Use your Puter account and its own usage allowance.</span>
+                <button type="button" onClick={() => void connectPuter()} disabled={puterBusy} className="px-space-md min-h-[38px] rounded-xl bg-primary text-on-primary font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Connecting…' : 'Connect Puter'}</button>
+              </>
+            )}
+          </div>
+          {puterError && chatMode === 'puter' && <p role="alert" className="text-error font-body-sm text-body-sm">{puterError}</p>}
+          <p className="text-center font-code-sm text-code-sm text-outline-variant">Shift + Return for a new line. Replies are not checked against sources.</p>
         </div>
       </div>
     </div>
