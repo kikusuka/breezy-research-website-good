@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { BreezyLogo } from '../components/BreezyLogo';
-import { ActiveTab, LAB_NAV, MAIN_NAV, PROFILE_NAV, TITLES } from '../lib/nav';
+import { ActiveTab, LAB_NAV, MAIN_NAV, PROFILE_NAV } from '../lib/nav';
 import { userProfileService } from '../services/userProfileService';
 
 declare const __APP_VERSION__: string;
@@ -65,7 +65,7 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, onToggleExpanded, onNavigate
   );
 
   return (
-    <aside className={`fixed inset-y-0 left-0 z-[70] flex flex-col justify-between bg-surface-container-low/95 backdrop-blur-xl shadow-[1px_0_0_rgba(61,73,77,0.35)] transition-[width,transform] duration-200 ease-out ${isExpanded ? 'w-64' : 'w-[4.25rem]'} ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+    <aside className={`fixed inset-y-0 left-0 z-[70] flex flex-col justify-between bg-surface/92 backdrop-blur-xl border-r border-outline-variant/30 transition-[width,transform] duration-200 ease-out ${isExpanded ? 'w-64' : 'w-[4.25rem]'} ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       <div className="flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
         <div className={`h-16 flex items-center shrink-0 ${isExpanded ? 'px-space-md gap-space-sm' : 'justify-center gap-0 px-1'}`}>
           <button type="button" onClick={() => { go('landing'); onNavigate(); }} aria-label="Breezy home" title="Breezy home" className="w-8 h-8 shrink-0 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-colors">
@@ -95,31 +95,8 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, onToggleExpanded, onNavigate
           {isExpanded && <span className="flex flex-col min-w-0 flex-1"><span className="font-label-md text-label-md text-on-surface truncate">{name}</span><span className="font-label-sm text-label-sm text-on-surface-variant truncate">{role}</span></span>}
           {isExpanded && <Icon name={profileMenuOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_up'} className="text-[18px] text-on-surface-variant" />}
         </button>
-        {isExpanded && <button type="button" onClick={() => { go('docs'); onNavigate(); }} className="flex items-center gap-space-sm px-space-md py-space-xs rounded-xl hover:bg-surface-container text-on-surface-variant transition-colors text-left" title="Open documentation">
-          <Icon name="help_outline" className="text-[18px]" />
-          <span className="font-label-sm text-label-sm">Help &amp; documentation</span>
-        </button>}
       </div>
     </aside>
-  );
-}
-
-function MobileHeader({ tab, go, onMenu }: { tab: ActiveTab; go: (t: ActiveTab) => void; onMenu: () => void }) {
-  return (
-    <header className="lg:hidden shrink-0 pt-safe bg-surface/90 backdrop-blur-xl shadow-[0_1px_0_rgba(61,73,77,0.3)] relative z-40">
-      <div className="h-14 px-gutter flex items-center justify-between gap-space-sm">
-        <div className="flex items-center gap-space-xs min-w-0">
-          <button type="button" aria-label="Open navigation" onClick={onMenu} className="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container-high">
-            <Icon name="menu" className="text-[22px]" />
-          </button>
-          <button type="button" onClick={() => go('landing')} className="flex items-center gap-space-sm text-left min-w-0">
-            <BreezyLogo size={28} />
-            <span className="flex flex-col min-w-0"><span className="font-headline-sm text-headline-sm text-on-surface tracking-tight leading-none">Breezy</span><span className="font-code-sm text-code-sm text-on-surface-variant leading-none mt-1 truncate">{TITLES[tab]}</span></span>
-          </button>
-        </div>
-        <button aria-label="Open history" type="button" onClick={() => go('history')} className="w-10 h-10 flex items-center justify-center rounded-xl text-on-surface-variant hover:text-primary transition-colors"><Icon name="history" className="text-[21px]" /></button>
-      </div>
-    </header>
   );
 }
 
@@ -143,8 +120,10 @@ export function Shell({ tab, go, children }: ShellProps) {
       {mobileOpen && <button type="button" aria-label="Close navigation" onClick={closeMobile} className="lg:hidden fixed inset-0 z-[60] bg-black/45 backdrop-blur-[2px]" />}
       <Sidebar tab={tab} go={go} isExpanded={sidebarExpanded} mobileOpen={mobileOpen} onToggleExpanded={() => setSidebarExpanded((open) => !open)} onNavigate={closeMobile} />
       <div className={`flex-1 min-w-0 flex flex-col transition-[padding-left] duration-200 ease-out ${sidebarExpanded ? 'lg:pl-64' : 'lg:pl-[4.25rem]'}`}>
-        <MobileHeader tab={tab} go={(next) => { go(next); closeMobile(); }} onMenu={() => setMobileOpen(true)} />
-        <main className="flex-1 min-h-0 overflow-y-auto splatter-soft" id="main">{children}</main>
+        <main className="relative flex-1 min-h-0 overflow-y-auto splatter-soft" id="main">
+          <button type="button" aria-label="Open navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)} className="lg:hidden fixed z-50 left-3 top-3 w-10 h-10 flex items-center justify-center rounded-xl bg-surface/90 backdrop-blur-md border border-outline-variant/40 text-on-surface-variant shadow-sm hover:bg-surface-container-high transition-colors" title="Open navigation"><Icon name="menu" className="text-[21px]" /></button>
+          {children}
+        </main>
       </div>
     </div>
   );
