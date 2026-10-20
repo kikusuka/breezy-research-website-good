@@ -27,6 +27,10 @@ export function getActiveAccountUid(): string | null {
   return activeAccountUid;
 }
 
+export function getAccountDatabaseName(uid: string): string {
+  return `synthexis_storage_db_${encode(uid)}`;
+}
+
 export const accountStorage = {
   getItem(key: string): string | null {
     return localStorage.getItem(activeAccountUid ? scopedKey(activeAccountUid, key) : key);
@@ -83,10 +87,19 @@ export function prepareAccountStorage(uid: string): void {
   }
 }
 
-export function clearCurrentAccountStorage(): void {
+export async function clearCurrentAccountStorage(): Promise<void> {
   if (!activeAccountUid) return;
-  const prefix = scopedPrefix(activeAccountUid);
+  const uid = activeAccountUid;
+  const prefix = scopedPrefix(uid);
   const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
     .filter((key): key is string => Boolean(key) && key!.startsWith(prefix));
   keys.forEach((key) => localStorage.removeItem(key));
+
+  if (typeof indexedDB === 'undefined') return;
+  await new Promise<void>((resolve) => {
+    const request = indexedDB.deleteDatabase(getAccountDatabaseName(uid));
+    request.onsuccess = () => resolve();
+    request.onerror = () => resolve();
+    request.onblocked = () => resolve();
+  });
 }
