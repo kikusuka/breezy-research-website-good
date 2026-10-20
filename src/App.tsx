@@ -58,6 +58,7 @@ export default function App() {
     } catch {
       setActiveAccountUid(null);
       setAuthUser(null);
+      setAuthOpen(false);
       setAuthStorageError('Breezy could not safely separate this account’s local data. Free up browser storage, then retry. Your existing data has not been intentionally cleared.');
     }
   }), []);
