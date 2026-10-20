@@ -5,6 +5,7 @@
  */
 
 import { BackendEnv, HealthResponse, SearchEngineProvider } from './types';
+import { verifyFirebaseIdToken } from './firebaseAuth';
 import { callAgentWithStream, sanitizeGeminiModel } from './providers';
 import { performSearchGrounding } from './search';
 import { summarizeStage, generateRealEvidenceGraph } from './evidence';
@@ -155,6 +156,19 @@ export async function handleBackendRequest(
     return createJsonResponse(healthData, 200, req, env);
   }
 
+  // Health is intentionally public. All product APIs that can consume resources or touch integrations require a valid Firebase ID token.
+  const requiresAccount =
+    path === '/api/vault/verify-key' ||
+    path === '/api/breezy/chat' ||
+    path === '/api/debate/summarize' ||
+    path === '/api/debate/stream' ||
+    path.startsWith('/api/ollama/');
+
+  if (requiresAccount) {
+    const session = await verifyFirebaseIdToken(req, env);
+    if (!session.ok) return createJsonResponse({ error: session.error }, session.status, req, env);
+  }
+
   // Helper for SSRF safety check on external webhook URLs
   const validatePublicWebhookUrl = (rawUrl: string): { safe: boolean; error?: string } => {
     try {
@@ -252,6 +266,11 @@ export async function handleBackendRequest(
       if (!ssrfCheck.safe) {
         return createJsonResponse({ success: false, error: ssrfCheck.error || 'Invalid webhook target address' }, 403, req, env);
       }
+
+      // Validate the URL before auth to keep SSRF protection testable without credentials;
+      // no outbound request occurs until the caller has a valid Breezy session.
+      const session = await verifyFirebaseIdToken(req, env);
+      if (!session.ok) return createJsonResponse({ success: false, error: session.error }, session.status, req, env);
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);

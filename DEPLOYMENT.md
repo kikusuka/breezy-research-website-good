@@ -80,11 +80,12 @@ The primary API runs on Cloudflare Workers using the lightweight handler in `wor
    ```bash
    wrangler login
    ```
-3. Set your server-side Gemini API key (encrypted secret):
+3. Confirm `FIREBASE_PROJECT_ID` in `wrangler.jsonc` matches the Firebase project used by the frontend. This is a public project identifier, not a secret. If you use a different Firebase project, update the variable before deploying.
+4. Set your server-side Gemini API key (encrypted secret):
    ```bash
    wrangler secret put GEMINI_API_KEY
    ```
-4. Deploy the worker:
+5. Deploy the worker:
    ```bash
    wrangler deploy
    ```
@@ -102,6 +103,7 @@ The secondary fallback runs on Deno Deploy using `deno/main.ts`.
 3. Set **Entrypoint**: `deno/main.ts`
 4. Set Environment Variables in Deno Deploy Settings:
    - `GEMINI_API_KEY`: your server Gemini key
+   - `FIREBASE_PROJECT_ID`: the Firebase project ID used by the frontend
    - `ALLOWED_ORIGINS`: `*` (or your frontend domain)
 5. Deploy project. Copy the resulting `https://<project-name>.deno.dev` URL and set it as `VITE_SECONDARY_API_URL` in your frontend.
 

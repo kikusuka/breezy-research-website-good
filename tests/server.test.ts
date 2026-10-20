@@ -50,17 +50,17 @@ describe('Server & Backend Router Core', () => {
     expect(body.error).toContain('prohibited');
   });
 
-  it('validates vault verify-key required parameters', async () => {
+  it('rejects protected API requests without a Firebase session', async () => {
     const req = new Request('http://localhost:3000/api/vault/verify-key', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     });
 
-    const res = await handleBackendRequest(req, {}, 'local-dev');
-    expect(res.status).toBe(400);
+    const res = await handleBackendRequest(req, { FIREBASE_PROJECT_ID: 'test-project' }, 'local-dev');
+    expect(res.status).toBe(401);
 
     const body = await res.json();
-    expect(body.error).toBeDefined();
+    expect(body.error).toContain('Sign in to Breezy');
   });
 });
