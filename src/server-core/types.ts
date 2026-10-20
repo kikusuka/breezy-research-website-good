@@ -16,6 +16,7 @@ export interface BackendEnv {
   OLLAMA_BASE_URL?: string;
   OPENAI_COMPATIBLE_BASE_URL?: string;
   ALLOWED_ORIGINS?: string;
+  FIREBASE_PROJECT_ID?: string;
   [key: string]: string | undefined;
 }
 
