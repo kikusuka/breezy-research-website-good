@@ -18,6 +18,15 @@ import { userProfileService } from './services/userProfileService';
 import { GuestWorkspacePreview } from './components/GuestWorkspacePreview';
 import { prepareAccountStorage, setActiveAccountUid } from './services/accountStorage';
 
+/**
+ * Temporary review mode: authentication remains implemented, but does not block
+ * screen review unless VITE_BREEZY_REQUIRE_AUTH=true is explicitly configured.
+ *
+ * This is a UI-access switch, not a security boundary. Do not expose private data
+ * or an unrestricted shared backend from a public deployment with auth disabled.
+ */
+const AUTH_REQUIRED = import.meta.env.VITE_BREEZY_REQUIRE_AUTH === 'true';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(parseHash);
   const [backendOnline, setBackendOnline] = useState<boolean>(true);
@@ -116,12 +125,17 @@ export default function App() {
     setActiveTab(tab);
   };
 
+  // In review mode, mount the real workspaces without requiring an account.
+  // Their local data uses the unscoped browser namespace until auth is restored.
+  const workspaceEnabled = !AUTH_REQUIRED || Boolean(authUser);
+  const showAuthGate = AUTH_REQUIRED && !authUser;
+
   return (
     <>
-      <Shell tab={activeTab} go={navigateTo} backendOnline={backendOnline} endpointName={endpointName} previewMode={!authUser}>
+      <Shell tab={activeTab} go={navigateTo} backendOnline={backendOnline} endpointName={endpointName} previewMode={showAuthGate}>
         <div className="relative min-h-full">
-          <div className={!authUser ? 'pointer-events-none select-none blur-[1px]' : ''} aria-hidden={!authUser}>
-            {authUser ? <>
+          <div className={showAuthGate ? 'pointer-events-none select-none blur-[1px]' : ''} aria-hidden={showAuthGate}>
+            {workspaceEnabled ? <>
               {activeTab === 'research' && <ResearchWorkspace />}
               {activeTab === 'chat' && <ChatWorkspace />}
               {activeTab === 'build' && <BuildWorkspace />}
@@ -134,7 +148,7 @@ export default function App() {
               {activeTab === 'profile' && <ProfileWorkspace />}
             </> : <GuestWorkspacePreview tab={activeTab} />}
           </div>
-          {!authUser && <div className="absolute inset-0 z-40 flex items-center justify-center p-5 bg-surface/35" aria-live="polite">
+          {showAuthGate && <div className="absolute inset-0 z-40 flex items-center justify-center p-5 bg-surface/35" aria-live="polite">
             <section className="w-full max-w-md rounded-3xl border border-outline-variant/60 bg-surface-container-low/95 backdrop-blur-xl p-6 sm:p-8 shadow-2xl text-center">
               <div className="mx-auto mb-4 w-12 h-12 rounded-2xl bg-surface-container-high flex items-center justify-center text-primary"><span className="material-symbols-rounded text-[26px]">lock</span></div>
               <h2 className="font-headline-md text-headline-md text-on-surface">{authLoading ? 'Checking your session' : authStorageError ? 'Account setup needs attention' : 'Your Breezy workspace'}</h2>
@@ -145,7 +159,7 @@ export default function App() {
           </div>}
         </div>
       </Shell>
-      {authOpen && !authUser && <AuthView onClose={() => setAuthOpen(false)} />}
+      {showAuthGate && authOpen && <AuthView onClose={() => setAuthOpen(false)} />}
     </>
   );
 }
