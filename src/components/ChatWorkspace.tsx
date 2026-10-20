@@ -15,6 +15,7 @@ const CHAT_STORAGE_KEY = 'breezy_chat_history_v1';
 
 export const ChatWorkspace: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => { try { const s = accountStorage.getItem(CHAT_STORAGE_KEY); return s ? JSON.parse(s) : []; } catch { return []; } });
+  const [storageError, setStorageError] = useState(false);
   const [input, setInput] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null); const [copied, setCopied] = useState<number | null>(null);
   const ta = useRef<HTMLTextAreaElement>(null); const end = useRef<HTMLDivElement>(null); const ctrl = useRef<AbortController | null>(null);
   const modelState = useModelState();
@@ -54,7 +55,7 @@ export const ChatWorkspace: React.FC = () => {
     return () => { document.removeEventListener('mousedown', closeOnOutside); window.removeEventListener('keydown', closeOnEscape); };
   }, [modelMenuOpen]);
 
-  useEffect(() => { try { accountStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages)); } catch { /* storage full */ } end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, busy]);
+  useEffect(() => { try { accountStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages)); setStorageError(false); } catch { setStorageError(true); } end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, busy]);
   const grow = () => { const el = ta.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; } };
   useEffect(grow, [input]);
 
@@ -192,8 +193,8 @@ export const ChatWorkspace: React.FC = () => {
       setMessages([...history, { role: 'assistant', content: res.text || 'The model returned an empty response.' }]);
     } catch (e: any) {
       if (chatMode === 'puter') {
-        // Never leave an errored partial stream looking like a completed answer.
-        setMessages(history);
+        // Keep the user's prompt visible if Puter fails; never erase it as a side effect of a failed response.
+        setMessages([...history, { role: 'assistant', content: 'The response was interrupted. Your prompt is still here; try again when ready.' }]);
       }
       if (e?.name !== 'AbortError') {
         setError(e?.message || 'The model did not respond.');
@@ -214,6 +215,7 @@ export const ChatWorkspace: React.FC = () => {
 
   return (
     <div className="relative h-full flex flex-col">
+      {storageError && <div role="alert" className="mx-gutter mt-space-sm rounded-xl border border-error/40 bg-error-container/30 px-space-md py-space-sm text-error font-body-sm text-body-sm">This conversation could not be saved to this browser. It may disappear after a refresh. Free up browser storage and copy or export anything important.</div>}
       {messages.length > 0 && <button type="button" onClick={clear} title="Clear conversation" aria-label="Clear conversation" className="absolute top-3 right-3 lg:right-5 z-10 flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-surface/80 backdrop-blur-md border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors"><Icon name="delete_sweep" className="text-[18px]" /><span className="hidden sm:inline">Clear</span></button>}
 
       <div className="flex-1 min-h-0 overflow-y-auto">
