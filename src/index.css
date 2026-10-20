@@ -5,8 +5,8 @@
 /* ───────────── Breezy × Stitch base ───────────── */
 @layer base {
   html, body, #root { height: 100%; }
-  html { background-color: #111319; color-scheme: dark; }
-  body { margin: 0; background-color: #111319; color: #e1e2e9; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  html { background-color: #0b1220; color-scheme: dark; }
+  body { margin: 0; background-color: #0b1220; color: #e6edf8; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
   ::selection { background: rgba(76,214,251,.28); }
   :focus-visible { outline: 2px solid rgba(76,214,251,.7); outline-offset: 2px; border-radius: 6px; }
   button, [role="button"] { cursor: pointer; }
@@ -31,21 +31,21 @@
 
 /* Blue splatter: soft cyan + sky-blue washes (Stitch Models/Research background, extended). */
 .splatter {
-  background-color: #111319;
+  background-color: #0b1220;
   background-image:
-    radial-gradient(circle at 12% 8%,  rgba(0,180,216,.16) 0%, transparent 42%),
-    radial-gradient(circle at 88% 22%, rgba(2,132,199,.14) 0%, transparent 40%),
-    radial-gradient(circle at 55% 92%, rgba(0,180,216,.09) 0%, transparent 46%);
+    radial-gradient(ellipse at 12% 0%, rgba(22, 78, 130, .28) 0%, transparent 42%),
+    radial-gradient(ellipse at 88% 18%, rgba(0, 160, 210, .13) 0%, transparent 38%),
+    radial-gradient(ellipse at 48% 100%, rgba(30, 64, 115, .18) 0%, transparent 48%);
   background-attachment: fixed;
 }
 .splatter-soft {
-  background-color: #111319;
+  background-color: #0b1220;
   background-image:
-    radial-gradient(circle at 50% 0%, rgba(0,180,216,.12) 0%, transparent 55%),
-    radial-gradient(circle at 100% 40%, rgba(2,132,199,.07) 0%, transparent 45%);
+    radial-gradient(ellipse at 48% 0%, rgba(30, 64, 115, .24) 0%, transparent 56%),
+    radial-gradient(ellipse at 100% 38%, rgba(0, 160, 210, .10) 0%, transparent 44%);
   background-attachment: fixed;
 }
-.coat { background-image: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0) 40%); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 8px 24px -12px rgba(0,0,0,.6); }
+.coat { background-image: linear-gradient(180deg, rgba(100,160,220,.045), rgba(255,255,255,0) 42%); box-shadow: inset 0 1px 0 rgba(150,190,240,.045), 0 8px 24px -12px rgba(0,0,0,.6); }
 .hairline { box-shadow: inset 0 0 0 1px rgba(61,73,77,.45); }
 .glow-primary { box-shadow: 0 0 0 1px rgba(76,214,251,.35), 0 8px 28px -8px rgba(0,180,216,.45); }
 .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { scrollbar-width: none; }
