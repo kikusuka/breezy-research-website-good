@@ -1,3 +1,4 @@
+import { accountStorage } from './accountStorage';
 /**
  * Firebase Authentication Service
  * Provides real Google and GitHub OAuth authentication with incremental and narrow scopes
@@ -322,7 +323,7 @@ export const authService = {
       const token = credential?.accessToken || null;
       
       if (token) {
-        localStorage.setItem('breezy_github_token', token);
+        accountStorage.setItem('breezy_github_token', token);
       }
 
       return {
