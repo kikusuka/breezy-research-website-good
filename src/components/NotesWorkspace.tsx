@@ -16,9 +16,9 @@ function load(): NoteItem[] {
 }
 
 export const NotesWorkspace: React.FC = () => {
-  const [notes, setNotes] = useState<NoteItem[]>(load); const [activeId, setActiveId] = useState<string | null>(null);
+  const [notes, setNotes] = useState<NoteItem[]>(load); const [activeId, setActiveId] = useState<string | null>(null); const [storageError, setStorageError] = useState(false);
   const [q, setQ] = useState(''); const [mode, setMode] = useState<'edit' | 'preview'>('edit'); const [detail, setDetail] = useState(false);
-  useEffect(() => { try { accountStorage.setItem(STORAGE_KEY, JSON.stringify(notes)); } catch { /* storage full */ } }, [notes]);
+  useEffect(() => { try { accountStorage.setItem(STORAGE_KEY, JSON.stringify(notes)); setStorageError(false); } catch { setStorageError(true); } }, [notes]);
   useEffect(() => { if (!activeId && notes[0] && window.matchMedia('(min-width: 1024px)').matches) setActiveId(notes[0].id); }, []); // eslint-disable-line
   const active = notes.find((n) => n.id === activeId) || null;
   const shown = useMemo(() => { const t = q.trim().toLowerCase(); return [...notes].sort((a, b) => b.updatedAt - a.updatedAt).filter((n) => !t || n.title.toLowerCase().includes(t) || n.content.toLowerCase().includes(t)); }, [notes, q]);
@@ -29,6 +29,7 @@ export const NotesWorkspace: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col lg:flex-row max-w-6xl mx-auto w-full">
+      {storageError && <div role="alert" className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-[min(92vw,36rem)] rounded-xl border border-error/40 bg-error-container px-space-md py-space-sm text-error font-body-sm text-body-sm shadow-lg">Notes could not be saved to this browser. Copy or export important changes before leaving this page.</div>}
       <aside className={`${detail ? 'hidden lg:flex' : 'flex'} flex-col lg:w-80 shrink-0 px-gutter lg:px-space-lg py-space-lg gap-space-md min-h-0 flex-1 lg:flex-none`}>
         <div className="flex items-center justify-between"><h1 className="font-headline-lg text-headline-lg">Notes</h1><button type="button" onClick={add} className="flex items-center gap-space-xs px-space-md min-h-[40px] rounded-xl bg-primary hover:bg-primary-fixed text-on-primary font-label-md text-label-md transition-colors"><Icon name="add" className="text-[18px]" />New</button></div>
         <label className="flex items-center gap-space-sm bg-surface-container rounded-xl hairline px-space-md min-h-[44px] focus-within:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]"><Icon name="search" className="text-[18px] text-outline" /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search notes" aria-label="Search notes" className="flex-1 min-w-0 bg-transparent font-body-sm text-body-sm focus:outline-none placeholder:text-outline" /></label>
