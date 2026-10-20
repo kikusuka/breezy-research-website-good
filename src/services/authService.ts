@@ -92,6 +92,9 @@ export interface AuthUser {
 // In-memory token cache with timestamp
 let cachedAccessToken: string | null = null;
 let tokenIssuedAt: number = 0;
+let cachedTokenUid: string | null = null;
+const googleTokenKey = (uid: string) => `synthexis_g_token:${uid}`;
+const googleTokenTimeKey = (uid: string) => `synthexis_g_token_time:${uid}`;
 const TOKEN_TTL_MS = 3500 * 1000; // 3500s (~58 mins, safety buffer before 3600s Google expiry)
 
 export const authService = {
@@ -190,8 +193,11 @@ export const authService = {
       if (token) {
         cachedAccessToken = token;
         tokenIssuedAt = Date.now();
-        sessionStorage.setItem('synthexis_g_token', token);
-        sessionStorage.setItem('synthexis_g_token_time', String(tokenIssuedAt));
+        cachedTokenUid = auth.currentUser?.uid || null;
+        if (cachedTokenUid) {
+          sessionStorage.setItem(googleTokenKey(cachedTokenUid), token);
+          sessionStorage.setItem(googleTokenTimeKey(cachedTokenUid), String(tokenIssuedAt));
+        }
       }
       return token;
     } catch (error: any) {
@@ -207,6 +213,7 @@ export const authService = {
     if (!isFirebaseConfigured) {
       cachedAccessToken = null;
       tokenIssuedAt = 0;
+      cachedTokenUid = null;
       sessionStorage.clear();
       return;
     }
@@ -214,6 +221,7 @@ export const authService = {
       await signOut(auth);
       cachedAccessToken = null;
       tokenIssuedAt = 0;
+      cachedTokenUid = null;
       sessionStorage.clear();
     } catch (error: any) {
       console.error('Sign-out error:', error);
@@ -230,13 +238,16 @@ export const authService = {
       return () => {};
     }
     return onAuthStateChanged(auth, (firebaseUser) => {
-      if (!cachedAccessToken) {
-        cachedAccessToken = sessionStorage.getItem('synthexis_g_token');
-        const storedTime = sessionStorage.getItem('synthexis_g_token_time');
-        if (storedTime) tokenIssuedAt = Number(storedTime);
-      }
-
       if (firebaseUser) {
+        if (cachedTokenUid !== firebaseUser.uid) {
+          cachedAccessToken = sessionStorage.getItem(googleTokenKey(firebaseUser.uid));
+          const storedTime = sessionStorage.getItem(googleTokenTimeKey(firebaseUser.uid));
+          tokenIssuedAt = storedTime ? Number(storedTime) : 0;
+          cachedTokenUid = firebaseUser.uid;
+        }
+        // Discard pre-account tokens written by older builds.
+        sessionStorage.removeItem('synthexis_g_token');
+        sessionStorage.removeItem('synthexis_g_token_time');
         callback({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
@@ -246,6 +257,9 @@ export const authService = {
           providerId: firebaseUser.providerData[0]?.providerId || null
         }, cachedAccessToken);
       } else {
+        cachedAccessToken = null;
+        tokenIssuedAt = 0;
+        cachedTokenUid = null;
         callback(null, null);
       }
     });
@@ -255,10 +269,18 @@ export const authService = {
    * Get cached access token
    */
   getAccessToken(): string | null {
-    if (!cachedAccessToken) {
-      cachedAccessToken = sessionStorage.getItem('synthexis_g_token');
-      const storedTime = sessionStorage.getItem('synthexis_g_token_time');
-      if (storedTime) tokenIssuedAt = Number(storedTime);
+    const uid = auth.currentUser?.uid || null;
+    if (!uid) {
+      cachedAccessToken = null;
+      tokenIssuedAt = 0;
+      cachedTokenUid = null;
+      return null;
+    }
+    if (cachedTokenUid !== uid) {
+      cachedAccessToken = sessionStorage.getItem(googleTokenKey(uid));
+      const storedTime = sessionStorage.getItem(googleTokenTimeKey(uid));
+      tokenIssuedAt = storedTime ? Number(storedTime) : 0;
+      cachedTokenUid = uid;
     }
     return cachedAccessToken;
   },
@@ -267,14 +289,16 @@ export const authService = {
    * Manually set access token
    */
   setAccessToken(token: string | null) {
-    cachedAccessToken = token;
-    tokenIssuedAt = Date.now();
-    if (token) {
-      sessionStorage.setItem('synthexis_g_token', token);
-      sessionStorage.setItem('synthexis_g_token_time', String(tokenIssuedAt));
-    } else {
-      sessionStorage.removeItem('synthexis_g_token');
-      sessionStorage.removeItem('synthexis_g_token_time');
+    const uid = auth.currentUser?.uid || null;
+    cachedAccessToken = uid ? token : null;
+    tokenIssuedAt = token ? Date.now() : 0;
+    cachedTokenUid = uid;
+    if (uid && token) {
+      sessionStorage.setItem(googleTokenKey(uid), token);
+      sessionStorage.setItem(googleTokenTimeKey(uid), String(tokenIssuedAt));
+    } else if (uid) {
+      sessionStorage.removeItem(googleTokenKey(uid));
+      sessionStorage.removeItem(googleTokenTimeKey(uid));
     }
   },
 
