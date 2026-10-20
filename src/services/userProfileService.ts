@@ -9,7 +9,7 @@ export interface UserProfile {
   roleTitle: string;
   organization: string;
   photoURL?: string;
-  authorizationType: 'google_oauth' | 'github_oauth' | 'session_enclave' | 'guest';
+  authorizationType: 'google_oauth' | 'github_oauth' | 'discord_oauth' | 'email_password' | 'session_enclave' | 'guest';
   autoSaveToDrive: boolean;
 }
 
