@@ -32,7 +32,7 @@ export const ProfileWorkspace: React.FC = () => {
     } catch (e: any) { setMsg(e?.message || 'Sign-out failed.'); }
     finally { setBusy(false); }
   };
-  const reset = () => { if (window.confirm('Erase all Breezy data on this device (keys, history, chat, notes, Canvas)? This cannot be undone.')) { try { clearCurrentAccountStorage(); sessionStorage.clear(); } catch { /* ignore */ } window.location.hash = '#chat'; window.location.reload(); } };
+  const reset = () => { if (window.confirm('Erase all Breezy data for this account on this device (keys, history, chat, notes, Canvas)? This cannot be undone.')) { void (async () => { try { await clearCurrentAccountStorage(); sessionStorage.clear(); } catch { /* ignore */ } window.location.hash = '#chat'; window.location.reload(); })(); } };
   const pct = quota ? Math.min(100, Math.round((quota.usedMB / quota.limitMB) * 100)) : 0;
   const name = p.displayName.trim();
   return (
