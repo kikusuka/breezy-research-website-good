@@ -1,3 +1,4 @@
+import { accountStorage } from './accountStorage';
 import { authService } from './authService';
 import { DebateSession } from '../types';
 
@@ -117,14 +118,14 @@ async function appendToDocument(token: string, documentId: string, text: string)
 export const googleDocsService = {
   async saveResearchSession(session: DebateSession): Promise<string> {
     const token = await getAccessToken();
-    let documentId = localStorage.getItem(DOC_ID_KEY);
+    let documentId = accountStorage.getItem(DOC_ID_KEY);
     let url = '';
 
     if (!documentId) {
       const created = await createDocument(token);
       documentId = created.id;
       url = created.url;
-      localStorage.setItem(DOC_ID_KEY, documentId);
+      accountStorage.setItem(DOC_ID_KEY, documentId);
     } else {
       url = `https://docs.google.com/document/d/${documentId}/edit`;
     }
@@ -133,9 +134,9 @@ export const googleDocsService = {
       await appendToDocument(token, documentId, `\n${toPlainResearchText(session)}`);
     } catch (error) {
       // A deleted/moved document should not permanently break future saves.
-      localStorage.removeItem(DOC_ID_KEY);
+      accountStorage.removeItem(DOC_ID_KEY);
       const created = await createDocument(token);
-      localStorage.setItem(DOC_ID_KEY, created.id);
+      accountStorage.setItem(DOC_ID_KEY, created.id);
       url = created.url;
       await appendToDocument(token, created.id, `\n${toPlainResearchText(session)}`);
     }
@@ -144,11 +145,11 @@ export const googleDocsService = {
   },
 
   getArchiveUrl(): string | null {
-    const documentId = localStorage.getItem(DOC_ID_KEY);
+    const documentId = accountStorage.getItem(DOC_ID_KEY);
     return documentId ? `https://docs.google.com/document/d/${documentId}/edit` : null;
   },
 
   clearArchiveLink(): void {
-    localStorage.removeItem(DOC_ID_KEY);
+    accountStorage.removeItem(DOC_ID_KEY);
   },
 };
