@@ -1,3 +1,4 @@
+import { accountStorage } from '../services/accountStorage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../shell/Icon';
 import { Page } from '../ui/Page';
@@ -20,7 +21,7 @@ export const HistoryWorkspace: React.FC = () => {
   const shown = useMemo(() => { const t = q.trim().toLowerCase(); return r.sessions.filter((s) => !t || s.prompt.toLowerCase().includes(t) || (s.finalOutput || '').toLowerCase().includes(t)); }, [r.sessions, q]);
   const say = (m: string) => { setToast(m); window.setTimeout(() => setToast(null), 2500); };
   const open = (id: string) => { researchStore.open(id); window.location.hash = '#research'; };
-  const pin = (s: any) => { try { const cards = JSON.parse(localStorage.getItem(CANVAS_KEY) || '[]'); localStorage.setItem(CANVAS_KEY, JSON.stringify([{ id: `pin-${s.id}-${Date.now()}`, type: 'research', title: s.prompt.slice(0, 120), content: (s.finalOutput || '').slice(0, 1500), tags: ['Research', s.protocol], sourceSessionId: s.id, createdAt: Date.now() }, ...cards])); say('Pinned to Canvas.'); } catch { say('Could not pin.'); } };
+  const pin = (s: any) => { try { const cards = JSON.parse(accountStorage.getItem(CANVAS_KEY) || '[]'); accountStorage.setItem(CANVAS_KEY, JSON.stringify([{ id: `pin-${s.id}-${Date.now()}`, type: 'research', title: s.prompt.slice(0, 120), content: (s.finalOutput || '').slice(0, 1500), tags: ['Research', s.protocol], sourceSessionId: s.id, createdAt: Date.now() }, ...cards])); say('Pinned to Canvas.'); } catch { say('Could not pin.'); } };
   const del = (id: string) => { if (window.confirm('Delete this session from this device?')) researchStore.remove(id); };
 
   return (

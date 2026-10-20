@@ -1,9 +1,11 @@
 import { DebateSession, DebateStep, DebateTone } from '../types';
+import { accountStorage, getActiveAccountUid, getAccountDatabaseName } from './accountStorage';
 
 // Storage key constants
 export const STORAGE_SESSIONS_KEY = 'synthexis_research_sessions_v2';
 export const STORAGE_ACTIVE_ID_KEY = 'synthexis_active_session_id_v2';
 const DB_NAME = 'synthexis_storage_db';
+function getDatabaseName() { const uid = getActiveAccountUid(); return uid ? getAccountDatabaseName(uid) : `${DB_NAME}_unscoped`; }
 const STORE_NAME = 'research_sessions';
 
 // IndexedDB asynchronous fallback manager
@@ -12,7 +14,7 @@ function openDatabase(): Promise<IDBDatabase> {
     if (typeof indexedDB === 'undefined') {
       return reject(new Error('IndexedDB not supported'));
     }
-    const request = indexedDB.open(DB_NAME, 1);
+    const request = indexedDB.open(getDatabaseName(), 1);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -35,6 +37,8 @@ export async function syncSessionsToIDB(sessions: DebateSession[]): Promise<void
     for (const session of sessions) {
       store.put(session);
     }
+    tx.oncomplete = () => db.close();
+    tx.onerror = () => db.close();
   } catch (err) {
     // Non-blocking background sync warning
     console.debug('IndexedDB sync background note:', err);
@@ -54,8 +58,9 @@ export async function loadSessionsFromIDB(): Promise<DebateSession[]> {
       req.onsuccess = () => {
         const results = req.result || [];
         resolve(results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
+        db.close();
       };
-      req.onerror = () => resolve([]);
+      req.onerror = () => { resolve([]); db.close(); };
     });
   } catch {
     return [];
@@ -67,7 +72,7 @@ export async function loadSessionsFromIDB(): Promise<DebateSession[]> {
  */
 export function loadSessions(): DebateSession[] {
   try {
-    const raw = localStorage.getItem(STORAGE_SESSIONS_KEY) || localStorage.getItem('synthexis_debate_sessions_v1');
+    const raw = accountStorage.getItem(STORAGE_SESSIONS_KEY) || accountStorage.getItem('synthexis_debate_sessions_v1');
     if (!raw) {
       saveSessions([]);
       return [];
@@ -107,7 +112,7 @@ export function saveSessions(sessions: DebateSession[]): void {
 
   try {
     const trimmed = (sessions || []).slice(0, 40);
-    localStorage.setItem(STORAGE_SESSIONS_KEY, JSON.stringify(trimmed));
+    accountStorage.setItem(STORAGE_SESSIONS_KEY, JSON.stringify(trimmed));
   } catch (err) {
     console.warn('Failed to save research sessions directly; attempting pruned compression:', err);
     try {
@@ -124,7 +129,7 @@ export function saveSessions(sessions: DebateSession[]): void {
           contradictions: (s.evidenceGraph.contradictions || []).slice(0, 10),
         } : undefined,
       }));
-      localStorage.setItem(STORAGE_SESSIONS_KEY, JSON.stringify(pruned));
+      accountStorage.setItem(STORAGE_SESSIONS_KEY, JSON.stringify(pruned));
     } catch (retryErr) {
       console.error('Critical quota error when saving research sessions:', retryErr);
     }
@@ -136,7 +141,7 @@ export function saveSessions(sessions: DebateSession[]): void {
  */
 export function loadActiveSessionId(): string | null {
   try {
-    return localStorage.getItem(STORAGE_ACTIVE_ID_KEY) || localStorage.getItem('synthexis_active_session_id_v1');
+    return accountStorage.getItem(STORAGE_ACTIVE_ID_KEY) || accountStorage.getItem('synthexis_active_session_id_v1');
   } catch {
     return null;
   }
@@ -148,9 +153,9 @@ export function loadActiveSessionId(): string | null {
 export function saveActiveSessionId(id: string | null): void {
   try {
     if (id) {
-      localStorage.setItem(STORAGE_ACTIVE_ID_KEY, id);
+      accountStorage.setItem(STORAGE_ACTIVE_ID_KEY, id);
     } else {
-      localStorage.removeItem(STORAGE_ACTIVE_ID_KEY);
+      accountStorage.removeItem(STORAGE_ACTIVE_ID_KEY);
     }
   } catch (err) {
     console.error('Failed to save active session ID to localStorage:', err);

@@ -1,3 +1,4 @@
+import { accountStorage } from '../services/accountStorage';
 import React, { useState, useEffect } from 'react';
 import { loadSessions } from '../services/sessionStorage';
 import { DebateSession } from '../types';
@@ -20,7 +21,7 @@ const STORAGE_KEY = 'breezy_canvas_cards_v1';
 export const CanvasWorkspace: React.FC = () => {
   const [cards, setCards] = useState<CanvasCard[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = accountStorage.getItem(STORAGE_KEY);
       if (saved) return (JSON.parse(saved) as CanvasCard[]).filter((c) => c.id !== 'default-1' && c.id !== 'default-2');
     } catch {}
     return [];
@@ -41,7 +42,7 @@ export const CanvasWorkspace: React.FC = () => {
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+      accountStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
     } catch {}
   }, [cards]);
 

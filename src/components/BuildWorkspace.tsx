@@ -1,3 +1,4 @@
+import { accountStorage } from '../services/accountStorage';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   GitHubIde,
@@ -23,7 +24,7 @@ export const BuildWorkspace: React.FC = () => {
   // Authentication & Repository State
   const [token, setToken] = useState<string>(getGitHubToken());
   const [tokenInput, setTokenInput] = useState<string>(getGitHubToken());
-  const [repoInput, setRepoInput] = useState<string>(() => { try { return localStorage.getItem('breezy:ide:last-repo') || ''; } catch { return ''; } });
+  const [repoInput, setRepoInput] = useState<string>(() => { try { return accountStorage.getItem('breezy:ide:last-repo') || ''; } catch { return ''; } });
   const [connectedRepo, setConnectedRepo] = useState<string | null>(null);
   const [defaultBranch, setDefaultBranch] = useState<string>('main');
   const [treeEntries, setTreeEntries] = useState<TreeEntry[]>([]);
@@ -85,7 +86,7 @@ export const BuildWorkspace: React.FC = () => {
       setTreeEntries(entries);
       setDefaultBranch(branch);
       setConnectedRepo(repoName);
-      try { localStorage.setItem('breezy:ide:last-repo', repoName); } catch { /* ignore */ }
+      try { accountStorage.setItem('breezy:ide:last-repo', repoName); } catch { /* ignore */ }
       // Auto-open README.md or first file if available
       const readme = entries.find((e) => e.type === 'file' && /readme\.md$/i.test(e.path));
       const firstFile = readme || entries.find((e) => e.type === 'file');

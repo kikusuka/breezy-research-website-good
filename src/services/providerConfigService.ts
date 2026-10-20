@@ -1,3 +1,4 @@
+import { accountStorage } from './accountStorage';
 import { ProviderId, SearchEngineProvider } from '../types';
 
 /**
@@ -131,7 +132,7 @@ export const providerConfigService = {
    */
   getConfig(): CanonicalWorkspaceConfig {
     try {
-      const raw = localStorage.getItem(CANONICAL_STORAGE_KEY);
+      const raw = accountStorage.getItem(CANONICAL_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         return {
@@ -157,9 +158,9 @@ export const providerConfigService = {
 
       // Backwards-compatibility migration from legacy keys
       const legacyKeysRaw =
-        localStorage.getItem('breezy_byok_keys') ||
-        localStorage.getItem('breezy_provider_keys') ||
-        localStorage.getItem('synthexis_byok_keys');
+        accountStorage.getItem('breezy_byok_keys') ||
+        accountStorage.getItem('breezy_provider_keys') ||
+        accountStorage.getItem('synthexis_byok_keys');
 
       const keys: CanonicalProviderKeys = legacyKeysRaw ? JSON.parse(legacyKeysRaw) : {};
       const initialConfig: CanonicalWorkspaceConfig = {
@@ -209,7 +210,7 @@ export const providerConfigService = {
    */
   saveConfig(config: CanonicalWorkspaceConfig): void {
     try {
-      localStorage.setItem(CANONICAL_STORAGE_KEY, JSON.stringify(config));
+      accountStorage.setItem(CANONICAL_STORAGE_KEY, JSON.stringify(config));
     } catch (e) {
       console.warn('Failed to persist provider config:', e);
     }

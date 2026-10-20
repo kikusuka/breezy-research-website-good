@@ -1,3 +1,4 @@
+import { accountStorage } from '../services/accountStorage';
 import React, { useEffect, useRef, useState } from 'react';
 import { apiClient } from '../services/apiClient';
 import { providerConfigService, AVAILABLE_MODELS } from '../services/providerConfigService';
@@ -13,7 +14,7 @@ import { puterService, PuterModel, PuterChatMessage } from '../services/puterSer
 const CHAT_STORAGE_KEY = 'breezy_chat_history_v1';
 
 export const ChatWorkspace: React.FC = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>(() => { try { const s = localStorage.getItem(CHAT_STORAGE_KEY); return s ? JSON.parse(s) : []; } catch { return []; } });
+  const [messages, setMessages] = useState<ChatMessage[]>(() => { try { const s = accountStorage.getItem(CHAT_STORAGE_KEY); return s ? JSON.parse(s) : []; } catch { return []; } });
   const [input, setInput] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null); const [copied, setCopied] = useState<number | null>(null);
   const ta = useRef<HTMLTextAreaElement>(null); const end = useRef<HTMLDivElement>(null); const ctrl = useRef<AbortController | null>(null);
   const modelState = useModelState();
@@ -34,10 +35,10 @@ export const ChatWorkspace: React.FC = () => {
     announceConfigChange();
     setError(null);
   };
-  const [chatMode, setChatMode] = useState<'provider' | 'puter'>(() => localStorage.getItem('breezy_chat_mode_v1') === 'puter' ? 'puter' : 'provider');
+  const [chatMode, setChatMode] = useState<'provider' | 'puter'>(() => accountStorage.getItem('breezy_chat_mode_v1') === 'puter' ? 'puter' : 'provider');
   const [puterSignedIn, setPuterSignedIn] = useState(false);
   const [puterModels, setPuterModels] = useState<PuterModel[]>([]);
-  const [puterModel, setPuterModel] = useState(() => localStorage.getItem('breezy_puter_model_v1') || '');
+  const [puterModel, setPuterModel] = useState(() => accountStorage.getItem('breezy_puter_model_v1') || '');
   const [puterModelSearch, setPuterModelSearch] = useState('');
   const [puterBusy, setPuterBusy] = useState(false);
   const [puterError, setPuterError] = useState<string | null>(null);
@@ -53,7 +54,7 @@ export const ChatWorkspace: React.FC = () => {
     return () => { document.removeEventListener('mousedown', closeOnOutside); window.removeEventListener('keydown', closeOnEscape); };
   }, [modelMenuOpen]);
 
-  useEffect(() => { try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages)); } catch { /* storage full */ } end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, busy]);
+  useEffect(() => { try { accountStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages)); } catch { /* storage full */ } end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, busy]);
   const grow = () => { const el = ta.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; } };
   useEffect(grow, [input]);
 
@@ -72,7 +73,7 @@ export const ChatWorkspace: React.FC = () => {
       setPuterModels(models);
       if (puterModel && !models.some((model) => model.id === puterModel)) {
         setPuterModel('');
-        localStorage.removeItem('breezy_puter_model_v1');
+        accountStorage.removeItem('breezy_puter_model_v1');
       }
     } catch (e: any) {
       setPuterError(e?.message || 'Could not load the Puter model catalog.');
@@ -101,7 +102,7 @@ export const ChatWorkspace: React.FC = () => {
         setPuterModels(models);
         if (puterModel && !models.some((model) => model.id === puterModel)) {
           setPuterModel('');
-          localStorage.removeItem('breezy_puter_model_v1');
+          accountStorage.removeItem('breezy_puter_model_v1');
         }
       } catch (e: any) {
         if (!cancelled) setPuterError(e?.message || 'Could not load the Puter model catalog.');
@@ -129,7 +130,7 @@ export const ChatWorkspace: React.FC = () => {
       setPuterModels(models);
       if (!models.some((model) => model.id === puterModel)) {
         setPuterModel('');
-        localStorage.removeItem('breezy_puter_model_v1');
+        accountStorage.removeItem('breezy_puter_model_v1');
       }
     } catch (e: any) {
       setPuterError(e?.message || 'Could not connect your Puter account.');
@@ -146,7 +147,7 @@ export const ChatWorkspace: React.FC = () => {
       setPuterSignedIn(false);
       setPuterModels([]);
       setPuterModel('');
-      localStorage.removeItem('breezy_puter_model_v1');
+      accountStorage.removeItem('breezy_puter_model_v1');
     } catch (e: any) {
       setPuterError(e?.message || 'Could not disconnect Puter.');
     } finally {
@@ -208,7 +209,7 @@ export const ChatWorkspace: React.FC = () => {
   };
   const regenerate = () => { if (busy) return; const i = messages.map((m) => m.role).lastIndexOf('user'); if (i < 0) return; const next = messages.slice(0, i + 1); setMessages(next); void run(next); };
   const copy = (text: string, i: number) => { void navigator.clipboard.writeText(text).then(() => { setCopied(i); window.setTimeout(() => setCopied(null), 1500); }).catch(() => {}); };
-  const clear = () => { if (window.confirm('Clear this conversation from this device?')) { setMessages([]); localStorage.removeItem(CHAT_STORAGE_KEY); } };
+  const clear = () => { if (window.confirm('Clear this conversation from this device?')) { setMessages([]); accountStorage.removeItem(CHAT_STORAGE_KEY); } };
   const lastIsAssistant = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
 
   return (
@@ -266,21 +267,21 @@ export const ChatWorkspace: React.FC = () => {
             {modelMenuOpen && <div role="menu" aria-label="Choose model" className="absolute bottom-full left-0 mb-space-sm w-[min(26rem,calc(100vw-2rem))] max-h-[min(65vh,28rem)] overflow-y-auto rounded-2xl border border-outline-variant/50 bg-surface-container-low shadow-2xl coat p-space-sm z-40">
               {chatMode === 'provider' ? <>
                 <div className="px-space-sm py-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Connected models</div>
-                {selectableModels.map((model) => <button key={model.provider + '::' + model.id} type="button" role="menuitemradio" aria-checked={activeModelValue === model.provider + '::' + model.id} onClick={() => { chooseProviderModel(model.provider + '::' + model.id); setChatMode('provider'); localStorage.setItem('breezy_chat_mode_v1', 'provider'); setModelMenuOpen(false); }} className={activeModelValue === model.provider + '::' + model.id ? 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors bg-surface-container-high text-on-surface' : 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}>
+                {selectableModels.map((model) => <button key={model.provider + '::' + model.id} type="button" role="menuitemradio" aria-checked={activeModelValue === model.provider + '::' + model.id} onClick={() => { chooseProviderModel(model.provider + '::' + model.id); setChatMode('provider'); accountStorage.setItem('breezy_chat_mode_v1', 'provider'); setModelMenuOpen(false); }} className={activeModelValue === model.provider + '::' + model.id ? 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors bg-surface-container-high text-on-surface' : 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}>
                   <Icon name={activeModelValue === model.provider + '::' + model.id ? 'check_circle' : 'radio_button_unchecked'} className="text-[18px] shrink-0 text-primary" /><span className="min-w-0 flex-1"><span className="block font-body-md text-body-md truncate">{model.name}</span><span className="block font-code-sm text-code-sm text-on-surface-variant">{providerLabel(model.provider)}</span></span>
                 </button>)}
                 {active && !selectableModels.some((model) => model.provider === active.provider && model.id === active.model) && <button type="button" role="menuitemradio" aria-checked="true" onClick={() => setModelMenuOpen(false)} className="w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl bg-surface-container-high text-left"><Icon name="check_circle" className="text-[18px] text-primary" /><span className="min-w-0 flex-1"><span className="block font-body-md text-body-md truncate">{active.model}</span><span className="block font-code-sm text-code-sm text-on-surface-variant">{providerLabel(active.provider)}</span></span></button>}
                 {!selectableModels.length && <p className="px-space-sm py-space-md font-body-sm text-body-sm text-on-surface-variant">No connected models are available yet. Configure a provider in Models first.</p>}
-                <button type="button" role="menuitem" onClick={() => { setChatMode('puter'); localStorage.setItem('breezy_chat_mode_v1', 'puter'); setPuterModelSearch(''); }} className="w-full mt-space-xs pt-space-sm border-t border-outline-variant/30 flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"><Icon name="cloud" className="text-[18px]" /><span className="flex-1 font-body-md text-body-md">Use Puter.js</span><Icon name="chevron_right" className="text-[18px]" /></button>
+                <button type="button" role="menuitem" onClick={() => { setChatMode('puter'); accountStorage.setItem('breezy_chat_mode_v1', 'puter'); setPuterModelSearch(''); }} className="w-full mt-space-xs pt-space-sm border-t border-outline-variant/30 flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"><Icon name="cloud" className="text-[18px]" /><span className="flex-1 font-body-md text-body-md">Use Puter.js</span><Icon name="chevron_right" className="text-[18px]" /></button>
               </> : <>
                 <div className="flex items-center justify-between px-space-sm py-space-xs"><span className="font-label-sm text-label-sm uppercase tracking-wider text-outline">Puter.js models</span><button type="button" onClick={() => void refreshPuter()} disabled={puterBusy} className="font-label-sm text-label-sm text-primary disabled:opacity-50">{puterBusy ? 'Refreshing…' : 'Refresh'}</button></div>
                 {!puterSignedIn ? <div className="p-space-sm"><p className="font-body-sm text-body-sm text-on-surface-variant mb-space-sm">Connect your Puter account to load its live model catalog.</p><button type="button" onClick={() => void connectPuter()} disabled={puterBusy} className="w-full min-h-[40px] rounded-xl bg-primary text-on-primary font-label-md text-label-md disabled:opacity-50">{puterBusy ? 'Connecting…' : 'Connect Puter'}</button></div> : <>
                   <input value={puterModelSearch} onChange={(e) => setPuterModelSearch(e.target.value)} aria-label="Search Puter models" placeholder="Search models…" className="w-full bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[40px] font-body-sm text-body-sm focus:outline-none mb-space-xs" />
-                  {puterModels.filter((model) => { const q = puterModelSearch.trim().toLowerCase(); return !q || model.id.toLowerCase().includes(q) || (model.name || '').toLowerCase().includes(q) || (model.provider || '').toLowerCase().includes(q); }).map((model) => <button key={model.id} type="button" role="menuitemradio" aria-checked={puterModel === model.id} onClick={() => { setPuterModel(model.id); localStorage.setItem('breezy_puter_model_v1', model.id); setError(null); setModelMenuOpen(false); }} className={puterModel === model.id ? 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors bg-surface-container-high text-on-surface' : 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}><Icon name={puterModel === model.id ? 'check_circle' : 'radio_button_unchecked'} className="text-[18px] text-primary" /><span className="min-w-0 flex-1"><span className="block font-body-md text-body-md truncate">{model.name || model.id}</span><span className="block font-code-sm text-code-sm text-on-surface-variant">{model.provider || model.id}</span></span></button>)}
+                  {puterModels.filter((model) => { const q = puterModelSearch.trim().toLowerCase(); return !q || model.id.toLowerCase().includes(q) || (model.name || '').toLowerCase().includes(q) || (model.provider || '').toLowerCase().includes(q); }).map((model) => <button key={model.id} type="button" role="menuitemradio" aria-checked={puterModel === model.id} onClick={() => { setPuterModel(model.id); accountStorage.setItem('breezy_puter_model_v1', model.id); setError(null); setModelMenuOpen(false); }} className={puterModel === model.id ? 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors bg-surface-container-high text-on-surface' : 'w-full flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left transition-colors text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}><Icon name={puterModel === model.id ? 'check_circle' : 'radio_button_unchecked'} className="text-[18px] text-primary" /><span className="min-w-0 flex-1"><span className="block font-body-md text-body-md truncate">{model.name || model.id}</span><span className="block font-code-sm text-code-sm text-on-surface-variant">{model.provider || model.id}</span></span></button>)}
                   {!puterModels.length && <p className="px-space-sm py-space-md font-body-sm text-body-sm text-on-surface-variant">No models were returned by Puter yet.</p>}
                   <button type="button" onClick={() => void disconnectPuter()} disabled={puterBusy} className="w-full mt-space-xs pt-space-sm border-t border-outline-variant/30 px-space-sm py-space-sm text-left font-label-md text-label-md text-on-surface-variant hover:text-on-surface disabled:opacity-50">Disconnect Puter</button>
                 </>}
-                <button type="button" onClick={() => { setChatMode('provider'); localStorage.setItem('breezy_chat_mode_v1', 'provider'); setModelMenuOpen(false); }} className="w-full mt-space-xs pt-space-sm border-t border-outline-variant/30 flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"><Icon name="arrow_back" className="text-[18px]" /><span className="font-body-md text-body-md">Connected models</span></button>
+                <button type="button" onClick={() => { setChatMode('provider'); accountStorage.setItem('breezy_chat_mode_v1', 'provider'); setModelMenuOpen(false); }} className="w-full mt-space-xs pt-space-sm border-t border-outline-variant/30 flex items-center gap-space-sm px-space-sm py-space-sm rounded-xl text-left text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface"><Icon name="arrow_back" className="text-[18px]" /><span className="font-body-md text-body-md">Connected models</span></button>
               </>}
             </div>}
           </div>

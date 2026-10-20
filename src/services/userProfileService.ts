@@ -1,3 +1,4 @@
+import { accountStorage } from './accountStorage';
 /**
  * User Profile & Authorization Service
  * Manages user identity, display name, research role, and authorization credentials.
@@ -18,7 +19,7 @@ const PROFILE_STORAGE_KEY = 'breezy_user_profile';
 export const userProfileService = {
   getProfile(): UserProfile {
     try {
-      const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+      const raw = accountStorage.getItem(PROFILE_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         return {
@@ -47,7 +48,7 @@ export const userProfileService = {
     const current = this.getProfile();
     const updated: UserProfile = { ...current, ...profile };
     try {
-      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updated));
+      accountStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(updated));
     } catch (e) {
       console.warn('Failed to save user profile:', e);
     }
