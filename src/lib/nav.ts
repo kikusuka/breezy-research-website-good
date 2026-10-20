@@ -1,12 +1,12 @@
-export type ActiveTab = 'landing' | 'research' | 'chat' | 'build' | 'canvas' | 'notes' | 'models' | 'history' | 'docs' | 'settings' | 'profile';
+export type ActiveTab = 'research' | 'chat' | 'build' | 'canvas' | 'notes' | 'models' | 'history' | 'docs' | 'settings' | 'profile';
 
 export const VALID_TABS: ActiveTab[] = [
-  'landing', 'research', 'chat', 'build', 'canvas', 'notes', 'models', 'history', 'docs', 'settings', 'profile',
+  'research', 'chat', 'build', 'canvas', 'notes', 'models', 'history', 'docs', 'settings', 'profile',
 ];
 
 export const parseHash = (): ActiveTab => {
   const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0].toLowerCase() as ActiveTab;
-  return VALID_TABS.includes(hash) ? hash : 'landing';
+  return VALID_TABS.includes(hash) ? hash : 'chat';
 };
 
 export type NavItem = { id: ActiveTab; label: string; icon: string };
@@ -33,7 +33,6 @@ export const PROFILE_NAV: NavItem[] = [
 ];
 
 export const TITLES: Record<ActiveTab, string> = {
-  landing: 'Home',
   research: 'Research',
   chat: 'Chat',
   build: 'Build',
