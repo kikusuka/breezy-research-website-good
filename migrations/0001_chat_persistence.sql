@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS chat_runs (
   FOREIGN KEY (initiating_message_id, owner_uid)
     REFERENCES chat_messages (id, owner_uid) ON DELETE CASCADE,
   FOREIGN KEY (retry_of_run_id, owner_uid)
-    REFERENCES chat_runs (id, owner_uid) ON DELETE SET NULL,
+    REFERENCES chat_runs (id, owner_uid) ON DELETE RESTRICT,
   UNIQUE (id, owner_uid)
 );
 
