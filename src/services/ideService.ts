@@ -1,3 +1,4 @@
+import { accountStorage } from './accountStorage';
 /**
  * Breezy IDE backend (no UI).
  *
@@ -23,10 +24,10 @@ const API = 'https://api.github.com';
 export const GITHUB_TOKEN_KEY = 'breezy_github_token';
 
 export const getGitHubToken = (): string => {
-  try { return localStorage.getItem(GITHUB_TOKEN_KEY) || ''; } catch { return ''; }
+  try { return accountStorage.getItem(GITHUB_TOKEN_KEY) || ''; } catch { return ''; }
 };
 export const setGitHubToken = (token: string) => {
-  try { token ? localStorage.setItem(GITHUB_TOKEN_KEY, token) : localStorage.removeItem(GITHUB_TOKEN_KEY); } catch { /* storage unavailable */ }
+  try { token ? accountStorage.setItem(GITHUB_TOKEN_KEY, token) : accountStorage.removeItem(GITHUB_TOKEN_KEY); } catch { /* storage unavailable */ }
 };
 
 const headers = (token: string) => ({ Authorization: `token ${token}`, Accept: 'application/vnd.github.v3+json' });
