@@ -16,8 +16,21 @@ export const ProfileWorkspace: React.FC = () => {
   const save = (patch: Partial<UserProfile>) => { const next = userProfileService.saveProfile(patch); setP(next); window.dispatchEvent(new Event('breezy:profile-changed')); setSaved(true); window.setTimeout(() => setSaved(false), 1500); };
   const google = async () => {
     setBusy(true); setMsg(null);
-    try { const r = await authService.signInWithGoogle(); if (r?.user) save({ displayName: p.displayName || r.user.displayName || '', email: r.user.email || '', photoURL: r.user.photoURL || undefined, authorizationType: 'google_oauth' }); }
-    catch (e: any) { setMsg(e?.message || 'Google sign-in failed.'); } finally { setBusy(false); }
+    try {
+      const token = await authService.requestWorkspaceScopes(['https://www.googleapis.com/auth/drive.file']);
+      if (!token) throw new Error('Google Workspace authorization was not granted.');
+      setMsg('Google Drive/Docs access is authorized for this session.');
+    } catch (e: any) { setMsg(e?.message || 'Google Workspace authorization failed.'); }
+    finally { setBusy(false); }
+  };
+  const signOutOfBreezy = async () => {
+    setBusy(true); setMsg(null);
+    try {
+      await authService.signOut();
+      save({ displayName: '', email: '', photoURL: undefined, authorizationType: 'guest' });
+      window.location.hash = '#chat';
+    } catch (e: any) { setMsg(e?.message || 'Sign-out failed.'); }
+    finally { setBusy(false); }
   };
   const reset = () => { if (window.confirm('Erase all Breezy data on this device (keys, history, chat, notes, Canvas)? This cannot be undone.')) { try { localStorage.clear(); sessionStorage.clear(); } catch { /* ignore */ } window.location.hash = '#chat'; window.location.reload(); } };
   const pct = quota ? Math.min(100, Math.round((quota.usedMB / quota.limitMB) * 100)) : 0;
@@ -31,11 +44,12 @@ export const ProfileWorkspace: React.FC = () => {
           <label key={k} className={k === 'organization' ? 'sm:col-span-2' : ''}><span className="font-label-md text-label-md text-on-surface-variant">{l}</span>
             <input value={p[k] as string} onChange={(e) => setP({ ...p, [k]: e.target.value })} onBlur={() => save({ [k]: p[k] } as any)} placeholder={ph} className={`${fieldCls} mt-1`} /></label>))}</div></Card>
 
+      <Card><div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-md"><div><h2 className="font-headline-md text-headline-md">Breezy account</h2><p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Signed in as {authService.getCurrentUser()?.email || p.email || 'your account'}. Your Breezy session is separate from external integrations.</p></div><button type="button" disabled={busy} onClick={() => void signOutOfBreezy()} className="px-space-md min-h-[42px] rounded-xl bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-50">Sign out</button></div></Card>
+
       <Card><h2 className="font-headline-md text-headline-md mb-space-md">Connections</h2>
         <div className="flex flex-col gap-space-md">
           <div className="flex items-center justify-between gap-space-md flex-wrap"><div className="flex items-center gap-space-sm"><span className="w-9 h-9 rounded-xl bg-surface-container-high text-primary flex items-center justify-center"><Icon name="description" className="text-[20px]" /></span><div><div className="font-headline-sm text-headline-sm">Google</div><div className="font-body-sm text-body-sm text-on-surface-variant">For saving research to Google Docs</div></div></div>
-            {p.authorizationType === 'google_oauth' ? <button type="button" onClick={async () => { await authService.signOut(); save({ authorizationType: 'guest', email: '', photoURL: undefined }); }} className="px-space-md min-h-[40px] rounded-xl bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md">Sign out</button>
-              : <button type="button" disabled={busy || !isFirebaseConfigured} onClick={() => void google()} className="px-space-md min-h-[40px] rounded-xl bg-primary text-on-primary font-label-md text-label-md disabled:opacity-40">{isFirebaseConfigured ? (busy ? 'Connecting…' : 'Connect Google') : 'Not configured on this deployment'}</button>}</div>
+            <button type="button" disabled={busy || !isFirebaseConfigured} onClick={() => void google()} className="px-space-md min-h-[40px] rounded-xl bg-primary text-on-primary font-label-md text-label-md disabled:opacity-40">{isFirebaseConfigured ? (busy ? 'Authorizing…' : 'Authorize Workspace') : 'Not configured on this deployment'}</button></div>
           {msg && <p role="alert" className="font-code-sm text-code-sm text-error">{msg}</p>}
           <label className="flex items-center justify-between gap-space-md"><span><span className="font-headline-sm text-headline-sm block">Auto-save finished research to Google Docs</span><span className="font-body-sm text-body-sm text-on-surface-variant">Requires a connected Google account.</span></span>
             <input type="checkbox" checked={p.autoSaveToDrive} onChange={(e) => save({ autoSaveToDrive: e.target.checked })} className="w-5 h-5 accent-[#4cd6fb]" /></label>
