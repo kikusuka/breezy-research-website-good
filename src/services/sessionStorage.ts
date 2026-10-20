@@ -1,11 +1,11 @@
 import { DebateSession, DebateStep, DebateTone } from '../types';
-import { accountStorage, getActiveAccountUid } from './accountStorage';
+import { accountStorage, getActiveAccountUid, getAccountDatabaseName } from './accountStorage';
 
 // Storage key constants
 export const STORAGE_SESSIONS_KEY = 'synthexis_research_sessions_v2';
 export const STORAGE_ACTIVE_ID_KEY = 'synthexis_active_session_id_v2';
 const DB_NAME = 'synthexis_storage_db';
-function getDatabaseName() { const uid = getActiveAccountUid(); return uid ? `${DB_NAME}_${encodeURIComponent(uid)}` : `${DB_NAME}_unscoped`; }
+function getDatabaseName() { const uid = getActiveAccountUid(); return uid ? getAccountDatabaseName(uid) : `${DB_NAME}_unscoped`; }
 const STORE_NAME = 'research_sessions';
 
 // IndexedDB asynchronous fallback manager
@@ -37,6 +37,8 @@ export async function syncSessionsToIDB(sessions: DebateSession[]): Promise<void
     for (const session of sessions) {
       store.put(session);
     }
+    tx.oncomplete = () => db.close();
+    tx.onerror = () => db.close();
   } catch (err) {
     // Non-blocking background sync warning
     console.debug('IndexedDB sync background note:', err);
@@ -56,8 +58,9 @@ export async function loadSessionsFromIDB(): Promise<DebateSession[]> {
       req.onsuccess = () => {
         const results = req.result || [];
         resolve(results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
+        db.close();
       };
-      req.onerror = () => resolve([]);
+      req.onerror = () => { resolve([]); db.close(); };
     });
   } catch {
     return [];
