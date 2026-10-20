@@ -237,9 +237,13 @@ export const ChatWorkspace: React.FC = () => {
                   </div>
                 </div>
               </section>}
-              <div className="grid sm:grid-cols-3 gap-space-sm w-full text-left">{CHAT_STARTERS.map((st) => (
-                <button key={st.id} type="button" onClick={() => { setInput(st.prompt); ta.current?.focus(); }} className="group text-left p-space-md bg-surface-container hover:bg-surface-container-high rounded-2xl transition-colors coat min-h-[88px]">
-                  <Icon name={st.icon} className="text-[20px] text-primary" /><div className="font-headline-sm text-headline-sm mt-space-sm">{st.title}</div><div className="font-body-sm text-body-sm text-on-surface-variant">{st.meta}</div></button>))}</div>
+              <div className="w-full max-w-2xl text-left">
+                <p className="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-space-xs">Try a starting point</p>
+                <div className="flex gap-space-xs overflow-x-auto pb-1 no-scrollbar">{CHAT_STARTERS.map((st) => (
+                  <button key={st.id} type="button" onClick={() => { setInput(st.prompt); ta.current?.focus(); }} className="group shrink-0 inline-flex items-center gap-space-xs rounded-full border border-outline-variant/40 bg-surface-container-low/80 hover:bg-surface-container-high hover:border-primary/40 px-space-md py-space-sm transition-colors text-left max-w-[82vw]">
+                    <Icon name={st.icon} className="text-[16px] text-secondary shrink-0" /><span className="font-label-md text-label-md text-on-surface whitespace-nowrap">{st.title}</span>
+                  </button>))}</div>
+              </div>
             </div>
           ) : messages.map((m, i) => m.role === 'user' ? (
             <div key={i} className="flex justify-end"><div className="max-w-[85%] bg-surface-container-high rounded-3xl rounded-br-lg px-space-lg py-space-md whitespace-pre-wrap break-words font-body-md text-body-md">{m.content}</div></div>
@@ -261,9 +265,9 @@ export const ChatWorkspace: React.FC = () => {
       <div className="shrink-0 px-gutter lg:px-space-lg pb-space-md pt-space-xs">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-end gap-space-sm bg-surface-container rounded-[1.75rem] coat hairline p-space-sm pl-space-lg focus-within:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5),0_0_0_4px_rgba(76,214,251,0.08)] transition-shadow">
-            <textarea ref={ta} rows={1} value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" placeholder={chatMode === 'puter' ? (!puterSignedIn ? 'Connect Puter below to start chatting' : puterModel ? 'Message using Puter.js…' : 'Choose a Puter model below to start chatting') : active ? 'Message Breezy…' : 'Choose a model below or configure one in Models'}
+            <textarea ref={ta} rows={1} value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" placeholder={chatMode === 'puter' ? (!puterSignedIn ? 'Connect Puter below' : puterModel ? 'Message using Puter.js…' : 'Choose a Puter model below') : active ? 'Message Breezy…' : 'Choose a model in Models'}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
-              className="flex-1 min-w-0 bg-transparent resize-none py-[10px] text-base lg:text-body-lg font-body-lg placeholder:text-outline focus:outline-none max-h-[180px]" />
+              className="flex-1 min-w-0 bg-transparent resize-none py-[10px] text-[15px] leading-6 sm:text-body-lg font-body-lg placeholder:text-on-surface-variant/90 focus:outline-none max-h-[180px]" />
             {busy ? <button type="button" aria-label="Stop" onClick={() => ctrl.current?.abort()} className="w-11 h-11 shrink-0 rounded-full bg-surface-container-highest text-on-surface flex items-center justify-center hover:bg-outline-variant transition-colors"><Icon name="stop" className="text-[22px]" fill /></button>
               : <button type="button" aria-label="Send" onClick={() => send()} disabled={!input.trim()} className="w-11 h-11 shrink-0 rounded-full bg-primary text-on-primary flex items-center justify-center glow-primary hover:bg-primary-fixed transition-all disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed"><Icon name="arrow_upward" className="text-[22px]" /></button>}
           </div>
