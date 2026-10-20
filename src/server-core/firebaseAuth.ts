@@ -106,12 +106,17 @@ export async function verifyFirebaseIdToken(
       false,
       ['verify']
     );
-    const signedContent = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+    const signedText = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+    // Copy into ArrayBuffer-backed views for compatibility with strict TypeScript DOM BufferSource types.
+    const signatureBytes = new Uint8Array(new ArrayBuffer(signature.byteLength));
+    signatureBytes.set(signature);
+    const signedContent = new Uint8Array(new ArrayBuffer(signedText.byteLength));
+    signedContent.set(signedText);
     const verified = await crypto.subtle.verify(
       'RSASSA-PKCS1-v1_5',
       publicKey,
-      signature,
-      signedContent
+      signatureBytes.buffer,
+      signedContent.buffer
     );
     if (!verified) return { ok: false, status: 401, error: 'The sign-in token signature is invalid.' };
     return { ok: true, uid: claims.sub };
