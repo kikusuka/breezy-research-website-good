@@ -33,7 +33,7 @@ function Avatar({ name, photo, size = 'w-8 h-8' }: { name: string; photo?: strin
 
 function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpanded, onNavigate }: {
   tab: ActiveTab; go: (t: ActiveTab) => void; isExpanded: boolean; mobileOpen: boolean; previewMode: boolean;
-  previewMode: boolean; onToggleExpanded: () => void; onNavigate: () => void;
+  onToggleExpanded: () => void; onNavigate: () => void;
 }) {
   const profile = useProfile(previewMode);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
