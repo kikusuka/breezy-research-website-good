@@ -62,8 +62,9 @@ export function prepareAccountStorage(uid: string): void {
         moved.push({ original, target, value, targetWasNew: true });
       } else {
         const legacyTarget = `${legacyPrefix}${encode(original)}`;
-        if (localStorage.getItem(legacyTarget) === null) localStorage.setItem(legacyTarget, value);
-        moved.push({ original, target: legacyTarget, value, targetWasNew: localStorage.getItem(legacyTarget) === value });
+        const legacyWasMissing = localStorage.getItem(legacyTarget) === null;
+        if (legacyWasMissing) localStorage.setItem(legacyTarget, value);
+        moved.push({ original, target: legacyTarget, value, targetWasNew: legacyWasMissing });
       }
       localStorage.removeItem(original);
     }
@@ -71,7 +72,7 @@ export function prepareAccountStorage(uid: string): void {
     // Roll back the migration as far as possible; do not open the workspace on a partial move.
     for (const item of moved.reverse()) {
       try {
-        localStorage.removeItem(item.target);
+        if (item.targetWasNew) localStorage.removeItem(item.target);
         localStorage.setItem(item.original, item.value);
       } catch {
         // The caller will keep the workspace locked and report the storage failure.
