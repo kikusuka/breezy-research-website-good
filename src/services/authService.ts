@@ -318,7 +318,8 @@ export const authService = {
           email: user.email,
           displayName: user.displayName,
           photoURL: user.photoURL,
-          emailVerified: user.emailVerified
+          emailVerified: user.emailVerified,
+          providerId: user.providerData[0]?.providerId || null
         },
         accessToken: token || ''
       };
