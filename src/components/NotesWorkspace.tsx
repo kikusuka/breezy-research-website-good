@@ -1,3 +1,4 @@
+import { accountStorage } from '../services/accountStorage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../shell/Icon';
 import { Markdown } from '../ui/Markdown';
@@ -8,7 +9,7 @@ const STORAGE_KEY = 'breezy_notes_v1';
 
 function load(): NoteItem[] {
   try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as NoteItem[];
+    const raw = JSON.parse(accountStorage.getItem(STORAGE_KEY) || '[]') as NoteItem[];
     // Earlier builds seeded a sample note; never show it as the user's own.
     return raw.filter((n) => !(n.id === 'note-1' && n.title === 'Empirical Verification Notes'));
   } catch { return []; }
@@ -17,7 +18,7 @@ function load(): NoteItem[] {
 export const NotesWorkspace: React.FC = () => {
   const [notes, setNotes] = useState<NoteItem[]>(load); const [activeId, setActiveId] = useState<string | null>(null);
   const [q, setQ] = useState(''); const [mode, setMode] = useState<'edit' | 'preview'>('edit'); const [detail, setDetail] = useState(false);
-  useEffect(() => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(notes)); } catch { /* storage full */ } }, [notes]);
+  useEffect(() => { try { accountStorage.setItem(STORAGE_KEY, JSON.stringify(notes)); } catch { /* storage full */ } }, [notes]);
   useEffect(() => { if (!activeId && notes[0] && window.matchMedia('(min-width: 1024px)').matches) setActiveId(notes[0].id); }, []); // eslint-disable-line
   const active = notes.find((n) => n.id === activeId) || null;
   const shown = useMemo(() => { const t = q.trim().toLowerCase(); return [...notes].sort((a, b) => b.updatedAt - a.updatedAt).filter((n) => !t || n.title.toLowerCase().includes(t) || n.content.toLowerCase().includes(t)); }, [notes, q]);
