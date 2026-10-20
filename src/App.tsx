@@ -15,6 +15,7 @@ import { apiClient } from './services/apiClient';
 import { authService, AuthUser } from './services/authService';
 import { AuthView } from './components/AuthView';
 import { userProfileService } from './services/userProfileService';
+import { GuestWorkspacePreview } from './components/GuestWorkspacePreview';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(parseHash);
@@ -86,19 +87,21 @@ export default function App() {
 
   return (
     <>
-      <Shell tab={activeTab} go={navigateTo} backendOnline={backendOnline} endpointName={endpointName}>
+      <Shell tab={activeTab} go={navigateTo} backendOnline={backendOnline} endpointName={endpointName} previewMode={!authUser}>
         <div className="relative min-h-full">
           <div className={!authUser ? 'pointer-events-none select-none blur-[1px]' : ''} aria-hidden={!authUser}>
-            {activeTab === 'research' && <ResearchWorkspace />}
-            {activeTab === 'chat' && <ChatWorkspace />}
-            {activeTab === 'build' && <BuildWorkspace />}
-            {activeTab === 'canvas' && <CanvasWorkspace />}
-            {activeTab === 'notes' && <NotesWorkspace />}
-            {activeTab === 'models' && <VaultWorkspace />}
-            {activeTab === 'history' && <HistoryWorkspace />}
-            {activeTab === 'docs' && <DocsWorkspace />}
-            {activeTab === 'settings' && <SettingsWorkspace />}
-            {activeTab === 'profile' && <ProfileWorkspace />}
+            {authUser ? <>
+              {activeTab === 'research' && <ResearchWorkspace />}
+              {activeTab === 'chat' && <ChatWorkspace />}
+              {activeTab === 'build' && <BuildWorkspace />}
+              {activeTab === 'canvas' && <CanvasWorkspace />}
+              {activeTab === 'notes' && <NotesWorkspace />}
+              {activeTab === 'models' && <VaultWorkspace />}
+              {activeTab === 'history' && <HistoryWorkspace />}
+              {activeTab === 'docs' && <DocsWorkspace />}
+              {activeTab === 'settings' && <SettingsWorkspace />}
+              {activeTab === 'profile' && <ProfileWorkspace />}
+            </> : <GuestWorkspacePreview tab={activeTab} />}
           </div>
           {!authUser && <div className="absolute inset-0 z-40 flex items-center justify-center p-5 bg-surface/35" aria-live="polite">
             <section className="w-full max-w-md rounded-3xl border border-outline-variant/60 bg-surface-container-low/95 backdrop-blur-xl p-6 sm:p-8 shadow-2xl text-center">
