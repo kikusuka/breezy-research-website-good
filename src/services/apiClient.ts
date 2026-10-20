@@ -13,6 +13,8 @@
  * - 30-second TTL health check caching to eliminate request storms
  */
 
+import { authService } from './authService';
+
 export interface BackendEndpoint {
   id: 'cloudflare' | 'deno' | 'render' | 'local';
   name: string;
@@ -232,6 +234,9 @@ class ApiClient {
       this.probePrimaryRecovery().catch(() => {});
     }
 
+    const idToken = await authService.getIdToken();
+    if (!idToken) throw new Error('Sign in to Breezy before using this feature.');
+
     const attempts = this.endpoints.length;
     let lastError: any = null;
 
@@ -246,6 +251,7 @@ class ApiClient {
           headers: {
             ...options.headers,
             'X-Breezy-Client': 'web-spa',
+            Authorization: `Bearer ${idToken}`,
           },
         });
 
