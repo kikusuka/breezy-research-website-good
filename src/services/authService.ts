@@ -83,6 +83,7 @@ export interface AuthUser {
   displayName: string | null;
   photoURL: string | null;
   emailVerified: boolean;
+  providerId?: string | null;
 }
 
 // In-memory token cache with timestamp
@@ -121,7 +122,8 @@ export const authService = {
           email: user.email,
           displayName: user.displayName,
           photoURL: user.photoURL,
-          emailVerified: user.emailVerified
+          emailVerified: user.emailVerified,
+          providerId: user.providerData[0]?.providerId || null
         },
         accessToken: accountAccessToken
       };
@@ -234,7 +236,8 @@ export const authService = {
           email: firebaseUser.email,
           displayName: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
-          emailVerified: firebaseUser.emailVerified
+          emailVerified: firebaseUser.emailVerified,
+          providerId: firebaseUser.providerData[0]?.providerId || null
         }, cachedAccessToken);
       } else {
         callback(null, null);
