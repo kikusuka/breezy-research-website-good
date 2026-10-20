@@ -16,6 +16,7 @@ import { authService, AuthUser } from './services/authService';
 import { AuthView } from './components/AuthView';
 import { userProfileService } from './services/userProfileService';
 import { GuestWorkspacePreview } from './components/GuestWorkspacePreview';
+import { prepareAccountStorage, setActiveAccountUid } from './services/accountStorage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(parseHash);
@@ -24,12 +25,21 @@ export default function App() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
+  const [authStorageError, setAuthStorageError] = useState<string | null>(null);
 
-  // Keep the product gate in sync with the real Firebase session.
+  // Restore the signed-in account's local namespace before mounting any workspace.
   useEffect(() => authService.onAuthChange((user) => {
-    setAuthUser(user);
     setAuthLoading(false);
-    if (user) {
+    if (!user) {
+      setActiveAccountUid(null);
+      setAuthUser(null);
+      setAuthOpen(false);
+      return;
+    }
+
+    try {
+      setActiveAccountUid(user.uid);
+      prepareAccountStorage(user.uid);
       const providerId = user.providerId || '';
       const authorizationType = providerId === 'google.com' ? 'google_oauth'
         : providerId === 'github.com' ? 'github_oauth'
@@ -42,9 +52,29 @@ export default function App() {
         authorizationType,
       });
       window.dispatchEvent(new Event('breezy:profile-changed'));
+      setAuthStorageError(null);
+      setAuthUser(user);
       setAuthOpen(false);
+    } catch {
+      setActiveAccountUid(null);
+      setAuthUser(null);
+      setAuthStorageError('Breezy could not safely separate this account’s local data. Free up browser storage, then retry. Your existing data has not been intentionally cleared.');
     }
   }), []);
+
+  const retryAccountStorage = () => {
+    const user = authService.getCurrentUser();
+    if (!user) { setAuthStorageError(null); setAuthOpen(true); return; }
+    try {
+      setActiveAccountUid(user.uid);
+      prepareAccountStorage(user.uid);
+      setAuthStorageError(null);
+      setAuthUser(user);
+    } catch {
+      setActiveAccountUid(null);
+      setAuthStorageError('Breezy still cannot separate this account’s local data. Free up browser storage and retry.');
+    }
+  };
 
   // Sync hash routing
   useEffect(() => {
@@ -106,9 +136,9 @@ export default function App() {
           {!authUser && <div className="absolute inset-0 z-40 flex items-center justify-center p-5 bg-surface/35" aria-live="polite">
             <section className="w-full max-w-md rounded-3xl border border-outline-variant/60 bg-surface-container-low/95 backdrop-blur-xl p-6 sm:p-8 shadow-2xl text-center">
               <div className="mx-auto mb-4 w-12 h-12 rounded-2xl bg-surface-container-high flex items-center justify-center text-primary"><span className="material-symbols-rounded text-[26px]">lock</span></div>
-              <h2 className="font-headline-md text-headline-md text-on-surface">{authLoading ? 'Checking your session' : 'Your Breezy workspace'}</h2>
-              <p className="font-body-md text-body-md text-on-surface-variant mt-2 mb-6">{authLoading ? 'One moment while we check whether you’re signed in.' : 'You’re viewing a guest preview. Sign in to use chat, research, Build and your personal workspace.'}</p>
-              {!authLoading && <button type="button" onClick={() => setAuthOpen(true)} className="w-full min-h-12 rounded-xl bg-primary text-on-primary font-label-md text-label-md hover:brightness-105 transition">Sign in to use Breezy</button>}
+              <h2 className="font-headline-md text-headline-md text-on-surface">{authLoading ? 'Checking your session' : authStorageError ? 'Account setup needs attention' : 'Your Breezy workspace'}</h2>
+              <p className="font-body-md text-body-md text-on-surface-variant mt-2 mb-6">{authLoading ? 'One moment while we check whether you’re signed in.' : authStorageError || 'You’re viewing a guest preview. Sign in to use chat, research, Build and your personal workspace.'}</p>
+              {!authLoading && <button type="button" onClick={authStorageError ? retryAccountStorage : () => setAuthOpen(true)} className="w-full min-h-12 rounded-xl bg-primary text-on-primary font-label-md text-label-md hover:brightness-105 transition">{authStorageError ? 'Retry account setup' : 'Sign in to use Breezy'}</button>}
               <p className="font-body-sm text-body-sm text-outline mt-4">Your preview is read-only. No guest workspace is created.</p>
             </section>
           </div>}
