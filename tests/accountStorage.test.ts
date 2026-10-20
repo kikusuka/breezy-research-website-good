@@ -59,6 +59,6 @@ describe('account-scoped local storage', () => {
     prepareAccountStorage('user-a');
     setActiveAccountUid('user-a');
     expect(accountStorage.getItem('breezy_notes_v1')).toBe('new account data');
-    expect(localStorage.getItem('breezy:account-data:v1:legacy:breezy_notes_v1')).toBe('old unscoped data');
+    expect(localStorage.getItem('breezy:account-legacy:v1:breezy_notes_v1')).toBe('old unscoped data');
   });
 });
