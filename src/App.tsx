@@ -38,6 +38,17 @@ export default function App() {
 
   // Restore the signed-in account's local namespace before mounting any workspace.
   useEffect(() => authService.onAuthChange((user) => {
+    // In review mode, keep workspace data in the unscoped local namespace even if
+    // this browser happens to have a Firebase session. Do not mix review data with
+    // an account namespace until the real sign-in gate is explicitly enabled.
+    if (!AUTH_REQUIRED) {
+      setAuthLoading(false);
+      setActiveAccountUid(null);
+      setAuthUser(null);
+      setAuthOpen(false);
+      return;
+    }
+
     setAuthLoading(false);
     if (!user) {
       setActiveAccountUid(null);
