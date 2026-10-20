@@ -222,6 +222,19 @@ export const ChatWorkspace: React.FC = () => {
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-space-lg py-space-xl">
               <span className="w-14 h-14 flex items-center justify-center"><BreezyLogo size={34} imageClassName="mix-blend-screen" /></span>
               <div><h2 className="font-headline-lg text-headline-lg">What are we working on?</h2><p className="font-body-md text-body-md text-on-surface-variant mt-1 max-w-md">A direct conversation with your connected model. For sourced, cross-checked answers, use Research.</p></div>
+              {!active && chatMode === 'provider' && <section className="w-full max-w-2xl text-left rounded-2xl border border-outline-variant/40 bg-surface-container-low p-space-md sm:p-space-lg" aria-labelledby="chat-setup-title">
+                <div className="flex items-start gap-space-sm">
+                  <span className="w-9 h-9 rounded-xl bg-surface-container-high flex items-center justify-center text-primary shrink-0"><Icon name="plug" className="text-[20px]" /></span>
+                  <div className="min-w-0 flex-1">
+                    <h3 id="chat-setup-title" className="font-headline-sm text-headline-sm">Connect a model to start chatting</h3>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Breezy does not include a model by default. Add your own provider key and explicitly choose a chat model, or use Puter if you prefer its account-based model access.</p>
+                    <div className="flex flex-wrap gap-space-sm mt-space-md">
+                      <button type="button" onClick={() => { window.location.hash = '#models'; }} className="inline-flex items-center justify-center gap-space-xs min-h-[40px] rounded-xl bg-primary text-on-primary px-space-md font-label-md text-label-md">Configure a model <Icon name="arrow_forward" className="text-[16px]" /></button>
+                      <button type="button" onClick={() => { setChatMode('puter'); accountStorage.setItem('breezy_chat_mode_v1', 'puter'); setPuterModelSearch(''); }} className="inline-flex items-center justify-center gap-space-xs min-h-[40px] rounded-xl bg-surface-container-high text-on-surface px-space-md font-label-md text-label-md">Use Puter.js</button>
+                    </div>
+                  </div>
+                </div>
+              </section>}
               <div className="grid sm:grid-cols-3 gap-space-sm w-full text-left">{CHAT_STARTERS.map((st) => (
                 <button key={st.id} type="button" onClick={() => { setInput(st.prompt); ta.current?.focus(); }} className="group text-left p-space-md bg-surface-container hover:bg-surface-container-high rounded-2xl transition-colors coat min-h-[88px]">
                   <Icon name={st.icon} className="text-[20px] text-primary" /><div className="font-headline-sm text-headline-sm mt-space-sm">{st.title}</div><div className="font-body-sm text-body-sm text-on-surface-variant">{st.meta}</div></button>))}</div>
