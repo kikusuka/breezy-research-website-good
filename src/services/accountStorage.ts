@@ -6,6 +6,7 @@
  * account. Firebase-owned persistence keys are never moved.
  */
 const ACCOUNT_PREFIX = 'breezy:account-data:v1:';
+const LEGACY_PREFIX = 'breezy:account-legacy:v1:';
 let activeAccountUid: string | null = null;
 
 const encode = (value: string) => encodeURIComponent(value);
@@ -45,10 +46,10 @@ export const accountStorage = {
  */
 export function prepareAccountStorage(uid: string): void {
   const targetPrefix = scopedPrefix(uid);
-  const legacyPrefix = `${ACCOUNT_PREFIX}legacy:`;
+  const legacyPrefix = LEGACY_PREFIX;
   const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
     .filter((key): key is string => Boolean(key))
-    .filter((key) => !key.startsWith(ACCOUNT_PREFIX) && !isFirebaseOwnedKey(key));
+    .filter((key) => !key.startsWith(ACCOUNT_PREFIX) && !key.startsWith(LEGACY_PREFIX) && !isFirebaseOwnedKey(key));
 
   const moved: Array<{ original: string; target: string; value: string; targetWasNew: boolean }> = [];
   try {
