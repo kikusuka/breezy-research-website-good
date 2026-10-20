@@ -84,7 +84,7 @@ Breezy Playground is designed around five core principles:
 | Scope | Location | Access Pattern |
 |:---|:---|:---|
 | **BYOK API Keys** | `localStorage` / Proxy | Routed server-side via Express proxy; never logged |
-| **User Data** | `IndexedDB` & `localStorage` | Local-first, private to browser instance |
+| **User Data** | Account-scoped `IndexedDB` & `localStorage` | Local-first and isolated by Firebase UID on this browser; no cross-device sync is implied |
 | **OAuth Tokens** | Memory / `sessionStorage` | Ephemeral Google/Firebase OAuth tokens |
 | **GitHub PAT** | `localStorage` (`breezy_github_token`) | Client-side only; scoped for repo operations |
 
