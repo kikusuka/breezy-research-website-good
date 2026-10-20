@@ -68,10 +68,10 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, onToggleExpanded, onNavigate
     <aside className={`fixed inset-y-0 left-0 z-[70] flex flex-col justify-between bg-surface/90 backdrop-blur-xl border-r border-outline-variant/30 transition-[width,transform] duration-200 ease-out ${isExpanded ? 'w-64' : 'w-[4.25rem]'} ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       <div className="flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
         <div className={`h-16 flex items-center shrink-0 ${isExpanded ? 'px-space-md gap-space-sm' : 'justify-center gap-0 px-1'}`}>
-          <button type="button" onClick={() => { go('landing'); onNavigate(); }} aria-label="Breezy home" title="Breezy home" className="w-8 h-8 shrink-0 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-colors">
+          <button type="button" onClick={() => { go('chat'); onNavigate(); }} aria-label="Go to chat" title="Go to chat" className="w-8 h-8 shrink-0 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-colors">
             <BreezyLogo size={30} />
           </button>
-          {isExpanded && <><button type="button" onClick={() => { go('landing'); onNavigate(); }} className="font-headline-sm text-headline-sm tracking-tight text-on-surface">Breezy</button>
+          {isExpanded && <><button type="button" onClick={() => { go('chat'); onNavigate(); }} className="font-headline-sm text-headline-sm tracking-tight text-on-surface">Breezy</button>
             <span className="ml-auto font-code-sm text-code-sm text-primary bg-surface-container-highest px-space-xs py-0.5 rounded">{VERSION}</span></>}
           <button type="button" onClick={onNavigate} aria-label="Close navigation" title="Close navigation" className="lg:hidden ml-auto w-8 h-8 shrink-0 flex items-center justify-center rounded-lg hover:bg-surface-container-high text-on-surface-variant transition-colors"><Icon name="close" className="text-[20px]" /></button>
           <button type="button" onClick={onToggleExpanded} aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'} title={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'} className={`hidden lg:flex shrink-0 items-center justify-center rounded-lg hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors ${isExpanded ? 'ml-auto w-8 h-8' : 'w-6 h-8'}`}>
