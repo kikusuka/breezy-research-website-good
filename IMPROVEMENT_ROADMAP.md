@@ -6,14 +6,14 @@ This roadmap starts from the current product direction and the screen/functional
 
 - Keep the existing Breezy layout for desktop and mobile.
 - Use the Stitch repository for visual theme inspiration only: color, typography, surfaces, borders, and related styling. Do not transplant its layout.
-- Keep authentication implemented but bypass the frontend gate during screen review. See [AUTH_RESTORE.md](./AUTH_RESTORE.md).
-- Prefer user-owned Google Drive storage over storing all user content on Breezy's servers. See [STORAGE_AND_DATA_OWNERSHIP.md](./STORAGE_AND_DATA_OWNERSHIP.md).
+- Keep authentication enabled by default; use the frontend bypass only for a private review deployment. See [AUTH_RESTORE.md](./AUTH_RESTORE.md).
+- Store account-backed chat history on Breezy servers; let users control where generated files live. See [STORAGE_AND_DATA_OWNERSHIP.md](./STORAGE_AND_DATA_OWNERSHIP.md) and [CHAT_PERSISTENCE_AND_RUNS.md](./CHAT_PERSISTENCE_AND_RUNS.md).
 - Do not invent models, citations, activity, metrics, or successful operations.
 - Do not claim browser/device compatibility without testing it.
 
 ## Priority 0 — Make screen review possible
 
-- [x] Add a reversible frontend review-mode switch.
+- [x] Add a reversible frontend review-mode switch (auth remains on by default; private review uses `VITE_BREEZY_REQUIRE_AUTH=false`).
 - [ ] Deploy/build review mode and confirm all workspace screens can be opened without a login prompt.
 - [ ] Check that review mode does not falsely imply account isolation or cloud backup.
 - [ ] Keep the existing layout unchanged.
@@ -40,8 +40,12 @@ Do not add a screen merely to fill the sidebar. Consolidate only after checking 
 
 ## Priority 2 — Data ownership and persistence
 
-- [ ] Make the local-only versus Drive-connected state explicit in the UI.
-- [ ] Implement or verify a clear Connect Drive → consent → save → sync-status flow.
+- [ ] Move chat history from browser-only storage to account-scoped server persistence so users can sign out and return on another device.
+- [ ] Persist run status/checkpoints and recover gracefully after network loss, refresh, or logout; never imply a run is resumable unless it really is.
+- [ ] Add database pagination, indexing, per-account quotas, retention/deletion policy, and cost monitoring before scaling.
+
+- [ ] Make the local-only versus Drive-connected state explicit for generated files and workspace artifacts.
+- [ ] Implement or verify a clear Connect Drive → consent → save selected files → sync-status flow; Drive must not be required for chat history.
 - [ ] Verify a saved item can be reopened after reload and after a failed network request.
 - [ ] Add explicit export/backup and delete guidance for browser-local data.
 - [ ] Never sync provider API keys by default.
