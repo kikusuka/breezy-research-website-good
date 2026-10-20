@@ -8,10 +8,13 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   GithubAuthProvider,
-  signInWithPopup, 
+  OAuthProvider,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signInWithPopup,
   signOut,
-  onAuthStateChanged,
-  User
+  onAuthStateChanged
 } from 'firebase/auth';
 
 let firebaseConfig: any = {
@@ -44,8 +47,8 @@ if (!firebaseConfig.apiKey) {
 
 // Ensure clean check of whether Firebase config is real and fully initialized
 export const isFirebaseConfigured = !!(
-  firebaseConfig.apiKey && 
-  !firebaseConfig.apiKey.includes('Placeholder') && 
+  firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId && firebaseConfig.appId &&
+  !firebaseConfig.apiKey.includes('Placeholder') &&
   !firebaseConfig.apiKey.includes('MockKey')
 );
 
@@ -70,7 +73,6 @@ if (isFirebaseConfigured) {
 
 // Google provider with profile and drive.file scopes
 const googleProvider = new GoogleAuthProvider();
-googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
 googleProvider.setCustomParameters({
   prompt: 'select_account',
 });
@@ -99,7 +101,7 @@ export const authService = {
   },
 
   /**
-   * Sign in with Google popup (with drive.file scope)
+   * Sign in to Breezy with Google. Workspace permissions are requested separately when needed.
    */
   async signInWithGoogle(): Promise<{ user: AuthUser; accessToken: string } | null> {
     if (!isFirebaseConfigured) {
@@ -108,14 +110,10 @@ export const authService = {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+      // Account sign-in must not silently double as Google Workspace authorization.
+      // Workspace access tokens are acquired separately through requestWorkspaceScopes().
       const credential = GoogleAuthProvider.credentialFromResult(result);
-      cachedAccessToken = credential?.accessToken || null;
-      tokenIssuedAt = Date.now();
-      
-      if (cachedAccessToken) {
-        sessionStorage.setItem('synthexis_g_token', cachedAccessToken);
-        sessionStorage.setItem('synthexis_g_token_time', String(tokenIssuedAt));
-      }
+      const accountAccessToken = credential?.accessToken || '';
 
       return {
         user: {
@@ -125,7 +123,7 @@ export const authService = {
           photoURL: user.photoURL,
           emailVerified: user.emailVerified
         },
-        accessToken: cachedAccessToken || ''
+        accessToken: accountAccessToken
       };
     } catch (error: any) {
       console.error('Google sign-in error:', error);
@@ -135,6 +133,33 @@ export const authService = {
     }
   },
 
+  /** Sign in with email and password. */
+  async signInWithEmail(email: string, password: string): Promise<void> {
+    if (!isFirebaseConfigured) throw new Error('Firebase Authentication is unconfigured.');
+    await signInWithEmailAndPassword(auth, email.trim(), password);
+  },
+
+  /** Create a Breezy account with email and password. */
+  async createAccountWithEmail(email: string, password: string): Promise<void> {
+    if (!isFirebaseConfigured) throw new Error('Firebase Authentication is unconfigured.');
+    await createUserWithEmailAndPassword(auth, email.trim(), password);
+  },
+
+  /** Send a password reset email. */
+  async sendPasswordReset(email: string): Promise<void> {
+    if (!isFirebaseConfigured) throw new Error('Firebase Authentication is unconfigured.');
+    await sendPasswordResetEmail(auth, email.trim());
+  },
+
+  /** Sign in with Discord through a Firebase Authentication OIDC provider. */
+  async signInWithDiscord(): Promise<void> {
+    if (!isFirebaseConfigured) throw new Error('Firebase Authentication is unconfigured.');
+    // Configure provider ID oidc.discord in Firebase Authentication / Identity Platform.
+    const provider = new OAuthProvider('oidc.discord');
+    provider.addScope('identify');
+    provider.addScope('email');
+    await signInWithPopup(auth, provider);
+  },
   /**
    * Request incremental Google Workspace scopes (Drive, Gmail, Calendar, Docs, Sheets) when the user opens the feature
    */
