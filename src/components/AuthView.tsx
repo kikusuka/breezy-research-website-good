@@ -18,6 +18,15 @@ function readableAuthError(error: unknown): string {
     'auth/unauthorized-domain': 'This website domain is not authorized for sign-in yet.',
     'auth/network-request-failed': 'Network error. Check your connection and try again.',
     'auth/account-exists-with-different-credential': 'This email is already linked to another sign-in method. Sign in with that method first.',
+    'auth/invalid-api-key': 'Firebase sign-in is misconfigured for this deployment. The site administrator needs to check the Firebase client settings.',
+    'auth/configuration-not-found': 'Firebase Authentication is not fully configured for this project yet.',
+    'auth/invalid-oauth-provider': 'This OAuth provider is not configured for Breezy’s Firebase project yet.',
+    'auth/invalid-oauth-client-id': 'This OAuth provider has an invalid client ID in Firebase configuration.',
+    'auth/cancelled-popup-request': 'Another sign-in window is already open. Finish it or close it before trying again.',
+    'auth/credential-already-in-use': 'This sign-in credential is linked to another Breezy account. Sign in to that account first.',
+    'auth/provider-already-linked': 'This sign-in provider is already linked to your Breezy account.',
+    'auth/user-disabled': 'This account has been disabled. Contact the Breezy administrator.',
+    'auth/invalid-tenant-id': 'This sign-in request points to an invalid Firebase tenant configuration.',
   };
   return messages[code] || (error instanceof Error ? error.message : 'Sign-in failed. Please try again.');
 }
