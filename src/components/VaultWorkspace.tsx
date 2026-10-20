@@ -108,6 +108,19 @@ export const VaultWorkspace: React.FC = () => {
         </div>
       </div>
 
+      <section aria-label="First-time setup" className="rounded-3xl border border-outline-variant/50 bg-surface-container-low p-space-lg">
+        <div className="flex flex-col gap-space-xs sm:flex-row sm:items-start sm:justify-between">
+          <div><h2 className="font-headline-md text-headline-md">Set up your first model</h2><p className="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-2xl">A saved key is not the same as a working connection. Follow these steps once; research seats are optional until you use Synthexis.</p></div>
+          <span className="shrink-0 rounded-full bg-surface-container-high px-space-sm py-1 font-code-sm text-code-sm text-on-surface-variant">{active ? 'Chat model ready' : 'Setup needed'}</span>
+        </div>
+        <ol className="grid sm:grid-cols-3 gap-space-sm mt-space-md">
+          <li className="rounded-2xl bg-surface-container p-space-md"><div className="font-code-sm text-code-sm text-primary mb-1">01 · CONNECT</div><p className="font-body-sm text-body-sm">Add a provider key below, or configure a reachable Ollama server.</p><a href="#prov-h" className="inline-flex mt-space-sm text-secondary font-label-md text-label-md underline underline-offset-2">Provider connections</a></li>
+          <li className="rounded-2xl bg-surface-container p-space-md"><div className="font-code-sm text-code-sm text-primary mb-1">02 · SELECT</div><p className="font-body-sm text-body-sm">Choose the exact provider and model used by Chat.</p><a href="#default-chat-h" className="inline-flex mt-space-sm text-secondary font-label-md text-label-md underline underline-offset-2">Default chat model</a></li>
+          <li className="rounded-2xl bg-surface-container p-space-md"><div className="font-code-sm text-code-sm text-primary mb-1">03 · VERIFY</div><p className="font-body-sm text-body-sm">Use Test key or Test connection. A saved key alone does not prove it works.</p><a href="#chat" className="inline-flex mt-space-sm text-secondary font-label-md text-label-md underline underline-offset-2">Try Chat</a></li>
+        </ol>
+        <p className="font-body-sm text-body-sm text-outline mt-space-md">Credentials are stored in this browser, not in a Breezy server-side key vault. Avoid shared devices.</p>
+      </section>
+
       <section aria-labelledby="default-chat-h" className="bg-surface-container rounded-3xl p-space-lg coat">
         <div className="mb-space-md">
           <h2 id="default-chat-h" className="font-headline-md text-headline-md">Default chat model</h2>
