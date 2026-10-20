@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   model TEXT,
   FOREIGN KEY (conversation_id, owner_uid)
     REFERENCES conversations (id, owner_uid) ON DELETE CASCADE,
+  UNIQUE (id, owner_uid),
   UNIQUE (conversation_id, sequence_no)
 );
 
@@ -57,10 +58,11 @@ CREATE TABLE IF NOT EXISTS chat_runs (
   retry_of_run_id TEXT,
   FOREIGN KEY (conversation_id, owner_uid)
     REFERENCES conversations (id, owner_uid) ON DELETE CASCADE,
-  FOREIGN KEY (initiating_message_id)
-    REFERENCES chat_messages (id) ON DELETE CASCADE,
-  FOREIGN KEY (retry_of_run_id)
-    REFERENCES chat_runs (id) ON DELETE SET NULL
+  FOREIGN KEY (initiating_message_id, owner_uid)
+    REFERENCES chat_messages (id, owner_uid) ON DELETE CASCADE,
+  FOREIGN KEY (retry_of_run_id, owner_uid)
+    REFERENCES chat_runs (id, owner_uid) ON DELETE SET NULL,
+  UNIQUE (id, owner_uid)
 );
 
 CREATE INDEX IF NOT EXISTS idx_chat_runs_owner_status_updated
