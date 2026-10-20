@@ -50,8 +50,11 @@ Every screen should justify its presence by doing one job better than the other 
 
 ### Improvements in this branch
 - Chat's empty state now explains why no model is available and offers a direct path to Models or the optional Puter route.
+- Failed Puter responses keep the user's prompt in the conversation instead of silently removing it.
+- Chat, Notes and Canvas now show a visible warning when browser storage writes fail, rather than silently implying that changes were saved.
+- The Models workspace now has a three-step first-run path: connect a provider, choose the exact Chat model, then test the connection. It explicitly distinguishes a saved key from a verified connection and warns that credentials stay in this browser.
 - Research seat cards now say **Not assigned** instead of rendering a blank model label.
-- Docs now include a practical guide to choosing the right workspace and explicitly distinguish Chat from source-oriented Research.
+- Docs now include a practical guide to choosing the right workspace and clarify that prompts can go through different provider integrations, including Puter.
 
 ### Issues that still need implementation or validation
 1. **Sign-in review mode is not production authentication.** The frontend gate can be disabled for review, but server-backed routes still require a valid token. Verify the deployed site after merge/redeploy; do not weaken API auth just to make the UI appear open.
