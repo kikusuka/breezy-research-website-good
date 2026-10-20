@@ -80,11 +80,7 @@ The primary API runs on Cloudflare Workers using the lightweight handler in `wor
    ```bash
    wrangler login
    ```
-3. Set the Firebase project ID as a Worker variable (it is an identifier, not a secret):
-   ```bash
-   npx wrangler secret? # Do not use a secret for the project ID; set FIREBASE_PROJECT_ID in wrangler.jsonc or Worker Variables.
-   ```
-   The repository's `wrangler.jsonc` includes the currently configured Firebase project ID. If your deployment uses a different Firebase project, update it to match that project's ID. The frontend and backend project IDs must match.
+3. Confirm `FIREBASE_PROJECT_ID` in `wrangler.jsonc` matches the Firebase project used by the frontend. This is a public project identifier, not a secret. If you use a different Firebase project, update the variable before deploying.
 4. Set your server-side Gemini API key (encrypted secret):
    ```bash
    wrangler secret put GEMINI_API_KEY
