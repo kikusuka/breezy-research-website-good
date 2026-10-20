@@ -11,7 +11,13 @@ A user can sign out, close the tab, lose their connection, or return on another 
 - **Run:** stable ID, conversation ID, initiating message ID, status, start/update/end timestamps, cancellation request, safe checkpoint or partial output, retry lineage, error category.
 - **Usage metadata:** only what is needed for quotas, abuse prevention, and cost monitoring; avoid retaining large raw provider responses unnecessarily.
 
-Use PostgreSQL (or an equivalent transactional database already supported by the chosen backend) as the durable source of truth. Put owner-scoped indexes on conversation listing and message ordering. Store IDs from the authenticated server session, not a UID supplied by the browser.
+## Initial database recommendation
+
+The current primary backend is a Cloudflare Worker, so **Cloudflare D1 is the first candidate to prototype**, rather than introducing InfinityFree PHP or a Telegram/Sheets storage workaround. D1 is accessed through a Worker binding and supports prepared SQL statements and transactional batches. It fits the existing deployment path, but it is not unlimited: the current Free plan documents a 500 MB maximum per database and 5 GB total account storage. Workers Free also has a 100,000-request/day limit. Treat these as prototype/early-beta ceilings, not a promise of unlimited scale.
+
+Before implementation, confirm the actual production account, current plan, database bindings, and deployment path. If the app continues to fail over chat API requests to Deno/Render, those backends must reach the same durable database safely or chat persistence must stay pinned to the canonical Worker. Do not accidentally create separate histories on separate failover backends. A later move to PostgreSQL or another shared SQL service is reasonable if measured size, query patterns, portability, or multi-runtime access justify it.
+
+Put owner-scoped indexes on conversation listing and message ordering. Store the verified UID returned by `verifyFirebaseIdToken` on the server, not a UID supplied by the browser. Use prepared statements for all user-supplied values. Never cache authenticated conversation/message/run responses in a shared public cache.
 
 ## Run lifecycle
 
