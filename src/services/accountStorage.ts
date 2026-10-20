@@ -88,18 +88,22 @@ export function prepareAccountStorage(uid: string): void {
 }
 
 export async function clearCurrentAccountStorage(): Promise<void> {
-  if (!activeAccountUid) return;
+  if (!activeAccountUid) throw new Error('No signed-in account is active.');
   const uid = activeAccountUid;
+
+  // Delete the account database first. If another tab keeps it open, preserve the
+  // localStorage data too and let the UI ask the user to close the other tab.
+  if (typeof indexedDB !== 'undefined') {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(getAccountDatabaseName(uid));
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(new Error('Could not delete this account’s research database.'));
+      request.onblocked = () => reject(new Error('Close other Breezy tabs before erasing this account’s data, then try again.'));
+    });
+  }
+
   const prefix = scopedPrefix(uid);
   const keys = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
     .filter((key): key is string => Boolean(key) && key!.startsWith(prefix));
   keys.forEach((key) => localStorage.removeItem(key));
-
-  if (typeof indexedDB === 'undefined') return;
-  await new Promise<void>((resolve) => {
-    const request = indexedDB.deleteDatabase(getAccountDatabaseName(uid));
-    request.onsuccess = () => resolve();
-    request.onerror = () => resolve();
-    request.onblocked = () => resolve();
-  });
 }

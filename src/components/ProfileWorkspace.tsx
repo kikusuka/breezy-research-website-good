@@ -11,7 +11,7 @@ import { clearCurrentAccountStorage } from '../services/accountStorage';
 export const ProfileWorkspace: React.FC = () => {
   const [p, setP] = useState<UserProfile>(userProfileService.getProfile()); const [saved, setSaved] = useState(false);
   const [quota, setQuota] = useState<QuotaState>(null); const [gh, setGh] = useState(getGitHubToken()); const [ghShow, setGhShow] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null); const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null); const [eraseError, setEraseError] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   type QuotaState = StorageQuota | null;
   useEffect(() => { getStorageQuotaStatus().then(setQuota).catch(() => setQuota(null)); }, []);
   const save = (patch: Partial<UserProfile>) => { const next = userProfileService.saveProfile(patch); setP(next); window.dispatchEvent(new Event('breezy:profile-changed')); setSaved(true); window.setTimeout(() => setSaved(false), 1500); };
@@ -32,7 +32,22 @@ export const ProfileWorkspace: React.FC = () => {
     } catch (e: any) { setMsg(e?.message || 'Sign-out failed.'); }
     finally { setBusy(false); }
   };
-  const reset = () => { if (window.confirm('Erase all Breezy data for this account on this device (keys, history, chat, notes, Canvas)? This cannot be undone.')) { void (async () => { try { await clearCurrentAccountStorage(); sessionStorage.clear(); } catch { /* ignore */ } window.location.hash = '#chat'; window.location.reload(); })(); } };
+  const reset = () => {
+    if (!window.confirm('Erase this account’s Breezy data from this device (keys, history, chat, notes, Canvas and local research database)? This cannot be undone.')) return;
+    void (async () => {
+      setBusy(true);
+      setEraseError(null);
+      try {
+        await clearCurrentAccountStorage();
+        sessionStorage.clear();
+        window.location.hash = '#chat';
+        window.location.reload();
+      } catch (e: any) {
+        setEraseError(e?.message || 'Breezy could not erase all local data. Close other Breezy tabs and try again.');
+        setBusy(false);
+      }
+    })();
+  };
   const pct = quota ? Math.min(100, Math.round((quota.usedMB / quota.limitMB) * 100)) : 0;
   const name = p.displayName.trim();
   return (
@@ -63,8 +78,8 @@ export const ProfileWorkspace: React.FC = () => {
         <div className="h-2 rounded-circle bg-surface-container-highest overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><div className={`h-full rounded-circle ${pct >= 80 ? 'bg-[#F59E0B]' : 'bg-primary'}`} style={{ width: `${Math.max(pct, quota ? 2 : 0)}%` }} /></div>
         <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Sessions, chat, notes, Canvas cards, settings and keys are kept in this browser. Clearing site data removes them.</p></Card>
 
-      <div className="rounded-3xl bg-error-container/20 p-space-lg flex flex-col sm:flex-row sm:items-center justify-between gap-space-md mb-space-xl"><div><h2 className="font-headline-sm text-headline-sm text-error">Erase all data on this device</h2><p className="font-body-sm text-body-sm text-on-surface-variant">Removes keys, history, chat, notes and Canvas cards from this browser.</p></div>
-        <button type="button" onClick={reset} className="px-space-lg min-h-[44px] rounded-xl bg-error-container text-on-error-container font-label-md text-label-md hover:brightness-110 transition">Erase everything</button></div>
+      <div className="rounded-3xl bg-error-container/20 p-space-lg flex flex-col sm:flex-row sm:items-center justify-between gap-space-md mb-space-xl"><div><h2 className="font-headline-sm text-headline-sm text-error">Erase this account’s local data</h2><p className="font-body-sm text-body-sm text-on-surface-variant">Removes this account’s keys, history, chat, notes, Canvas cards and research database from this browser.</p></div>
+        {eraseError && <p role="alert" className="font-body-sm text-body-sm text-error sm:max-w-xs">{eraseError}</p>}<button type="button" disabled={busy} onClick={reset} className="px-space-lg min-h-[44px] rounded-xl bg-error-container text-on-error-container font-label-md text-label-md hover:brightness-110 disabled:opacity-50 transition">{busy ? 'Erasing…' : 'Erase account data'}</button></div>
     </Page>
   );
 };
