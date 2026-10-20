@@ -19,13 +19,13 @@ import { GuestWorkspacePreview } from './components/GuestWorkspacePreview';
 import { prepareAccountStorage, setActiveAccountUid } from './services/accountStorage';
 
 /**
- * Authentication is required by default. For a private UI review deployment only,
- * set VITE_BREEZY_REQUIRE_AUTH=false to bypass the frontend gate temporarily.
+ * Review access is enabled by default so the UI can be evaluated without sign-in.
+ * Set VITE_BREEZY_REQUIRE_AUTH=true to restore the frontend sign-in gate.
  *
- * This is a UI-access switch, not a security boundary. Do not expose private data
- * or an unrestricted shared backend from a public deployment with auth disabled.
+ * This is only a frontend gate. Backend endpoints still enforce Firebase tokens;
+ * never treat this flag as authorization or expose private user data through APIs.
  */
-const AUTH_REQUIRED = import.meta.env.VITE_BREEZY_REQUIRE_AUTH !== 'false';
+const AUTH_REQUIRED = import.meta.env.VITE_BREEZY_REQUIRE_AUTH === 'true';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(parseHash);
@@ -38,6 +38,17 @@ export default function App() {
 
   // Restore the signed-in account's local namespace before mounting any workspace.
   useEffect(() => authService.onAuthChange((user) => {
+    // In review mode, keep workspace data in the unscoped local namespace even if
+    // this browser happens to have a Firebase session. Do not mix review data with
+    // an account namespace until the real sign-in gate is explicitly enabled.
+    if (!AUTH_REQUIRED) {
+      setAuthLoading(false);
+      setActiveAccountUid(null);
+      setAuthUser(null);
+      setAuthOpen(false);
+      return;
+    }
+
     setAuthLoading(false);
     if (!user) {
       setActiveAccountUid(null);

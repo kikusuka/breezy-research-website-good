@@ -15,6 +15,7 @@ const CHAT_STORAGE_KEY = 'breezy_chat_history_v1';
 
 export const ChatWorkspace: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => { try { const s = accountStorage.getItem(CHAT_STORAGE_KEY); return s ? JSON.parse(s) : []; } catch { return []; } });
+  const [storageError, setStorageError] = useState(false);
   const [input, setInput] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null); const [copied, setCopied] = useState<number | null>(null);
   const ta = useRef<HTMLTextAreaElement>(null); const end = useRef<HTMLDivElement>(null); const ctrl = useRef<AbortController | null>(null);
   const modelState = useModelState();
@@ -54,7 +55,7 @@ export const ChatWorkspace: React.FC = () => {
     return () => { document.removeEventListener('mousedown', closeOnOutside); window.removeEventListener('keydown', closeOnEscape); };
   }, [modelMenuOpen]);
 
-  useEffect(() => { try { accountStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages)); } catch { /* storage full */ } end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, busy]);
+  useEffect(() => { try { accountStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages)); setStorageError(false); } catch { setStorageError(true); } end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, busy]);
   const grow = () => { const el = ta.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; } };
   useEffect(grow, [input]);
 
@@ -192,8 +193,8 @@ export const ChatWorkspace: React.FC = () => {
       setMessages([...history, { role: 'assistant', content: res.text || 'The model returned an empty response.' }]);
     } catch (e: any) {
       if (chatMode === 'puter') {
-        // Never leave an errored partial stream looking like a completed answer.
-        setMessages(history);
+        // Keep the user's prompt visible if Puter fails; never erase it as a side effect of a failed response.
+        setMessages([...history, { role: 'assistant', content: 'The response was interrupted. Your prompt is still here; try again when ready.' }]);
       }
       if (e?.name !== 'AbortError') {
         setError(e?.message || 'The model did not respond.');
@@ -214,6 +215,7 @@ export const ChatWorkspace: React.FC = () => {
 
   return (
     <div className="relative h-full flex flex-col">
+      {storageError && <div role="alert" className="mx-gutter mt-space-sm rounded-xl border border-error/40 bg-error-container/30 px-space-md py-space-sm text-error font-body-sm text-body-sm">This conversation could not be saved to this browser. It may disappear after a refresh. Free up browser storage and copy or export anything important.</div>}
       {messages.length > 0 && <button type="button" onClick={clear} title="Clear conversation" aria-label="Clear conversation" className="absolute top-3 right-3 lg:right-5 z-10 flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-surface/80 backdrop-blur-md border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors"><Icon name="delete_sweep" className="text-[18px]" /><span className="hidden sm:inline">Clear</span></button>}
 
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -222,6 +224,19 @@ export const ChatWorkspace: React.FC = () => {
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-space-lg py-space-xl">
               <span className="w-14 h-14 flex items-center justify-center"><BreezyLogo size={34} imageClassName="mix-blend-screen" /></span>
               <div><h2 className="font-headline-lg text-headline-lg">What are we working on?</h2><p className="font-body-md text-body-md text-on-surface-variant mt-1 max-w-md">A direct conversation with your connected model. For sourced, cross-checked answers, use Research.</p></div>
+              {!active && chatMode === 'provider' && <section className="w-full max-w-2xl text-left rounded-2xl border border-outline-variant/40 bg-surface-container-low p-space-md sm:p-space-lg" aria-labelledby="chat-setup-title">
+                <div className="flex items-start gap-space-sm">
+                  <span className="w-9 h-9 rounded-xl bg-surface-container-high flex items-center justify-center text-primary shrink-0"><Icon name="plug" className="text-[20px]" /></span>
+                  <div className="min-w-0 flex-1">
+                    <h3 id="chat-setup-title" className="font-headline-sm text-headline-sm">Connect a model to start chatting</h3>
+                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Breezy does not include a model by default. Add your own provider key and explicitly choose a chat model, or use Puter if you prefer its account-based model access.</p>
+                    <div className="flex flex-wrap gap-space-sm mt-space-md">
+                      <button type="button" onClick={() => { window.location.hash = '#models'; }} className="inline-flex items-center justify-center gap-space-xs min-h-[40px] rounded-xl bg-primary text-on-primary px-space-md font-label-md text-label-md">Configure a model <Icon name="arrow_forward" className="text-[16px]" /></button>
+                      <button type="button" onClick={() => { setChatMode('puter'); accountStorage.setItem('breezy_chat_mode_v1', 'puter'); setPuterModelSearch(''); }} className="inline-flex items-center justify-center gap-space-xs min-h-[40px] rounded-xl bg-surface-container-high text-on-surface px-space-md font-label-md text-label-md">Use Puter.js</button>
+                    </div>
+                  </div>
+                </div>
+              </section>}
               <div className="grid sm:grid-cols-3 gap-space-sm w-full text-left">{CHAT_STARTERS.map((st) => (
                 <button key={st.id} type="button" onClick={() => { setInput(st.prompt); ta.current?.focus(); }} className="group text-left p-space-md bg-surface-container hover:bg-surface-container-high rounded-2xl transition-colors coat min-h-[88px]">
                   <Icon name={st.icon} className="text-[20px] text-primary" /><div className="font-headline-sm text-headline-sm mt-space-sm">{st.title}</div><div className="font-body-sm text-body-sm text-on-surface-variant">{st.meta}</div></button>))}</div>

@@ -106,13 +106,16 @@ export function loadSessions(): DebateSession[] {
 /**
  * Save array of sessions to LocalStorage and IndexedDB.
  */
-export function saveSessions(sessions: DebateSession[]): void {
+export type SessionSaveResult = 'saved' | 'pruned' | 'failed';
+
+export function saveSessions(sessions: DebateSession[]): SessionSaveResult {
   // Sync to IndexedDB for unlimited capacity
   syncSessionsToIDB(sessions || []);
 
   try {
     const trimmed = (sessions || []).slice(0, 40);
     accountStorage.setItem(STORAGE_SESSIONS_KEY, JSON.stringify(trimmed));
+    return 'saved';
   } catch (err) {
     console.warn('Failed to save research sessions directly; attempting pruned compression:', err);
     try {
@@ -130,8 +133,10 @@ export function saveSessions(sessions: DebateSession[]): void {
         } : undefined,
       }));
       accountStorage.setItem(STORAGE_SESSIONS_KEY, JSON.stringify(pruned));
+      return 'pruned';
     } catch (retryErr) {
       console.error('Critical quota error when saving research sessions:', retryErr);
+      return 'failed';
     }
   }
 }

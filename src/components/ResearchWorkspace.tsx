@@ -187,7 +187,7 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-sm font-code-sm text-code-sm pb-space-xl">
         {SEATS.map((seat) => { const c = cfg.roles[seat.id]; const m = c?.provider && c?.model ? c.model : null; return (
           <button key={seat.id} type="button" onClick={() => { window.location.hash = '#models'; }} className="flex items-center gap-space-sm bg-surface-container-low hover:bg-surface-container px-space-md min-h-[40px] rounded-full min-w-0 text-left transition-colors">
-            <span className={`w-1.5 h-1.5 rounded-circle shrink-0 ${m ? 'bg-tertiary' : 'bg-outline'}`} /><span className="text-on-surface-variant shrink-0">{seat.label}:</span><span className={`ml-auto truncate ${m ? 'text-on-surface' : 'text-outline'}`}>{m || ''}</span>
+            <span className={`w-1.5 h-1.5 rounded-circle shrink-0 ${m ? 'bg-tertiary' : 'bg-outline'}`} /><span className="text-on-surface-variant shrink-0">{seat.label}:</span><span className={`ml-auto truncate ${m ? 'text-on-surface' : 'text-outline'}`}>{m || 'Not assigned'}</span>
           </button>); })}
       </div>
       {r.notice && <div role="status" className="fixed z-[90] left-1/2 -translate-x-1/2 bottom-24 lg:bottom-space-xl max-w-[92vw] px-space-lg py-space-sm bg-surface-container-highest rounded-xl shadow-[0_12px_32px_-8px_rgba(0,0,0,0.65)] font-body-sm text-body-sm">{r.notice}</div>}

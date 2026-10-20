@@ -26,7 +26,16 @@ let saveTimer: number | undefined;
 function set(patch: Partial<ResearchState> | ((s: ResearchState) => Partial<ResearchState>)) { state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) }; listeners.forEach((l) => l()); }
 function persist(now = false) {
   window.clearTimeout(saveTimer);
-  const run = () => { try { saveSessions(state.sessions); saveActiveSessionId(state.activeId); } catch { /* storage full */ } };
+  const run = () => {
+    try {
+      const result = saveSessions(state.sessions);
+      saveActiveSessionId(state.activeId);
+      if (result === 'pruned') notify('Browser storage is tight. Recent research was saved in a reduced form; older sessions or transcript detail may be missing. Export important results.');
+      if (result === 'failed') notify('Research history could not be saved in this browser. Export important results now; this is not a cloud backup.');
+    } catch {
+      notify('Research history could not be saved in this browser. Export important results now; this is not a cloud backup.');
+    }
+  };
   now ? run() : (saveTimer = window.setTimeout(run, 900));
 }
 const patchSession = (id: string, fn: (s: DebateSession) => DebateSession) => { set((st) => ({ sessions: st.sessions.map((s) => (s.id === id ? fn(s) : s)) })); persist(); };

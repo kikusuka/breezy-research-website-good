@@ -1,30 +1,31 @@
-# Authentication: temporary review mode
+# Authentication: temporary review access
 
-## Safe default
+## Current review behavior
 
-Authentication is **required by default**. The existing sign-in implementation remains in place.
+The frontend sign-in gate is **off by default** so reviewers can open the real workspaces without creating an account.
 
-For a **private, temporary review deployment only**, set this Vite build variable to the literal string `false`:
+To restore the frontend sign-in gate, set this Vite build variable to the literal string `true`:
 
 ```dotenv
-VITE_BREEZY_REQUIRE_AUTH=false
+VITE_BREEZY_REQUIRE_AUTH=true
 ```
 
-Unset the variable, or set it to any value other than `false`, to restore the sign-in gate. Rebuild and redeploy after changing the build environment. Do not use the bypass on a public deployment that handles private user data.
+Unset the variable, or set it to any value other than `true`, to keep review access enabled. Vite variables are embedded at build time, so rebuild and redeploy the frontend after changing the setting.
 
-## Safety notes
+## Important security boundary
 
-This flag controls the frontend gate only. It is **not** a security boundary and does not add authentication to API endpoints. Before enabling public user accounts or handling private data, verify server-side authorization, account isolation, provider-secret handling, quotas, and rate limits independently.
+This flag controls the frontend gate only. It does **not** disable authentication on the backend API, and it does not make the backend safe to expose without authorization. Protected API routes continue to require a valid Firebase ID token. As a result, review mode lets a person inspect and navigate the UI, but server-backed chat/research features may still reject unauthenticated API calls. Do not solve that by weakening the production API's token verification.
 
-During review mode, data saved in browser storage is local to that browser profile and is not protected by a Breezy sign-in boundary. Review mode does not provide cross-device history or secure multi-user storage.
+During review mode, data saved in browser storage is local to that browser profile. It is not cross-device history, and an unscoped browser profile is not a secure multi-user account boundary.
 
-## Restoration checklist
+## Before production
 
-- [ ] Unset `VITE_BREEZY_REQUIRE_AUTH` or set it to a value other than `false`.
-- [ ] Rebuild and redeploy the frontend.
-- [ ] Verify signed-out visitors see the sign-in gate.
+- [ ] Set `VITE_BREEZY_REQUIRE_AUTH=true` if sign-in should gate the frontend.
+- [ ] Rebuild and redeploy after changing the Vite variable.
+- [ ] Verify signed-out visitors see the sign-in gate when enabled.
 - [ ] Verify sign-in and sign-out work.
 - [ ] Verify account-scoped data is restored before workspaces mount.
-- [ ] Verify server-side routes independently reject unauthorized access.
+- [ ] Verify server routes reject missing, expired, malformed, and wrong-project tokens.
 - [ ] Verify two accounts cannot read or mutate one another's data.
 - [ ] Verify Google Drive consent remains separate from Breezy account sign-in.
+- [ ] Keep production API authorization enabled regardless of frontend mode.
