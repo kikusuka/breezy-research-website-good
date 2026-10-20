@@ -1,3 +1,4 @@
+import { accountStorage } from './accountStorage';
 /**
  * Storage Quota Manager
  * 
@@ -152,14 +153,14 @@ export async function getRecommendedDeletions(limitMB: number = DEFAULT_QUOTA_LI
  * Save quota limit to localStorage
  */
 export function saveQuotaLimit(limitMB: number): void {
-  localStorage.setItem('synthexis_quota_limit', limitMB.toString());
+  accountStorage.setItem('synthexis_quota_limit', limitMB.toString());
 }
 
 /**
  * Load quota limit from localStorage
  */
 export function loadQuotaLimit(): number {
-  const saved = localStorage.getItem('synthexis_quota_limit');
+  const saved = accountStorage.getItem('synthexis_quota_limit');
   return saved ? parseInt(saved, 10) : DEFAULT_QUOTA_LIMIT_MB;
 }
 
