@@ -19,7 +19,7 @@ export const ProfileWorkspace: React.FC = () => {
     try { const r = await authService.signInWithGoogle(); if (r?.user) save({ displayName: p.displayName || r.user.displayName || '', email: r.user.email || '', photoURL: r.user.photoURL || undefined, authorizationType: 'google_oauth' }); }
     catch (e: any) { setMsg(e?.message || 'Google sign-in failed.'); } finally { setBusy(false); }
   };
-  const reset = () => { if (window.confirm('Erase all Breezy data on this device (keys, history, chat, notes, Canvas)? This cannot be undone.')) { try { localStorage.clear(); sessionStorage.clear(); } catch { /* ignore */ } window.location.hash = '#landing'; window.location.reload(); } };
+  const reset = () => { if (window.confirm('Erase all Breezy data on this device (keys, history, chat, notes, Canvas)? This cannot be undone.')) { try { localStorage.clear(); sessionStorage.clear(); } catch { /* ignore */ } window.location.hash = '#chat'; window.location.reload(); } };
   const pct = quota ? Math.min(100, Math.round((quota.usedMB / quota.limitMB) * 100)) : 0;
   const name = p.displayName.trim();
   return (
