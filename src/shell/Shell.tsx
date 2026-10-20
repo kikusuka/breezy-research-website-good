@@ -2,21 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { BreezyLogo } from '../components/BreezyLogo';
 import { ActiveTab, LAB_NAV, MAIN_NAV, PROFILE_NAV } from '../lib/nav';
-import { userProfileService } from '../services/userProfileService';
+import { userProfileService, UserProfile } from '../services/userProfileService';
 
 declare const __APP_VERSION__: string;
 const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '3.0';
 export const initialsOf = (name: string) => { const v = name.trim(); return v ? v.split(/\s+/).slice(0, 2).map((x) => x[0]?.toUpperCase() || '').join('') : 'B'; };
 
-interface ShellProps { tab: ActiveTab; go: (t: ActiveTab) => void; backendOnline: boolean; endpointName: string; children: React.ReactNode; }
+interface ShellProps { tab: ActiveTab; go: (t: ActiveTab) => void; backendOnline: boolean; endpointName: string; children: React.ReactNode; previewMode?: boolean; }
 
-function useProfile() {
-  const [p, setP] = useState(() => userProfileService.getProfile());
+const EMPTY_PROFILE: UserProfile = { displayName: '', email: '', roleTitle: '', organization: '', authorizationType: 'guest', autoSaveToDrive: false };
+
+function useProfile(previewMode: boolean) {
+  const [p, setP] = useState<UserProfile>(() => previewMode ? EMPTY_PROFILE : userProfileService.getProfile());
   useEffect(() => {
+    if (previewMode) { setP(EMPTY_PROFILE); return; }
     const on = () => setP(userProfileService.getProfile());
+    setP(userProfileService.getProfile());
     window.addEventListener('storage', on); window.addEventListener('breezy:profile-changed', on);
     return () => { window.removeEventListener('storage', on); window.removeEventListener('breezy:profile-changed', on); };
-  }, []);
+  }, [previewMode]);
   return p;
 }
 function Avatar({ name, photo, size = 'w-8 h-8' }: { name: string; photo?: string; size?: string }) {
@@ -27,11 +31,11 @@ function Avatar({ name, photo, size = 'w-8 h-8' }: { name: string; photo?: strin
   );
 }
 
-function Sidebar({ tab, go, isExpanded, mobileOpen, onToggleExpanded, onNavigate }: {
-  tab: ActiveTab; go: (t: ActiveTab) => void; isExpanded: boolean; mobileOpen: boolean;
-  onToggleExpanded: () => void; onNavigate: () => void;
+function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpanded, onNavigate }: {
+  tab: ActiveTab; go: (t: ActiveTab) => void; isExpanded: boolean; mobileOpen: boolean; previewMode: boolean;
+  previewMode: boolean; onToggleExpanded: () => void; onNavigate: () => void;
 }) {
-  const profile = useProfile();
+  const profile = useProfile(previewMode);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const name = profile.displayName.trim() || 'Guest';
   const role = profile.roleTitle.trim() || 'Profile not set up';
@@ -101,7 +105,7 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, onToggleExpanded, onNavigate
   );
 }
 
-export function Shell({ tab, go, children }: ShellProps) {
+export function Shell({ tab, go, children, previewMode = false }: ShellProps) {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -119,7 +123,7 @@ export function Shell({ tab, go, children }: ShellProps) {
   return (
     <div className="h-[100dvh] w-full flex bg-surface text-on-surface overflow-hidden">
       {mobileOpen && <button type="button" aria-label="Close navigation" onClick={closeMobile} className="lg:hidden fixed inset-0 z-[60] bg-black/45 backdrop-blur-[2px]" />}
-      <Sidebar tab={tab} go={go} isExpanded={sidebarExpanded} mobileOpen={mobileOpen} onToggleExpanded={() => setSidebarExpanded((open) => !open)} onNavigate={closeMobile} />
+      <Sidebar tab={tab} go={go} isExpanded={sidebarExpanded} mobileOpen={mobileOpen} previewMode={previewMode} onToggleExpanded={() => setSidebarExpanded((open) => !open)} onNavigate={closeMobile} />
       <div className={`flex-1 min-w-0 flex flex-col transition-[padding-left] duration-200 ease-out ${sidebarExpanded ? 'lg:pl-64' : 'lg:pl-[4.25rem]'}`}>
         <main className="relative flex-1 min-h-0 overflow-y-auto splatter-soft" id="main">
           <button type="button" aria-label="Open navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)} className="lg:hidden fixed z-50 left-3 top-3 w-10 h-10 flex items-center justify-center rounded-xl bg-surface/90 backdrop-blur-md border border-outline-variant/40 text-on-surface-variant shadow-sm hover:bg-surface-container-high transition-colors" title="Open navigation"><Icon name="menu" className="text-[21px]" /></button>
