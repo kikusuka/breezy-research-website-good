@@ -19,13 +19,13 @@ import { GuestWorkspacePreview } from './components/GuestWorkspacePreview';
 import { prepareAccountStorage, setActiveAccountUid } from './services/accountStorage';
 
 /**
- * Temporary review mode: authentication remains implemented, but does not block
- * screen review unless VITE_BREEZY_REQUIRE_AUTH=true is explicitly configured.
+ * Authentication is required by default. For a private UI review deployment only,
+ * set VITE_BREEZY_REQUIRE_AUTH=false to bypass the frontend gate temporarily.
  *
  * This is a UI-access switch, not a security boundary. Do not expose private data
  * or an unrestricted shared backend from a public deployment with auth disabled.
  */
-const AUTH_REQUIRED = import.meta.env.VITE_BREEZY_REQUIRE_AUTH === 'true';
+const AUTH_REQUIRED = import.meta.env.VITE_BREEZY_REQUIRE_AUTH !== 'false';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(parseHash);
