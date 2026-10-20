@@ -207,16 +207,14 @@ export const authService = {
     if (!isFirebaseConfigured) {
       cachedAccessToken = null;
       tokenIssuedAt = 0;
-      sessionStorage.removeItem('synthexis_g_token');
-      sessionStorage.removeItem('synthexis_g_token_time');
+      sessionStorage.clear();
       return;
     }
     try {
       await signOut(auth);
       cachedAccessToken = null;
       tokenIssuedAt = 0;
-      sessionStorage.removeItem('synthexis_g_token');
-      sessionStorage.removeItem('synthexis_g_token_time');
+      sessionStorage.clear();
     } catch (error: any) {
       console.error('Sign-out error:', error);
       throw new Error('Failed to sign out');
