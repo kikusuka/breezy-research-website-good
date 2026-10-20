@@ -36,7 +36,7 @@ export const ProfileWorkspace: React.FC = () => {
   const pct = quota ? Math.min(100, Math.round((quota.usedMB / quota.limitMB) * 100)) : 0;
   const name = p.displayName.trim();
   return (
-    <Page crumb="Profile" title="Profile" subtitle="Optional. Used for the sidebar and for Google and GitHub connections." narrow
+    <Page crumb="Profile" title="Profile" subtitle="Your Breezy account, local profile, and external integrations." narrow
       right={<span className={`flex items-center gap-1 font-code-sm text-code-sm text-tertiary transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`} aria-live="polite"><Icon name="check" className="text-[16px]" />Saved</span>}>
       <Card><div className="flex items-center gap-space-md mb-space-lg"><span className="w-14 h-14 rounded-2xl bg-surface-container-high text-primary font-headline-md text-headline-md flex items-center justify-center overflow-hidden shrink-0 glow-primary">{p.photoURL ? <img src={p.photoURL} alt="" className="w-full h-full object-cover" /> : initialsOf(name)}</span>
         <div className="min-w-0"><div className="font-headline-md text-headline-md truncate">{name || 'Guest'}</div><div className="font-code-sm text-code-sm text-outline truncate">{p.email || 'Not signed in · data stays in this browser'}</div></div></div>
