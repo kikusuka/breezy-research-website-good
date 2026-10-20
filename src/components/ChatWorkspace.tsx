@@ -17,6 +17,8 @@ export const ChatWorkspace: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => { try { const s = accountStorage.getItem(CHAT_STORAGE_KEY); return s ? JSON.parse(s) : []; } catch { return []; } });
   const [storageError, setStorageError] = useState(false);
   const [input, setInput] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null); const [copied, setCopied] = useState<number | null>(null);
+  const [toast, setToast] = useState<string | null>(null); const [exportMenuOpen, setExportMenuOpen] = useState(false); const toastTimer = useRef<number | undefined>(undefined);
+  const showToast = (message: string) => { setToast(message); window.clearTimeout(toastTimer.current); toastTimer.current = window.setTimeout(() => setToast(null), 2600); };
   const ta = useRef<HTMLTextAreaElement>(null); const end = useRef<HTMLDivElement>(null); const ctrl = useRef<AbortController | null>(null);
   const modelState = useModelState();
   const active = modelState.active;
@@ -203,7 +205,7 @@ export const ChatWorkspace: React.FC = () => {
   };
   const send = (text = input) => {
     const t = text.trim(); if (!t || busy) return;
-    if (chatMode === 'provider' && !active) { setError('No usable default chat model is selected. Open Models to connect a provider and explicitly choose a model.'); return; }
+    if (chatMode === 'provider' && !active) { showToast('You don’t have a model connected yet.'); return; }
     if (chatMode === 'puter' && !puterSignedIn) { setError('Connect your Puter account before sending a message.'); return; }
     if (chatMode === 'puter' && !puterModel) { setError('Choose a model from Puter’s live model catalog before sending a message.'); return; }
     setInput(''); const next = [...messages, { role: 'user' as const, content: t }]; setMessages(next); void run(next);
@@ -211,12 +213,25 @@ export const ChatWorkspace: React.FC = () => {
   const regenerate = () => { if (busy) return; const i = messages.map((m) => m.role).lastIndexOf('user'); if (i < 0) return; const next = messages.slice(0, i + 1); setMessages(next); void run(next); };
   const copy = (text: string, i: number) => { void navigator.clipboard.writeText(text).then(() => { setCopied(i); window.setTimeout(() => setCopied(null), 1500); }).catch(() => {}); };
   const clear = () => { if (window.confirm('Clear this conversation from this device?')) { setMessages([]); accountStorage.removeItem(CHAT_STORAGE_KEY); } };
+  const exportChat = (format: 'markdown' | 'text' | 'json') => {
+    const date = new Date().toISOString().slice(0, 10);
+    const body = format === 'json'
+      ? JSON.stringify({ exportedAt: new Date().toISOString(), messages }, null, 2)
+      : format === 'text'
+        ? messages.map((m) => `${m.role === 'user' ? 'You' : 'Breezy'}:\n${m.content}`).join('\\n\\n')
+        : `# Breezy conversation\\n\\nExported: ${date}\\n\\n${messages.map((m) => `## ${m.role === 'user' ? 'You' : 'Breezy'}\\n\\n${m.content}`).join('\\n\\n')}`;
+    const mime = format === 'json' ? 'application/json' : 'text/plain;charset=utf-8';
+    const blob = new Blob([body], { type: mime }); const url = URL.createObjectURL(blob);
+    const link = document.createElement('a'); link.href = url; link.download = `breezy-chat-${date}.${format === 'markdown' ? 'md' : format === 'text' ? 'txt' : 'json'}`;
+    document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url); setExportMenuOpen(false); showToast('Chat export prepared on your device.');
+  };
   const lastIsAssistant = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
 
   return (
     <div className="relative h-full flex flex-col">
+      {toast && <div role="status" aria-live="polite" className="fixed z-[100] bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 max-w-[min(92vw,28rem)] rounded-xl border border-[#37658a] bg-[#10243a]/95 backdrop-blur-md px-4 py-3 text-sm text-[#d7f2ff] shadow-xl">{toast}</div>}
       {storageError && <div role="alert" className="mx-gutter mt-space-sm rounded-xl border border-error/40 bg-error-container/30 px-space-md py-space-sm text-error font-body-sm text-body-sm">This conversation could not be saved to this browser. It may disappear after a refresh. Free up browser storage and copy or export anything important.</div>}
-      {messages.length > 0 && <button type="button" onClick={clear} title="Clear conversation" aria-label="Clear conversation" className="absolute top-3 right-3 lg:right-5 z-10 flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-surface/80 backdrop-blur-md border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors"><Icon name="delete_sweep" className="text-[18px]" /><span className="hidden sm:inline">Clear</span></button>}
+      {messages.length > 0 && <div className="absolute top-3 right-3 lg:right-5 z-20 flex items-center gap-space-xs"><div className="relative"><button type="button" onClick={() => setExportMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={exportMenuOpen} className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-[#14283c]/90 border border-[#2b4c68] text-[#b8eaff] hover:bg-[#1b3852] font-label-md text-label-md transition-colors"><Icon name="download" className="text-[18px]" /><span>Export</span></button>{exportMenuOpen && <><button type="button" aria-label="Close export menu" className="fixed inset-0 z-20 cursor-default" onClick={() => setExportMenuOpen(false)} /><div role="menu" className="absolute right-0 mt-1 w-48 z-30 rounded-xl border border-[#2b4c68] bg-[#101e30] p-1 shadow-xl">{([['Markdown (.md)', 'markdown'], ['Plain text (.txt)', 'text'], ['JSON (.json)', 'json']] as const).map(([label, format]) => <button key={format} type="button" role="menuitem" onClick={() => exportChat(format)} className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-[#d9eaf7] hover:bg-[#1b3852]">{label}</button>)}</div></>}</div><button type="button" onClick={clear} title="Clear conversation" aria-label="Clear conversation" className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-[#14283c]/90 border border-[#2b4c68] text-[#b8cde0] hover:text-white hover:bg-[#1b3852] font-label-md text-label-md transition-colors"><Icon name="delete_sweep" className="text-[18px]" /><span className="hidden sm:inline">Clear</span></button></div>}
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="max-w-3xl mx-auto px-gutter lg:px-space-lg pb-space-lg flex flex-col gap-space-lg min-h-full">
@@ -224,19 +239,6 @@ export const ChatWorkspace: React.FC = () => {
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-space-lg py-space-xl">
               <span className="w-14 h-14 flex items-center justify-center"><BreezyLogo size={34} imageClassName="mix-blend-screen" /></span>
               <div><h2 className="font-headline-lg text-headline-lg">What are we working on?</h2><p className="font-body-md text-body-md text-on-surface-variant mt-1 max-w-md">A direct conversation with your connected model. For sourced, cross-checked answers, use Research.</p></div>
-              {!active && chatMode === 'provider' && <section className="w-full max-w-2xl text-left rounded-2xl border border-outline-variant/40 bg-surface-container-low p-space-md sm:p-space-lg" aria-labelledby="chat-setup-title">
-                <div className="flex items-start gap-space-sm">
-                  <span className="w-9 h-9 rounded-xl bg-surface-container-high flex items-center justify-center text-primary shrink-0"><Icon name="plug" className="text-[20px]" /></span>
-                  <div className="min-w-0 flex-1">
-                    <h3 id="chat-setup-title" className="font-headline-sm text-headline-sm">Connect a model to start chatting</h3>
-                    <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">Breezy does not include a model by default. Add your own provider key and explicitly choose a chat model, or use Puter if you prefer its account-based model access.</p>
-                    <div className="flex flex-wrap gap-space-sm mt-space-md">
-                      <button type="button" onClick={() => { window.location.hash = '#models'; }} className="inline-flex items-center justify-center gap-space-xs min-h-[40px] rounded-xl bg-primary text-on-primary px-space-md font-label-md text-label-md">Configure a model <Icon name="arrow_forward" className="text-[16px]" /></button>
-                      <button type="button" onClick={() => { setChatMode('puter'); accountStorage.setItem('breezy_chat_mode_v1', 'puter'); setPuterModelSearch(''); }} className="inline-flex items-center justify-center gap-space-xs min-h-[40px] rounded-xl bg-surface-container-high text-on-surface px-space-md font-label-md text-label-md">Use Puter.js</button>
-                    </div>
-                  </div>
-                </div>
-              </section>}
               <div className="w-full max-w-2xl text-left">
                 <p className="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-space-xs">Try a starting point</p>
                 <div className="flex gap-space-xs overflow-x-auto pb-1 no-scrollbar">{CHAT_STARTERS.map((st) => (
