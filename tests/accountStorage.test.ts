@@ -37,7 +37,7 @@ describe('account-scoped local storage', () => {
     expect(accountStorage.getItem('breezy_chat_history_v1')).toBe('account B');
   });
 
-  it('clears only the current account namespace', () => {
+  it('clears only the current account namespace', async () => {
     setActiveAccountUid('user-a');
     accountStorage.setItem('breezy_notes_v1', 'A notes');
     setActiveAccountUid('user-b');
