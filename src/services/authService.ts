@@ -279,6 +279,12 @@ export const authService = {
     }
   },
 
+  /** Get a fresh Firebase ID token for authenticated backend requests. */
+  async getIdToken(): Promise<string | null> {
+    if (!isFirebaseConfigured || !auth.currentUser) return null;
+    return auth.currentUser.getIdToken();
+  },
+
   /**
    * Get current user synchronously
    */
