@@ -12,6 +12,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
+  linkWithPopup,
+  reauthenticateWithPopup,
   signInWithPopup,
   signOut,
   onAuthStateChanged
@@ -129,9 +131,7 @@ export const authService = {
       };
     } catch (error: any) {
       console.error('Google sign-in error:', error);
-      throw new Error(error.code === 'auth/popup-closed-by-user' 
-        ? 'Sign-in cancelled' 
-        : 'Failed to sign in with Google');
+      throw error;
     }
   },
 
@@ -176,7 +176,14 @@ export const authService = {
       }
       incrementalProvider.setCustomParameters({ prompt: 'consent' });
 
-      const result = await signInWithPopup(auth, incrementalProvider);
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Sign in to Breezy before connecting Google Workspace.');
+      const googleAlreadyLinked = currentUser.providerData.some((provider: { providerId: string }) => provider.providerId === 'google.com');
+      // Link Google to the existing Breezy account or reauthenticate the existing Google account.
+      // Never call signInWithPopup here: that could silently replace an email/Discord Breezy session.
+      const result = googleAlreadyLinked
+        ? await reauthenticateWithPopup(currentUser, incrementalProvider)
+        : await linkWithPopup(currentUser, incrementalProvider);
       const credential = GoogleAuthProvider.credentialFromResult(result);
       const token = credential?.accessToken || null;
       if (token) {
