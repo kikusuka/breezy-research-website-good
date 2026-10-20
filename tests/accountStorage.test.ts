@@ -43,7 +43,7 @@ describe('account-scoped local storage', () => {
     setActiveAccountUid('user-b');
     accountStorage.setItem('breezy_notes_v1', 'B notes');
 
-    clearCurrentAccountStorage();
+    await clearCurrentAccountStorage();
     expect(accountStorage.getItem('breezy_notes_v1')).toBeNull();
 
     setActiveAccountUid('user-a');
