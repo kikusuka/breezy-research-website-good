@@ -12,11 +12,38 @@ import { DocsWorkspace } from './components/DocsWorkspace';
 import { SettingsWorkspace } from './components/SettingsWorkspace';
 import { ProfileWorkspace } from './components/ProfileWorkspace';
 import { apiClient } from './services/apiClient';
+import { authService, AuthUser } from './services/authService';
+import { AuthView } from './components/AuthView';
+import { userProfileService } from './services/userProfileService';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(parseHash);
   const [backendOnline, setBackendOnline] = useState<boolean>(true);
   const [endpointName, setEndpointName] = useState<string>('Breezy Backend');
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authOpen, setAuthOpen] = useState(false);
+
+  // Keep the product gate in sync with the real Firebase session.
+  useEffect(() => authService.onAuthChange((user) => {
+    setAuthUser(user);
+    setAuthLoading(false);
+    if (user) {
+      const providerId = user.providerId || '';
+      const authorizationType = providerId === 'google.com' ? 'google_oauth'
+        : providerId === 'github.com' ? 'github_oauth'
+        : providerId === 'oidc.discord' ? 'discord_oauth'
+        : 'email_password';
+      userProfileService.saveProfile({
+        displayName: user.displayName || user.email?.split('@')[0] || 'Breezy user',
+        email: user.email || '',
+        photoURL: user.photoURL || undefined,
+        authorizationType,
+      });
+      window.dispatchEvent(new Event('breezy:profile-changed'));
+      setAuthOpen(false);
+    }
+  }), []);
 
   // Sync hash routing
   useEffect(() => {
