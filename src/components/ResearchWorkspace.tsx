@@ -1,3 +1,4 @@
+import { accountStorage } from '../services/accountStorage';
 import React, { useEffect, useRef, useState } from 'react';
 import type { Attachment, DebateSession } from '../types';
 import { Icon } from '../shell/Icon';
@@ -48,7 +49,7 @@ function Results({ s, running, events, plan, warnings }: { s: DebateSession; run
   const act = [
     ['content_copy', 'Copy', () => { void navigator.clipboard.writeText(s.finalOutput || '').then(() => researchStore.notify('Copied.')).catch(() => researchStore.notify('Copy failed.')); }],
     ['download', 'Export', () => exportSynthexisAsMarkdown(s as any)],
-    ['draw', 'Pin to Canvas', () => { try { const ex = JSON.parse(localStorage.getItem(CANVAS_KEY) || '[]'); localStorage.setItem(CANVAS_KEY, JSON.stringify([{ id: `pin-${s.id}-${Date.now()}`, type: 'research', title: s.prompt.slice(0, 120), content: (s.finalOutput || '').slice(0, 1500), tags: ['Research', s.protocol], sourceSessionId: s.id, createdAt: Date.now() }, ...ex])); researchStore.notify('Pinned to Canvas.'); } catch { researchStore.notify('Could not pin.'); } }],
+    ['draw', 'Pin to Canvas', () => { try { const ex = JSON.parse(accountStorage.getItem(CANVAS_KEY) || '[]'); accountStorage.setItem(CANVAS_KEY, JSON.stringify([{ id: `pin-${s.id}-${Date.now()}`, type: 'research', title: s.prompt.slice(0, 120), content: (s.finalOutput || '').slice(0, 1500), tags: ['Research', s.protocol], sourceSessionId: s.id, createdAt: Date.now() }, ...ex])); researchStore.notify('Pinned to Canvas.'); } catch { researchStore.notify('Could not pin.'); } }],
     ['description', 'Google Docs', () => void researchStore.saveToGoogleDocs(s.id)],
     ['replay', 'Run again', () => void researchStore.start(s.prompt, researchStore.get().draft.depth)],
   ] as const;
