@@ -19,6 +19,7 @@ export interface CanvasCard {
 const STORAGE_KEY = 'breezy_canvas_cards_v1';
 
 export const CanvasWorkspace: React.FC = () => {
+  const [storageError, setStorageError] = useState(false);
   const [cards, setCards] = useState<CanvasCard[]>(() => {
     try {
       const saved = accountStorage.getItem(STORAGE_KEY);
@@ -43,7 +44,10 @@ export const CanvasWorkspace: React.FC = () => {
   useEffect(() => {
     try {
       accountStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
-    } catch {}
+      setStorageError(false);
+    } catch {
+      setStorageError(true);
+    }
   }, [cards]);
 
   useEffect(() => {
@@ -180,6 +184,7 @@ export const CanvasWorkspace: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-surface text-on-surface overflow-hidden">
+      {storageError && <div role="alert" className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-[min(92vw,36rem)] rounded-xl border border-error/40 bg-error-container px-space-md py-space-sm text-error font-body-sm text-body-sm shadow-lg">Canvas changes could not be saved to this browser. Export important work before leaving this page.</div>}
       {/* Top Controls Bar */}
       <div className="h-14 bg-surface-container-low border-b border-outline-variant/30 px-4 flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-2">
