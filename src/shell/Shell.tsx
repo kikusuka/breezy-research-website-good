@@ -50,9 +50,9 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpande
     return (
       <a key={n.id} href={`#${n.id}`} onClick={(e) => { e.preventDefault(); go(n.id); setProfileMenuOpen(false); onNavigate(); }} aria-current={active ? 'page' : undefined}
         title={!isExpanded ? n.label : undefined}
-        className={`relative flex items-center gap-space-md px-space-md py-[10px] rounded-xl transition-colors duration-150 ${isExpanded ? 'w-full' : 'w-11 justify-center'} ${active ? 'bg-surface-container-high text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'}`}>
+        className={`relative flex items-center gap-space-md px-space-md py-[9px] rounded-lg transition-colors duration-150 ${isExpanded ? 'w-full' : 'w-11 justify-center'} ${active ? 'bg-surface-container-high/75 text-primary' : 'text-on-surface-variant hover:bg-surface-container/70 hover:text-on-surface'}`}>
         {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-circle bg-primary" />}
-        <Icon name={n.icon} className="text-[20px] shrink-0" />
+        <Icon name={n.icon} className="text-[19px] shrink-0" />
         {isExpanded && <span className="font-body-md text-body-md truncate">{n.label}</span>}
       </a>
     );
@@ -67,7 +67,7 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpande
   );
 
   return (
-    <aside className={`fixed inset-y-0 left-0 z-[70] flex flex-col justify-between bg-surface/90 backdrop-blur-xl border-r border-outline-variant/30 transition-[width,transform] duration-200 ease-out ${isExpanded ? 'w-64' : 'w-[4.25rem]'} ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+    <aside className={`fixed inset-y-0 left-0 z-[70] flex flex-col justify-between bg-surface/95 backdrop-blur-md border-r border-outline-variant/25 transition-[width,transform] duration-200 ease-out ${isExpanded ? 'w-64' : 'w-[4.25rem]'} ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       <div className="flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
         <div className={`relative flex items-center h-16 shrink-0 px-2 gap-1 ${isExpanded ? 'lg:px-space-md lg:gap-space-sm' : 'justify-between lg:justify-center'}`}>
           <button type="button" onClick={() => { go('chat'); onNavigate(); }} aria-label="Go to chat" title="Go to chat" className="w-8 h-8 shrink-0 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-colors">
@@ -122,7 +122,7 @@ export function Shell({ tab, go, children, previewMode = false }: ShellProps) {
       <Sidebar tab={tab} go={go} isExpanded={sidebarExpanded} mobileOpen={mobileOpen} previewMode={previewMode} onToggleExpanded={() => setSidebarExpanded((open) => !open)} onNavigate={closeMobile} />
       <div className={`flex-1 min-w-0 flex flex-col transition-[padding-left] duration-200 ease-out ${sidebarExpanded ? 'lg:pl-64' : 'lg:pl-[4.25rem]'}`}>
         <main className="relative flex-1 min-h-0 overflow-y-auto splatter-soft pt-14 lg:pt-0" id="main">
-          <button type="button" aria-label="Open navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)} className="lg:hidden fixed z-50 left-3 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-[#101827] border border-[#31435b] text-on-surface shadow-lg shadow-black/30 hover:bg-[#172338] transition-colors" title="Open navigation"><Icon name="menu" className="text-[21px]" /></button>
+          <button type="button" aria-label="Open navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)} className="lg:hidden fixed z-50 left-3 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low border border-outline-variant/50 text-on-surface shadow-lg shadow-black/20 hover:bg-surface-container-high transition-colors" title="Open navigation"><Icon name="menu" className="text-[21px]" /></button>
           {children}
         </main>
       </div>
