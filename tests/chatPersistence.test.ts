@@ -4,7 +4,7 @@ import { handleChatPersistenceRequest } from '../src/server-core/chatPersistence
 describe('chat persistence', () => {
   it('reports that durable storage is unavailable when no D1 binding exists', async () => {
     const request = new Request('https://example.test/api/chat/conversations', { method: 'GET' });
-    const response = await handleChatPersistenceRequest(request, {}, 'owner');
+    const response = await handleChatPersistenceRequest(request, {}, 'owner', (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } }));
 
     expect(response?.status).toBe(503);
     const body = await response?.json();
@@ -13,6 +13,6 @@ describe('chat persistence', () => {
 
   it('ignores paths outside the chat persistence API', async () => {
     const request = new Request('https://example.test/api/debate/stream', { method: 'POST' });
-    await expect(handleChatPersistenceRequest(request, {}, 'owner')).resolves.toBeNull();
+    await expect(handleChatPersistenceRequest(request, {}, 'owner', (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } }))).resolves.toBeNull();
   });
 });
