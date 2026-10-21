@@ -152,6 +152,7 @@ export async function handleBackendRequest(
       defaultModel: hasServerGemini ? 'gemini-2.5-flash' : '',
       providers: configuredProviders,
       supportedProviders: ['gemini', 'anthropic', 'groq', 'sambanova', 'openrouter', 'ollama', 'openai-compatible'],
+      chatPersistenceConfigured: Boolean(env.DB),
       timestamp: Date.now(),
     };
     return createJsonResponse(healthData, 200, req, env);
