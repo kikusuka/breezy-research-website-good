@@ -81,5 +81,6 @@ export interface HealthResponse {
   defaultModel: string;
   providers: string[];
   supportedProviders?: string[];
+  chatPersistenceConfigured?: boolean;
   timestamp: number;
 }
