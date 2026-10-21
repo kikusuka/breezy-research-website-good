@@ -41,11 +41,11 @@
 .splatter-soft {
   background-color: #0c1424;
   background-image:
-    radial-gradient(ellipse at 48% 0%, rgba(38, 101, 163, .30) 0%, transparent 56%),
-    radial-gradient(ellipse at 100% 38%, rgba(0, 190, 225, .18) 0%, transparent 44%);
+    radial-gradient(ellipse at 48% 0%, rgba(38, 101, 163, .18) 0%, transparent 58%),
+    radial-gradient(ellipse at 100% 38%, rgba(0, 190, 225, .08) 0%, transparent 46%);
   background-attachment: fixed;
 }
-.coat { background-image: linear-gradient(145deg, rgba(54,145,205,.13), rgba(18,46,72,.04) 48%, rgba(255,255,255,0) 80%); box-shadow: inset 0 1px 0 rgba(125,215,255,.09), 0 8px 24px -12px rgba(0,0,0,.62); }
+.coat { background-image: linear-gradient(145deg, rgba(54,145,205,.08), rgba(18,46,72,.025) 48%, rgba(255,255,255,0) 80%); box-shadow: inset 0 1px 0 rgba(125,215,255,.06), 0 8px 24px -12px rgba(0,0,0,.5); }
 .hairline { box-shadow: inset 0 0 0 1px rgba(65,133,175,.48); }
 .glow-primary { box-shadow: 0 0 0 1px rgba(76,214,251,.35), 0 8px 28px -8px rgba(0,180,216,.45); }
 .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { scrollbar-width: none; }
