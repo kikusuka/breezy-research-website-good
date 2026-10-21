@@ -122,10 +122,13 @@ export async function handleChatPersistenceRequest(
 
     const messageId = crypto.randomUUID();
     const runId = crypto.randomUUID();
+    // Allocate the sequence atomically. A MAX(sequence_no) read followed by a later
+    // insert can collide when two tabs send messages at the same time.
     const sequence = await db.prepare(
-      'SELECT COALESCE(MAX(sequence_no), -1) + 1 AS next_sequence FROM chat_messages WHERE conversation_id = ? AND owner_uid = ?'
-    ).bind(conversationId, ownerUid).first<{ next_sequence: number }>();
-    const sequenceNo = Number(sequence?.next_sequence ?? 0);
+      'UPDATE conversations SET next_sequence = next_sequence + 1 WHERE id = ? AND owner_uid = ? RETURNING next_sequence - 1 AS sequence_no'
+    ).bind(conversationId, ownerUid).first<{ sequence_no: number }>();
+    if (!sequence) return jsonError(respond, req, env, 404, 'CONVERSATION_NOT_FOUND', 'This conversation does not exist or is not available to this account.');
+    const sequenceNo = Number(sequence.sequence_no);
     const provider = typeof body.provider === 'string' ? body.provider.slice(0, 64) : null;
     const model = typeof body.model === 'string' ? body.model.slice(0, 200) : null;
 
@@ -224,9 +227,10 @@ export async function handleChatPersistenceRequest(
     const output = partialOutput || run.partial_output || '';
     const assistantId = terminal && output ? crypto.randomUUID() : null;
     const seq = assistantId ? await db.prepare(
-      'SELECT COALESCE(MAX(sequence_no), -1) + 1 AS next_sequence FROM chat_messages WHERE conversation_id = ? AND owner_uid = ?'
-    ).bind(run.conversation_id, ownerUid).first<{ next_sequence: number }>() : null;
-    const sequenceNo = Number(seq?.next_sequence ?? 0);
+      'UPDATE conversations SET next_sequence = next_sequence + 1 WHERE id = ? AND owner_uid = ? RETURNING next_sequence - 1 AS sequence_no'
+    ).bind(run.conversation_id, ownerUid).first<{ sequence_no: number }>() : null;
+    if (assistantId && !seq) return jsonError(respond, req, env, 404, 'CONVERSATION_NOT_FOUND', 'This conversation does not exist or is not available to this account.');
+    const sequenceNo = Number(seq?.sequence_no ?? 0);
     const statements = [];
     if (assistantId) {
       statements.push(db.prepare(
