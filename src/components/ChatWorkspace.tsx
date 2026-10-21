@@ -237,14 +237,14 @@ export const ChatWorkspace: React.FC = () => {
         <div className="max-w-3xl mx-auto px-gutter lg:px-space-lg pb-space-lg flex flex-col gap-space-lg min-h-full">
           {messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-space-lg py-space-xl">
-              <span className="w-14 h-14 flex items-center justify-center"><BreezyLogo size={34} imageClassName="mix-blend-screen" /></span>
+              <span className="w-20 h-20 flex items-center justify-center"><BreezyLogo size={56} imageClassName="mix-blend-screen" /></span>
               <div><h2 className="font-headline-lg text-headline-lg">What are we working on?</h2><p className="font-body-md text-body-md text-on-surface-variant mt-1 max-w-md">A direct conversation with your connected model. For sourced, cross-checked answers, use Research.</p></div>
               <div className="w-full max-w-xl text-left">
                 <p className="font-label-sm text-label-sm text-on-surface-variant mb-2">Start with a prompt</p>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div className="flex flex-col items-stretch gap-1">
                   {CHAT_STARTERS.map((st) => (
-                    <button key={st.id} type="button" onClick={() => { setInput(st.prompt); ta.current?.focus(); }} className="inline-flex items-center gap-1.5 py-1 text-left text-sm text-on-surface-variant hover:text-[#8fe4ff] transition-colors">
-                      <Icon name={st.icon} className="text-[15px] text-[#71d9f8] shrink-0" /><span>{st.title}</span>
+                    <button key={st.id} type="button" onClick={() => { setInput(st.prompt); ta.current?.focus(); }} className="group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-on-surface-variant hover:bg-surface-container-high hover:text-[#a5eaff] transition-colors">
+                      <Icon name={st.icon} className="text-[16px] text-[#71d9f8] shrink-0" /><span className="flex-1">{st.title}</span><Icon name="arrow_up_left" className="text-[15px] text-outline opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
                   ))}
                 </div>
@@ -283,7 +283,6 @@ export const ChatWorkspace: React.FC = () => {
         <div className="max-w-3xl mx-auto flex flex-col gap-space-xs">
           <div className="relative flex items-center justify-between gap-space-sm" ref={modelMenuRef}>
             <button type="button" aria-haspopup="menu" aria-expanded={modelMenuOpen} aria-label="Choose chat model" onClick={() => setModelMenuOpen((open) => !open)} className="min-w-0 max-w-[min(18rem,68vw)] sm:max-w-full inline-flex items-center gap-space-sm rounded-full px-space-md py-space-sm bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-on-surface transition-colors">
-              <Icon name={chatMode === 'puter' ? 'cloud' : 'hub'} className="text-[17px] text-primary shrink-0" />
               <span className="min-w-0 text-left flex flex-col leading-tight"><span className="text-[11px] leading-4 sm:font-label-md sm:text-label-md truncate">{chatMode === 'puter' ? 'Puter.js' : active ? active.model : 'Choose a model'}</span><span className="text-[9px] leading-3 sm:font-code-sm sm:text-code-sm text-on-surface-variant truncate">{chatMode === 'puter' ? (puterSignedIn ? (puterModel || 'Select a model') : 'Account not connected') : active ? providerLabel(active.provider) : (selectableModels.length ? 'Select a connected model' : 'No connected models')}</span></span>
               <Icon name={modelMenuOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_up'} className="text-[18px] text-on-surface-variant shrink-0" />
             </button>
