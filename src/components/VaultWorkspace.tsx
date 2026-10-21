@@ -89,7 +89,6 @@ export const VaultWorkspace: React.FC = () => {
 
   const defaultModels = AVAILABLE_MODELS[config.defaultProvider] || [];
   const statusProvider = active?.provider || config.defaultProvider;
-  const statusFallback = PROVIDERS.find((p) => p.id === statusProvider)?.icon || 'hub';
   const activeStatusLabel = active
     ? `${providerLabel(active.provider)} · ${active.model}`
     : config.defaultProvider && config.defaultModel
@@ -103,7 +102,7 @@ export const VaultWorkspace: React.FC = () => {
           <h1 className="font-headline-xl-mobile lg:font-headline-xl text-headline-xl-mobile lg:text-headline-xl tracking-tight mt-1">Models &amp; keys</h1>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1 max-w-xl">Connect your own providers and decide which model sits in each seat. Nothing is assumed: an empty seat stays empty.</p></div>
         <div className="flex items-center gap-space-sm self-start md:self-auto">
-          <span aria-live="polite" className={`flex min-w-0 max-w-[min(65vw,24rem)] items-center gap-space-sm px-space-md py-space-xs rounded-full bg-surface-container-high font-label-md text-label-md ${active ? 'text-tertiary' : 'text-on-surface-variant'}`}><ProviderBrandIcon provider={statusProvider} fallback={statusFallback} /><span className="min-w-0 truncate">{activeStatusLabel}</span></span>
+          <span aria-live="polite" className={`flex min-w-0 max-w-[min(65vw,24rem)] items-center gap-space-sm px-space-md py-space-xs rounded-full bg-surface-container-high font-label-md text-label-md ${active ? 'text-tertiary' : 'text-on-surface-variant'}`}><span className="min-w-0 truncate">{activeStatusLabel}</span></span>
           <span className={`font-code-sm text-code-sm text-tertiary transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`} aria-live="polite">Saved</span>
         </div>
       </div>
