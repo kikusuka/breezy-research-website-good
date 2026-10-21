@@ -40,7 +40,7 @@ This is an instruction example, not a valid production config until the placehol
 
 ## 4. Configure production origin and authentication
 
-- Set `ALLOWED_ORIGINS` to the exact production frontend origin(s), comma-separated, with scheme and port where applicable. Do not assume the committed localhost origins are valid for production.
+- The committed `wrangler.jsonc` currently lists only localhost origins. Before a production deploy, replace that value with the exact production frontend origin(s), comma-separated, including the scheme and any non-default port. Do not rely on a dashboard-only override while the Wrangler config still declares a conflicting value.
 - Confirm `FIREBASE_PROJECT_ID` matches the Firebase project used by the deployed website. The Worker verifies Firebase ID tokens server-side.
 - Configure only the provider secrets actually needed by the backend using Wrangler secrets. Never commit API keys or ID tokens.
 - Confirm the production frontend's Firebase authorized domains and OAuth redirect setup before testing authenticated routes.
@@ -57,7 +57,7 @@ npm run build
 npx wrangler deploy --dry-run
 ```
 
-Then, after the database binding and production origins are configured:
+Then, after the real D1 binding has been added to `wrangler.jsonc` and the production origin list has replaced the localhost-only value:
 
 ```sh
 npx wrangler deploy
