@@ -10,7 +10,6 @@ import {
   languageOf,
   isRunnable,
   getGitHubToken,
-  setGitHubToken,
   TreeEntry,
   OpenFile,
   RunResult,
@@ -22,8 +21,7 @@ type TabView = 'files' | 'editor' | 'output' | 'agent';
 
 export const BuildWorkspace: React.FC = () => {
   // Authentication & Repository State
-  const [token, setToken] = useState<string>(getGitHubToken());
-  const [tokenInput, setTokenInput] = useState<string>(getGitHubToken());
+  const [token] = useState<string>(getGitHubToken());
   const [repoInput, setRepoInput] = useState<string>(() => { try { return accountStorage.getItem('breezy:ide:last-repo') || ''; } catch { return ''; } });
   const [connectedRepo, setConnectedRepo] = useState<string | null>(null);
   const [defaultBranch, setDefaultBranch] = useState<string>('main');
@@ -68,15 +66,9 @@ export const BuildWorkspace: React.FC = () => {
     setDirtyTick((t) => t + 1);
   };
 
-  const handleSaveToken = () => {
-    const trimmed = tokenInput.trim();
-    setGitHubToken(trimmed);
-    setToken(trimmed);
-  };
-
   const loadRepository = async (repoName: string) => {
     if (!token) {
-      setTreeError('Please enter a GitHub Personal Access Token first.');
+      setTreeError('Add a GitHub token in Profile before loading a repository.');
       return;
     }
     setTreeLoading(true);
@@ -419,33 +411,31 @@ export const BuildWorkspace: React.FC = () => {
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <input
-                type="password"
-                value={tokenInput}
-                onChange={(e) => setTokenInput(e.target.value)}
-                placeholder="GitHub PAT (repo scope)"
-                className="w-full bg-surface-container-low border border-outline-variant/30 rounded px-2.5 py-1 text-xs text-on-surface placeholder-outline focus:outline-none focus:border-primary"
-              />
-              <div className="flex gap-1.5">
-                <input
-                  type="text"
-                  value={repoInput}
-                  onChange={(e) => setRepoInput(e.target.value)}
-                  placeholder="owner/repo"
-                  className="flex-1 min-w-0 bg-surface-container-low border border-outline-variant/30 rounded px-2.5 py-1 text-xs text-on-surface placeholder-outline focus:outline-none focus:border-primary"
-                />
-                <button
-                  onClick={() => {
-                    handleSaveToken();
-                    loadRepository(repoInput.trim());
-                  }}
-                  disabled={treeLoading || !repoInput.trim()}
-                  className="shrink-0 px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-xs font-semibold text-primary border border-outline-variant/40 disabled:opacity-40"
-                >
-                  {treeLoading ? '...' : 'Load'}
-                </button>
+            {!token && (
+              <div className="rounded-lg bg-surface-container-low px-2.5 py-2">
+                <p className="text-xs leading-relaxed text-on-surface-variant">Connect your GitHub token once in Profile. Build uses that saved connection.</p>
+                <a href="#profile" onClick={() => setDrawerOpen(false)} className="mt-1 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-[#8fe4ff] hover:text-white transition-colors">
+                  Manage GitHub connection <span aria-hidden="true">→</span>
+                </a>
               </div>
+            )}
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={repoInput}
+                onChange={(e) => setRepoInput(e.target.value)}
+                placeholder="owner/repo"
+                aria-label="GitHub repository in owner/repo format"
+                className="flex-1 min-w-0 bg-surface-container-low border border-outline-variant/30 rounded px-2.5 py-1 text-xs text-on-surface placeholder-outline focus:outline-none focus:border-primary"
+              />
+              <button
+                type="button"
+                onClick={() => void loadRepository(repoInput.trim())}
+                disabled={treeLoading || !repoInput.trim() || !token}
+                className="shrink-0 px-2.5 py-1 rounded bg-surface-container-high hover:bg-surface-container-highest text-xs font-semibold text-primary border border-outline-variant/40 disabled:opacity-40"
+              >
+                {treeLoading ? '...' : 'Load'}
+              </button>
             </div>
 
             {treeError && <p className="text-[11px] text-error leading-snug">{treeError}</p>}
