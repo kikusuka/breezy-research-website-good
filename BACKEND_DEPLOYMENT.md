@@ -18,9 +18,10 @@ After confirming the database name and account:
 
 ```sh
 npx wrangler d1 execute breezy-chat-prod --remote --file=migrations/0001_chat_persistence.sql
+npx wrangler d1 execute breezy-chat-prod --remote --file=migrations/0002_conversation_sequence_allocator.sql
 ```
 
-Check the command output and verify the tables exist before deploying the Worker. Do not run a local-only migration and assume production is updated.
+Run the migrations in order, check both command outputs, and verify the tables and `conversations.next_sequence` column exist before deploying the Worker. Do not run a local-only migration and assume production is updated.
 
 ## 3. Add the real D1 binding
 
