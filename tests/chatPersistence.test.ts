@@ -47,3 +47,40 @@ describe('chat persistence', () => {
     expect(prepared[0].values).toEqual(['owner', 123, 123, 'conv_z', 1]);
     expect(body.nextCursor).toEqual({ before: 123, beforeId: 'conv_b' });
   });
+
+it('allocates the next message sequence through an atomic database update', async () => {
+  const prepared: Array<{ sql: string; values: unknown[] }> = [];
+  const db = {
+    prepare(sql: string) {
+      const statement: any = {
+        values: [] as unknown[],
+        bind(...values: unknown[]) {
+          this.values = values;
+          prepared.push({ sql, values });
+          return this;
+        },
+        async first() {
+          if (sql.includes('SELECT id, title FROM conversations')) return { id: 'conv_1', title: 'New chat' };
+          if (sql.includes('SELECT id, conversation_id, initiating_message_id, status, created_at, updated_at, partial_output FROM chat_runs')) return null;
+          if (sql.includes('RETURNING next_sequence - 1 AS sequence_no')) return { sequence_no: 5 };
+          return null;
+        },
+        async all() { return { results: [] }; },
+        async run() { return { success: true, meta: { changes: 1 } }; },
+      };
+      return statement;
+    },
+    async batch() { return []; },
+  };
+  const request = new Request('https://example.test/api/chat/conversations/conv_1/runs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: 'Hello', idempotencyKey: 'request-1' }),
+  });
+  const response = await handleChatPersistenceRequest(request, { DB: db as any }, 'owner', (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } }));
+  const body = await response?.json();
+
+  expect(response?.status).toBe(201);
+  expect(prepared.some((entry) => entry.sql.includes('UPDATE conversations SET next_sequence = next_sequence + 1') && entry.sql.includes('RETURNING next_sequence - 1 AS sequence_no'))).toBe(true);
+  expect(body.message.sequence_no).toBe(5);
+});
