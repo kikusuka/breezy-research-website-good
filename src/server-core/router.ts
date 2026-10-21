@@ -175,8 +175,16 @@ export async function handleBackendRequest(
 
   if (path.startsWith('/api/chat/')) {
     if (!authenticatedUid) return createJsonResponse({ error: 'Sign in to Breezy before using chat history.' }, 401, req, env);
-    const persistenceResponse = await handleChatPersistenceRequest(req, env, authenticatedUid);
-    if (persistenceResponse) return persistenceResponse;
+    try {
+      const persistenceResponse = await handleChatPersistenceRequest(req, env, authenticatedUid);
+      if (persistenceResponse) return persistenceResponse;
+    } catch {
+      return createJsonResponse({
+        ok: false,
+        code: 'CHAT_STORAGE_ERROR',
+        error: 'Chat history could not be saved or loaded. Please retry.',
+      }, 500, req, env);
+    }
   }
 
   // Helper for SSRF safety check on external webhook URLs
