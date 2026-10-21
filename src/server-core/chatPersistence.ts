@@ -8,7 +8,7 @@ import type { BackendEnv, D1DatabaseBinding } from './types';
 import { createJsonResponse } from './router';
 
 const MAX_TITLE = 300;
-const MAX_PROMPT = 200_000;
+const MAX_PROMPT = 20_000;
 const MAX_OUTPUT = 2_000_000;
 const MAX_PAGE_SIZE = 100;
 const TERMINAL = new Set(['completed', 'interrupted', 'failed', 'cancelled']);
