@@ -267,23 +267,19 @@ export const ChatWorkspace: React.FC = () => {
         </div>
       </div>
 
-      <div className="shrink-0 px-gutter lg:px-space-lg pb-space-md pt-space-xs">
+      <div className="shrink-0 px-gutter lg:px-space-lg pb-safe pb-space-md pt-space-sm">
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-end gap-space-sm bg-surface-container rounded-[1.75rem] coat hairline p-space-sm pl-space-lg focus-within:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5),0_0_0_4px_rgba(76,214,251,0.08)] transition-shadow">
-            <textarea ref={ta} rows={1} value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" placeholder={chatMode === 'puter' ? (!puterSignedIn ? 'Connect Puter below' : puterModel ? 'Message using Puter.js…' : 'Choose a Puter model below') : active ? 'Message Breezy…' : 'Select a model in Models'}
+          <div className="rounded-[1.5rem] border border-outline-variant/40 bg-surface-container-low/95 coat p-2 transition-colors focus-within:border-primary/60">
+          <div className="flex items-end gap-space-sm rounded-[1.1rem] bg-surface-container/70 px-space-sm pt-space-sm">
+            <textarea ref={ta} rows={1} value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" placeholder={chatMode === 'puter' ? (!puterSignedIn ? 'Connect Puter from the model menu…' : puterModel ? 'Message Breezy…' : 'Choose a Puter model from the menu…') : active ? 'Message Breezy…' : 'Choose a model from the menu'}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
               className="flex-1 min-w-0 bg-transparent resize-none py-[10px] text-[14px] leading-6 sm:text-[15px] font-body-lg placeholder:text-on-surface-variant/90 placeholder:text-[13px] sm:placeholder:text-[14px] focus:outline-none max-h-[180px]" />
-            {busy ? <button type="button" aria-label="Stop" onClick={() => ctrl.current?.abort()} className="w-11 h-11 shrink-0 rounded-full bg-surface-container-highest text-on-surface flex items-center justify-center hover:bg-outline-variant transition-colors"><Icon name="stop" className="text-[22px]" fill /></button>
-              : <button type="button" aria-label="Send" onClick={() => send()} disabled={!input.trim()} className="w-11 h-11 shrink-0 rounded-full bg-primary text-on-primary flex items-center justify-center glow-primary hover:bg-primary-fixed transition-all disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed"><Icon name="arrow_upward" className="text-[22px]" /></button>}
+            {busy ? <button type="button" aria-label="Stop" onClick={() => ctrl.current?.abort()} className="w-10 h-10 shrink-0 rounded-xl bg-surface-container-highest text-on-surface flex items-center justify-center hover:bg-outline-variant transition-colors"><Icon name="stop" className="text-[22px]" fill /></button>
+              : <button type="button" aria-label="Send" onClick={() => send()} disabled={!input.trim()} className="w-10 h-10 shrink-0 rounded-xl bg-primary text-on-primary flex items-center justify-center hover:bg-primary-fixed transition-colors disabled:opacity-30 disabled:cursor-not-allowed"><Icon name="arrow_upward" className="text-[22px]" /></button>}
           </div>
-        </div>
-      </div>
-
-      <div className="shrink-0 px-gutter lg:px-space-lg pb-safe pb-space-md pt-space-xs">
-        <div className="max-w-3xl mx-auto flex flex-col gap-space-xs">
-          <div className="relative flex items-center justify-between gap-space-sm" ref={modelMenuRef}>
-            <button type="button" aria-haspopup="menu" aria-expanded={modelMenuOpen} aria-label="Choose chat model" onClick={() => setModelMenuOpen((open) => !open)} className="min-w-0 max-w-[min(18rem,68vw)] sm:max-w-full inline-flex items-center gap-space-sm rounded-full px-space-md py-space-sm bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 text-on-surface transition-colors">
-              <span className="min-w-0 text-left flex flex-col leading-tight"><span className="text-[11px] leading-4 sm:font-label-md sm:text-label-md truncate">{chatMode === 'puter' ? 'Puter.js' : active ? active.model : 'Choose a model'}</span><span className="text-[9px] leading-3 sm:font-code-sm sm:text-code-sm text-on-surface-variant truncate">{chatMode === 'puter' ? (puterSignedIn ? (puterModel || 'Select a model') : 'Account not connected') : active ? providerLabel(active.provider) : (selectableModels.length ? 'Select a connected model' : 'No connected models')}</span></span>
+          <div className="relative mt-2 flex items-center justify-between gap-space-sm px-1" ref={modelMenuRef}>
+            <button type="button" aria-haspopup="menu" aria-expanded={modelMenuOpen} aria-label="Choose chat model" onClick={() => setModelMenuOpen((open) => !open)} className="min-w-0 max-w-[min(18rem,68vw)] sm:max-w-full inline-flex items-center gap-space-sm rounded-xl px-space-sm py-space-xs bg-surface-container hover:bg-surface-container-high border border-outline-variant/30 text-on-surface transition-colors">
+              <span className="min-w-0 text-left flex flex-col leading-tight"><span className="text-[12px] leading-4 sm:font-label-md sm:text-label-md truncate">{chatMode === 'puter' ? 'Puter.js' : active ? active.model : 'Choose a model'}</span><span className="text-[10px] leading-4 sm:font-code-sm sm:text-code-sm text-on-surface-variant truncate">{chatMode === 'puter' ? (puterSignedIn ? (puterModel || 'Select a model') : 'Account not connected') : active ? providerLabel(active.provider) : (selectableModels.length ? 'Select a connected model' : 'No connected models')}</span></span>
               <Icon name={modelMenuOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_up'} className="text-[18px] text-on-surface-variant shrink-0" />
             </button>
             <span className="hidden sm:inline font-code-sm text-code-sm text-outline-variant">Shift + Return for a new line</span>
@@ -308,7 +304,8 @@ export const ChatWorkspace: React.FC = () => {
               </>}
             </div>}
           </div>
-          {puterError && chatMode === 'puter' && <p role="alert" className="text-error font-body-sm text-body-sm">{puterError}</p>}
+          </div>
+          {puterError && chatMode === 'puter' && <p role="alert" className="mt-space-xs text-error font-body-sm text-body-sm">{puterError}</p>}
           <p className="font-code-sm text-code-sm text-outline-variant">Replies are not checked against sources.</p>
         </div>
       </div>
