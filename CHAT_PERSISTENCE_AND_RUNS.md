@@ -60,3 +60,17 @@ A model API stream usually cannot be reattached to after the original request ha
 - Logout does not erase saved history.
 - Generated files are not silently retained server-side.
 - Pagination, deletion, quotas, and persistence failures have tested behavior.
+
+## Implementation checkpoint (2026-10-21)
+
+The first server-side persistence slice now exists on the review branch:
+
+- Authenticated, owner-scoped conversation listing, creation, rename, and soft deletion.
+- Owner-scoped message pagination.
+- Run creation that stores the user prompt and queued run in a D1 batch before the generation request should begin.
+- Owner-scoped run status reads and output checkpoints, with terminal-state checks and partial output kept distinct from completed output.
+- Explicit `CHAT_PERSISTENCE_UNAVAILABLE` responses when the D1 binding is missing; no fallback to a different backend database.
+
+The binding name expected by the code is `DB`. The current `wrangler.jsonc` does not declare a D1 database binding or database ID, and no production D1 database ID has been confirmed. **Do not deploy this as active cloud persistence yet.** Create/confirm the canonical D1 database, apply `migrations/0001_chat_persistence.sql`, add the real binding to the deployment configuration, and verify that the deployed Worker is the canonical API before connecting the Chat UI.
+
+The current Chat UI is not yet wired to these routes. The existing provider request still uses the existing chat endpoint, and its response is not incrementally checkpointed. The next implementation slice must integrate the UI with the new API, save the user prompt before generation, checkpoint output safely, record interruption/failure states, and ensure persistence requests are pinned to the canonical Worker rather than the generic backend failover path. Until then, existing browser-local chat history remains the active user experience.
