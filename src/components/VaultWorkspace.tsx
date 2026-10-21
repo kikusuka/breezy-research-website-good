@@ -8,8 +8,8 @@ import { PROVIDER_LABELS, providerLabel } from '../lib/providers';
 
 type Role = 'architect' | 'skeptic' | 'verifier' | 'arbiter';
 const PROVIDERS = [
-  { id: 'gemini', icon: 'auto_awesome', placeholder: 'AIza…' }, { id: 'anthropic', icon: 'psychology', placeholder: 'sk-ant-…' },
-  { id: 'groq', icon: 'bolt', placeholder: 'gsk_…' }, { id: 'sambanova', icon: 'memory', placeholder: 'Key' }, { id: 'openrouter', icon: 'alt_route', placeholder: 'sk-or-v1-…' },
+  { id: 'gemini', placeholder: 'AIza…' }, { id: 'anthropic', placeholder: 'sk-ant-…' },
+  { id: 'groq', placeholder: 'gsk_…' }, { id: 'sambanova', placeholder: 'Key' }, { id: 'openrouter', placeholder: 'sk-or-v1-…' },
 ];
 const SEARCH_KEYS = [{ id: 'tavily', label: 'Tavily', placeholder: 'tvly-…' }, { id: 'serper', label: 'Serper', placeholder: 'Key' }];
 const SEATS: Array<{ role: Role; label: string; seat: string; description: string }> = [
@@ -20,24 +20,6 @@ const SEATS: Array<{ role: Role; label: string; seat: string; description: strin
 ];
 const ALL_PROVIDERS = ['gemini', 'anthropic', 'groq', 'sambanova', 'openrouter', 'ollama', 'openai-compatible'];
 const CUSTOM = '__custom__';
-
-const PROVIDER_BRANDS: Record<string, string> = {
-  gemini: 'googlegemini',
-  anthropic: 'anthropic',
-  groq: 'groq',
-  sambanova: 'sambanova',
-  openrouter: 'openrouter',
-  ollama: 'ollama',
-};
-
-function ProviderBrandIcon({ provider, fallback }: { provider: string; fallback: string }) {
-  const [unavailable, setUnavailable] = useState(false);
-  const brand = PROVIDER_BRANDS[provider];
-  if (!brand || unavailable) return <Icon name={fallback} className="text-[20px]" />;
-  return <img src={`https://cdn.simpleicons.org/${brand}`} alt="" aria-hidden="true" width={22} height={22}
-    className="w-[22px] h-[22px] object-contain" loading="lazy" referrerPolicy="no-referrer"
-    onError={() => setUnavailable(true)} />;
-}
 
 export const VaultWorkspace: React.FC = () => {
   const [config, setConfig] = useState<CanonicalWorkspaceConfig>(providerConfigService.getConfig());
@@ -89,7 +71,6 @@ export const VaultWorkspace: React.FC = () => {
 
   const defaultModels = AVAILABLE_MODELS[config.defaultProvider] || [];
   const statusProvider = active?.provider || config.defaultProvider;
-  const statusFallback = PROVIDERS.find((p) => p.id === statusProvider)?.icon || 'hub';
   const activeStatusLabel = active
     ? `${providerLabel(active.provider)} · ${active.model}`
     : config.defaultProvider && config.defaultModel
@@ -103,7 +84,7 @@ export const VaultWorkspace: React.FC = () => {
           <h1 className="font-headline-xl-mobile lg:font-headline-xl text-headline-xl-mobile lg:text-headline-xl tracking-tight mt-1">Models &amp; keys</h1>
           <p className="font-body-md text-body-md text-on-surface-variant mt-1 max-w-xl">Connect your own providers and decide which model sits in each seat. Nothing is assumed: an empty seat stays empty.</p></div>
         <div className="flex items-center gap-space-sm self-start md:self-auto">
-          <span aria-live="polite" className={`flex min-w-0 max-w-[min(65vw,24rem)] items-center gap-space-sm px-space-md py-space-xs rounded-full bg-surface-container-high font-label-md text-label-md ${active ? 'text-tertiary' : 'text-on-surface-variant'}`}><ProviderBrandIcon provider={statusProvider} fallback={statusFallback} /><span className="min-w-0 truncate">{activeStatusLabel}</span></span>
+          <span aria-live="polite" className={`flex min-w-0 max-w-[min(65vw,24rem)] items-center gap-space-sm px-space-md py-space-xs rounded-full bg-surface-container-high font-label-md text-label-md ${active ? 'text-tertiary' : 'text-on-surface-variant'}`}><span className="min-w-0 truncate">{activeStatusLabel}</span></span>
           <span className={`font-code-sm text-code-sm text-tertiary transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`} aria-live="polite">Saved</span>
         </div>
       </div>
@@ -193,12 +174,12 @@ export const VaultWorkspace: React.FC = () => {
       <section aria-labelledby="prov-h"><div className="flex items-center justify-between mb-space-md"><h2 id="prov-h" className="font-headline-md text-headline-md">Provider connections</h2><span className="font-code-sm text-code-sm text-outline">Stored in this browser</span></div>
         <div className="grid md:grid-cols-2 gap-space-md">{PROVIDERS.map((p) => { const has = Boolean((config.keys as any)[p.id]); return (
           <div key={p.id} className="bg-surface-container rounded-3xl p-space-lg coat">
-            <div className="flex items-center justify-between mb-space-md"><div className="flex items-center gap-space-sm"><span className="w-9 h-9 rounded-xl bg-surface-container-high text-primary flex items-center justify-center"><ProviderBrandIcon provider={p.id} fallback={p.icon} /></span><span className="font-headline-sm text-headline-sm">{PROVIDER_LABELS[p.id]}</span></div>
+            <div className="flex items-center justify-between mb-space-md"><div className="flex items-center gap-space-sm"><span className="font-headline-sm text-headline-sm">{PROVIDER_LABELS[p.id]}</span></div>
               <span className={`flex items-center gap-1.5 font-code-sm text-code-sm ${has ? 'text-tertiary' : 'text-outline'}`}><span className={`w-1.5 h-1.5 rounded-circle ${has ? 'bg-tertiary' : 'bg-outline'}`} />{has ? 'Key saved' : 'Not connected'}</span></div>
             {keyField(p.id, p.placeholder)}
           </div>); })}
           <div className="bg-surface-container rounded-3xl p-space-lg coat">
-            <div className="flex items-center justify-between mb-space-md"><div className="flex items-center gap-space-sm"><span className="w-9 h-9 rounded-xl bg-surface-container-high text-primary flex items-center justify-center"><ProviderBrandIcon provider="ollama" fallback="dns" /></span><span className="font-headline-sm text-headline-sm">Local Ollama</span></div><span className="font-code-sm text-code-sm text-outline">Runs on your machine</span></div>
+            <div className="flex items-center justify-between mb-space-md"><div className="flex items-center gap-space-sm"><span className="font-headline-sm text-headline-sm">Local Ollama</span></div><span className="font-code-sm text-code-sm text-outline">Runs on your machine</span></div>
             <div className="flex gap-space-xs"><input value={ollamaUrl} onChange={(e) => setOllamaUrl(e.target.value)} aria-label="Ollama base URL" placeholder="http://localhost:11434" className="flex-1 min-w-0 bg-surface-container-lowest rounded-xl hairline px-space-md py-2.5 font-code-md text-code-md focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]" /></div>
             <div className="flex items-center gap-space-xs mt-space-xs"><button type="button" onClick={() => commit({ ...config, ollamaBaseUrl: ollamaUrl.trim() })} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md transition-colors">Save URL</button>
               <button type="button" onClick={() => void verify('ollama')} disabled={test?.busy} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40 transition-colors">{test?.id === 'ollama' && test.busy ? 'Testing…' : 'Test connection'}</button></div>
