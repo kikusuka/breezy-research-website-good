@@ -122,7 +122,7 @@ export function Shell({ tab, go, children, previewMode = false }: ShellProps) {
       <Sidebar tab={tab} go={go} isExpanded={sidebarExpanded} mobileOpen={mobileOpen} previewMode={previewMode} onToggleExpanded={() => setSidebarExpanded((open) => !open)} onNavigate={closeMobile} />
       <div className={`flex-1 min-w-0 flex flex-col transition-[padding-left] duration-200 ease-out ${sidebarExpanded ? 'lg:pl-64' : 'lg:pl-[4.25rem]'}`}>
         <main className="relative flex-1 min-h-0 overflow-y-auto splatter-soft pt-14 lg:pt-0" id="main">
-          <button type="button" aria-label="Open navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)} className="lg:hidden fixed z-50 left-3 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-[#101827] border border-[#31435b] text-on-surface shadow-lg shadow-black/30 hover:bg-[#172338] transition-colors" title="Open navigation"><Icon name="menu" className="text-[21px]" /></button>
+          <button type="button" aria-label="Open navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)} className="lg:hidden fixed z-50 left-3 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low border border-outline-variant/60 text-on-surface shadow-lg shadow-black/30 hover:bg-surface-container-high transition-colors" title="Open navigation"><Icon name="menu" className="text-[21px]" /></button>
           {children}
         </main>
       </div>
