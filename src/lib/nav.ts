@@ -13,7 +13,7 @@ export type NavItem = { id: ActiveTab; label: string; icon: string };
 
 /** Keep the main navigation focused on everyday work. */
 export const MAIN_NAV: NavItem[] = [
-  { id: 'chat', label: 'Chat', icon: 'chat_bubble_outline' },
+  { id: 'chat', label: 'Chat', icon: 'chat' },
   { id: 'research', label: 'Research', icon: 'travel_explore' },
   { id: 'history', label: 'History', icon: 'history' },
   { id: 'notes', label: 'Notes', icon: 'sticky_note_2' },
@@ -27,7 +27,7 @@ export const LAB_NAV: NavItem[] = [
 /** Less-frequent configuration destinations live in the profile menu. */
 export const PROFILE_NAV: NavItem[] = [
   { id: 'profile', label: 'Profile', icon: 'person_outline' },
-  { id: 'models', label: 'Models', icon: 'hub' },
+  { id: 'models', label: 'Models', icon: 'tune' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
   { id: 'docs', label: 'Documentation', icon: 'menu_book' },
 ];
