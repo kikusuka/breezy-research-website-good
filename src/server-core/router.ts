@@ -6,6 +6,7 @@
 
 import { BackendEnv, HealthResponse, SearchEngineProvider } from './types';
 import { verifyFirebaseIdToken } from './firebaseAuth';
+import { handleChatPersistenceRequest } from './chatPersistence';
 import { callAgentWithStream, sanitizeGeminiModel } from './providers';
 import { performSearchGrounding } from './search';
 import { summarizeStage, generateRealEvidenceGraph } from './evidence';
@@ -157,16 +158,25 @@ export async function handleBackendRequest(
   }
 
   // Health is intentionally public. All product APIs that can consume resources or touch integrations require a valid Firebase ID token.
+  let authenticatedUid: string | null = null;
   const requiresAccount =
     path === '/api/vault/verify-key' ||
     path === '/api/breezy/chat' ||
     path === '/api/debate/summarize' ||
     path === '/api/debate/stream' ||
-    path.startsWith('/api/ollama/');
+    path.startsWith('/api/ollama/') ||
+    path.startsWith('/api/chat/');
 
   if (requiresAccount) {
     const session = await verifyFirebaseIdToken(req, env);
     if (!session.ok) return createJsonResponse({ error: session.error }, session.status, req, env);
+    authenticatedUid = session.uid;
+  }
+
+  if (path.startsWith('/api/chat/')) {
+    if (!authenticatedUid) return createJsonResponse({ error: 'Sign in to Breezy before using chat history.' }, 401, req, env);
+    const persistenceResponse = await handleChatPersistenceRequest(req, env, authenticatedUid);
+    if (persistenceResponse) return persistenceResponse;
   }
 
   // Helper for SSRF safety check on external webhook URLs
