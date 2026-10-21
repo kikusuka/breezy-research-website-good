@@ -91,7 +91,7 @@ export async function handleChatPersistenceRequest(
     if (!body) return jsonError(respond, req, env, 400, 'INVALID_JSON', 'Send a valid JSON object.');
     const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
     const idempotencyKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';
-    if (!prompt || prompt.length > MAX_PROMPT) return jsonError(respond, req, env, 400, 'INVALID_PROMPT', 'Prompt must contain 1–200,000 characters.');
+    if (!prompt || prompt.length > MAX_PROMPT) return jsonError(respond, req, env, 400, 'INVALID_PROMPT', 'Prompt must contain 1–20,000 characters.');
     if (!idempotencyKey || idempotencyKey.length > 128) return jsonError(respond, req, env, 400, 'INVALID_IDEMPOTENCY_KEY', 'A unique idempotency key of at most 128 characters is required.');
 
     const conversation = await db.prepare(
