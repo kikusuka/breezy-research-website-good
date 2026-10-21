@@ -176,7 +176,7 @@ export async function handleBackendRequest(
   if (path.startsWith('/api/chat/')) {
     if (!authenticatedUid) return createJsonResponse({ error: 'Sign in to Breezy before using chat history.' }, 401, req, env);
     try {
-      const persistenceResponse = await handleChatPersistenceRequest(req, env, authenticatedUid);
+      const persistenceResponse = await handleChatPersistenceRequest(req, env, authenticatedUid, createJsonResponse);
       if (persistenceResponse) return persistenceResponse;
     } catch {
       return createJsonResponse({
