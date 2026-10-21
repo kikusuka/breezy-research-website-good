@@ -218,8 +218,8 @@ export const ChatWorkspace: React.FC = () => {
     const body = format === 'json'
       ? JSON.stringify({ exportedAt: new Date().toISOString(), messages }, null, 2)
       : format === 'text'
-        ? messages.map((m) => `${m.role === 'user' ? 'You' : 'Breezy'}:\n${m.content}`).join('\\n\\n')
-        : `# Breezy conversation\\n\\nExported: ${date}\\n\\n${messages.map((m) => `## ${m.role === 'user' ? 'You' : 'Breezy'}\\n\\n${m.content}`).join('\\n\\n')}`;
+        ? messages.map((m) => `${m.role === 'user' ? 'You' : 'Breezy'}:\n${m.content}`).join('\n\n')
+        : `# Breezy conversation\n\nExported: ${date}\n\n${messages.map((m) => `## ${m.role === 'user' ? 'You' : 'Breezy'}\n\n${m.content}`).join('\n\n')}`;
     const mime = format === 'json' ? 'application/json' : 'text/plain;charset=utf-8';
     const blob = new Blob([body], { type: mime }); const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url; link.download = `breezy-chat-${date}.${format === 'markdown' ? 'md' : format === 'text' ? 'txt' : 'json'}`;
@@ -233,18 +233,21 @@ export const ChatWorkspace: React.FC = () => {
       {storageError && <div role="alert" className="mx-gutter mt-space-sm rounded-xl border border-error/40 bg-error-container/30 px-space-md py-space-sm text-error font-body-sm text-body-sm">This conversation could not be saved to this browser. It may disappear after a refresh. Free up browser storage and copy or export anything important.</div>}
       {messages.length > 0 && <div className="absolute top-3 right-3 lg:right-5 z-20 flex items-center gap-space-xs"><div className="relative"><button type="button" onClick={() => setExportMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={exportMenuOpen} className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-[#14283c]/90 border border-[#2b4c68] text-[#b8eaff] hover:bg-[#1b3852] font-label-md text-label-md transition-colors"><Icon name="download" className="text-[18px]" /><span>Export</span></button>{exportMenuOpen && <><button type="button" aria-label="Close export menu" className="fixed inset-0 z-20 cursor-default" onClick={() => setExportMenuOpen(false)} /><div role="menu" className="absolute right-0 mt-1 w-48 z-30 rounded-xl border border-[#2b4c68] bg-[#101e30] p-1 shadow-xl">{([['Markdown (.md)', 'markdown'], ['Plain text (.txt)', 'text'], ['JSON (.json)', 'json']] as const).map(([label, format]) => <button key={format} type="button" role="menuitem" onClick={() => exportChat(format)} className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-[#d9eaf7] hover:bg-[#1b3852]">{label}</button>)}</div></>}</div><button type="button" onClick={clear} title="Clear conversation" aria-label="Clear conversation" className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-[#14283c]/90 border border-[#2b4c68] text-[#b8cde0] hover:text-white hover:bg-[#1b3852] font-label-md text-label-md transition-colors"><Icon name="delete_sweep" className="text-[18px]" /><span className="hidden sm:inline">Clear</span></button></div>}
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className={`flex-1 min-h-0 overflow-y-auto ${messages.length > 0 ? 'pt-14' : ''}`}>
         <div className="max-w-3xl mx-auto px-gutter lg:px-space-lg pb-space-lg flex flex-col gap-space-lg min-h-full">
           {messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-space-lg py-space-xl">
               <span className="w-14 h-14 flex items-center justify-center"><BreezyLogo size={34} imageClassName="mix-blend-screen" /></span>
               <div><h2 className="font-headline-lg text-headline-lg">What are we working on?</h2><p className="font-body-md text-body-md text-on-surface-variant mt-1 max-w-md">A direct conversation with your connected model. For sourced, cross-checked answers, use Research.</p></div>
-              <div className="w-full max-w-2xl text-left">
-                <p className="font-label-sm text-label-sm uppercase tracking-wider text-outline mb-space-xs">Try a starting point</p>
-                <div className="flex gap-space-xs overflow-x-auto pb-1 no-scrollbar">{CHAT_STARTERS.map((st) => (
-                  <button key={st.id} type="button" onClick={() => { setInput(st.prompt); ta.current?.focus(); }} className="group shrink-0 inline-flex items-center gap-space-xs rounded-full border border-outline-variant/40 bg-surface-container-low/80 hover:bg-surface-container-high hover:border-primary/40 px-space-md py-space-sm transition-colors text-left max-w-[82vw]">
-                    <Icon name={st.icon} className="text-[16px] text-secondary shrink-0" /><span className="font-label-md text-label-md text-on-surface whitespace-nowrap">{st.title}</span>
-                  </button>))}</div>
+              <div className="w-full max-w-xl text-left">
+                <p className="font-label-sm text-label-sm text-on-surface-variant mb-2">Start with a prompt</p>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  {CHAT_STARTERS.map((st) => (
+                    <button key={st.id} type="button" onClick={() => { setInput(st.prompt); ta.current?.focus(); }} className="inline-flex items-center gap-1.5 py-1 text-left text-sm text-on-surface-variant hover:text-[#8fe4ff] transition-colors">
+                      <Icon name={st.icon} className="text-[15px] text-[#71d9f8] shrink-0" /><span>{st.title}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ) : messages.map((m, i) => m.role === 'user' ? (
@@ -267,9 +270,9 @@ export const ChatWorkspace: React.FC = () => {
       <div className="shrink-0 px-gutter lg:px-space-lg pb-space-md pt-space-xs">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-end gap-space-sm bg-surface-container rounded-[1.75rem] coat hairline p-space-sm pl-space-lg focus-within:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5),0_0_0_4px_rgba(76,214,251,0.08)] transition-shadow">
-            <textarea ref={ta} rows={1} value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" placeholder={chatMode === 'puter' ? (!puterSignedIn ? 'Connect Puter below' : puterModel ? 'Message using Puter.js…' : 'Choose a Puter model below') : active ? 'Message Breezy…' : 'Choose a model in Models'}
+            <textarea ref={ta} rows={1} value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" placeholder={chatMode === 'puter' ? (!puterSignedIn ? 'Connect Puter below' : puterModel ? 'Message using Puter.js…' : 'Choose a Puter model below') : active ? 'Message Breezy…' : 'Select a model in Models'}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
-              className="flex-1 min-w-0 bg-transparent resize-none py-[10px] text-[15px] leading-6 sm:text-body-lg font-body-lg placeholder:text-on-surface-variant/90 focus:outline-none max-h-[180px]" />
+              className="flex-1 min-w-0 bg-transparent resize-none py-[10px] text-[14px] leading-6 sm:text-[15px] font-body-lg placeholder:text-on-surface-variant/90 placeholder:text-[13px] sm:placeholder:text-[14px] focus:outline-none max-h-[180px]" />
             {busy ? <button type="button" aria-label="Stop" onClick={() => ctrl.current?.abort()} className="w-11 h-11 shrink-0 rounded-full bg-surface-container-highest text-on-surface flex items-center justify-center hover:bg-outline-variant transition-colors"><Icon name="stop" className="text-[22px]" fill /></button>
               : <button type="button" aria-label="Send" onClick={() => send()} disabled={!input.trim()} className="w-11 h-11 shrink-0 rounded-full bg-primary text-on-primary flex items-center justify-center glow-primary hover:bg-primary-fixed transition-all disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed"><Icon name="arrow_upward" className="text-[22px]" /></button>}
           </div>
