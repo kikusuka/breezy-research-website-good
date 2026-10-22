@@ -50,8 +50,8 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
             const active = claim.id === selectedClaimId;
             const evidenceCount = (claim.supportingSources?.length ?? 0) + (claim.counterEvidence?.length ?? 0);
             return (
-              <button key={claim.id} type="button" aria-pressed={active} onClick={() => setSelectedClaimId(active ? null : claim.id)}
-                className={`w-full min-w-0 rounded-2xl border p-space-md text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${active ? 'border-primary/70 bg-surface-container-high' : 'border-outline-variant/40 bg-surface-container hover:bg-surface-container-high'}`}>
+              <article key={claim.id} className={`min-w-0 rounded-2xl border p-space-md transition-colors ${active ? 'border-primary/70 bg-surface-container-high' : 'border-outline-variant/40 bg-surface-container'}`}>
+                <button type="button" aria-pressed={active} onClick={() => setSelectedClaimId(active ? null : claim.id)} className="w-full min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
                 <div className="flex items-start gap-space-sm">
                   <Icon name={status.icon} className={`mt-0.5 text-[19px] shrink-0 ${status.tone}`} />
                   <span className="min-w-0 flex-1 font-body-md text-body-md text-on-surface break-words">{claim.claim}</span>
@@ -61,6 +61,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                   <span className={`rounded-md bg-surface-container-low px-space-sm py-1 font-code-sm text-code-sm ${status.tone}`}>{status.label}</span>
                   <span className="font-code-sm text-code-sm text-outline">{evidenceCount} linked references</span>
                 </div>
+                </button>
                 {active && (
                   <div className="mt-space-md border-t border-outline-variant/40 pt-space-md pl-[27px] flex flex-col gap-space-sm">
                     {claim.supportingSources?.map((source, i) => (
@@ -80,7 +81,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                     {!evidenceCount && <p className="font-body-sm text-on-surface-variant">No source references were attached to this claim.</p>}
                   </div>
                 )}
-              </button>
+              </article>
             );
           }) : <p className="rounded-xl border border-dashed border-outline-variant/50 p-space-md font-body-sm text-on-surface-variant">No structured claims were returned for this run.</p>}
         </div>
