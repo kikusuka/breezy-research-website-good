@@ -81,6 +81,27 @@ export async function deleteSessionsFromIDB(ids?: string[]): Promise<void> {
   });
 }
 
+/** Replace the full-fidelity research backup and wait for its IndexedDB transaction. */
+export async function replaceSessionsInIDB(sessions: DebateSession[]): Promise<boolean> {
+  if (typeof indexedDB === 'undefined') return false;
+  const databaseName = getDatabaseName();
+  const snapshot = [...(sessions || [])];
+  await serializeIDBMutation(async () => {
+    const db = await openDatabase(databaseName);
+    try {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.clear();
+      snapshot.forEach((session) => store.put(session));
+      await waitForTransaction(tx, db, 'Could not restore research history to browser storage.');
+    } catch (error) {
+      db.close();
+      throw error;
+    }
+  });
+  return true;
+}
+
 /**
  * IndexedDB absence means there is no full-fidelity copy to read. Actual read
  * failures reject so backup export cannot silently fall back to a partial copy.
