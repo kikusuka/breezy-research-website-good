@@ -9,7 +9,7 @@ import { verifyFirebaseIdToken } from './firebaseAuth';
 import { handleChatPersistenceRequest } from './chatPersistence';
 import { callAgentWithStream, sanitizeGeminiModel } from './providers';
 import { performSearchGrounding } from './search';
-import { mergeGroundingResults, selectResearchQueries } from './researchRetrieval';
+import { mergeGroundingResults, selectResearchQueries, shouldPlanResearch } from './researchRetrieval';
 import { fetchReadableSource } from './sourceFetch';
 import { summarizeStage, generateRealEvidenceGraph } from './evidence';
 
@@ -1019,7 +1019,7 @@ Analyze this deliberation and output the JSON object.`;
         let researchPlan: string[] = [];
         let researchPlanContext = '';
         let plannedSearchQueries: string[] = [];
-        if (enableSearchGrounding || effectiveProtocol !== 'solo') {
+        if (shouldPlanResearch(effectiveProtocol, enableSearchGrounding)) {
         try {
           await sendEvent('status', { message: 'Planning the research scope and evidence strategy...' });
           const plannerPrompt = `USER QUESTION:
