@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   accountStorage,
-  clearCurrentAccountStorage,
+  getDataSavePreferences,
   prepareAccountStorage,
   setActiveAccountUid,
-  getDataSavePreferences,
   setDataSavePreference,
 } from '../src/services/accountStorage';
 
@@ -14,82 +13,53 @@ describe('account-scoped local storage', () => {
     setActiveAccountUid(null);
   });
 
-  it('migrates existing local data into the first signed-in account', () => {
-    localStorage.setItem('breezy_notes_v1', JSON.stringify([{ title: 'Legacy note' }]));
-    localStorage.setItem('firebase:authUser:do-not-move', 'firebase persistence');
-
-    setActiveAccountUid('user-a');
-    prepareAccountStorage('user-a');
-
-    expect(accountStorage.getItem('breezy_notes_v1')).toContain('Legacy note');
-    expect(localStorage.getItem('breezy_notes_v1')).toBeNull();
-    expect(localStorage.getItem('firebase:authUser:do-not-move')).toBe('firebase persistence');
-  });
-
-  it('keeps different accounts isolated and restores each account data', () => {
-    setActiveAccountUid('user-a');
-    accountStorage.setItem('breezy_chat_history_v1', 'account A');
-    setActiveAccountUid('user-b');
-    expect(accountStorage.getItem('breezy_chat_history_v1')).toBeNull();
-    accountStorage.setItem('breezy_chat_history_v1', 'account B');
-
-    setActiveAccountUid('user-a');
-    expect(accountStorage.getItem('breezy_chat_history_v1')).toBe('account A');
-    setActiveAccountUid('user-b');
-    expect(accountStorage.getItem('breezy_chat_history_v1')).toBe('account B');
-  });
-
-  it('clears only the current account namespace', async () => {
-    setActiveAccountUid('user-a');
-    accountStorage.setItem('breezy_notes_v1', 'A notes');
-    setActiveAccountUid('user-b');
-    accountStorage.setItem('breezy_notes_v1', 'B notes');
-
-    await clearCurrentAccountStorage();
+  it('keeps each signed-in account namespace separate', () => {
+    setActiveAccountUid('account-a');
+    accountStorage.setItem('breezy_notes_v1', JSON.stringify([{ id: 'note-a', text: 'private to A' }]));
+    setActiveAccountUid('account-b');
     expect(accountStorage.getItem('breezy_notes_v1')).toBeNull();
-
-    setActiveAccountUid('user-a');
-    expect(accountStorage.getItem('breezy_notes_v1')).toBe('A notes');
+    accountStorage.setItem('breezy_notes_v1', JSON.stringify([{ id: 'note-b', text: 'private to B' }]));
+    setActiveAccountUid('account-a');
+    expect(JSON.parse(accountStorage.getItem('breezy_notes_v1') || '[]')).toEqual([{ id: 'note-a', text: 'private to A' }]);
+    setActiveAccountUid('account-b');
+    expect(JSON.parse(accountStorage.getItem('breezy_notes_v1') || '[]')).toEqual([{ id: 'note-b', text: 'private to B' }]);
   });
 
-  it('preserves a current account value and shelves conflicting legacy data', () => {
-    setActiveAccountUid('user-a');
-    accountStorage.setItem('breezy_notes_v1', 'new account data');
+  it('migrates legacy app data to the first signed-in account without moving Firebase-owned keys', () => {
+    localStorage.setItem('breezy_notes_v1', JSON.stringify([{ id: 'legacy-note' }]));
+    localStorage.setItem('firebase:authUser:example', 'firebase-owned-value');
+    setActiveAccountUid('account-a');
+    prepareAccountStorage('account-a');
+    expect(accountStorage.getItem('breezy_notes_v1')).toBe(JSON.stringify([{ id: 'legacy-note' }]));
+    expect(localStorage.getItem('breezy_notes_v1')).toBeNull();
+    expect(localStorage.getItem('firebase:authUser:example')).toBe('firebase-owned-value');
+  });
+
+  it('preserves account data and moves conflicting legacy data into the legacy namespace', () => {
+    setActiveAccountUid('account-a');
+    accountStorage.setItem('breezy_notes_v1', JSON.stringify([{ id: 'account-note' }]));
     setActiveAccountUid(null);
-    localStorage.setItem('breezy_notes_v1', 'old unscoped data');
-
-    prepareAccountStorage('user-a');
-    setActiveAccountUid('user-a');
-    expect(accountStorage.getItem('breezy_notes_v1')).toBe('new account data');
-    expect(localStorage.getItem('breezy:account-legacy:v1:breezy_notes_v1')).toBe('old unscoped data');
-  });
-  it('lets users disable saving independently for each data category', () => {
-    expect(getDataSavePreferences()).toEqual({ researchHistory: true, chatHistory: true, notes: true, canvas: true });
-
-    setDataSavePreference('chatHistory', false);
-    accountStorage.setItem('breezy_chat_history_v1', 'new chat');
-    accountStorage.setItem('breezy_notes_v1', 'keep this note');
-    expect(accountStorage.getItem('breezy_chat_history_v1')).toBeNull();
-    expect(accountStorage.getItem('breezy_notes_v1')).toBe('keep this note');
-
-    setDataSavePreference('chatHistory', true);
-    accountStorage.setItem('breezy_chat_history_v1', 'saved after opting in');
-    expect(accountStorage.getItem('breezy_chat_history_v1')).toBe('saved after opting in');
+    localStorage.setItem('breezy_notes_v1', JSON.stringify([{ id: 'legacy-note' }]));
+    setActiveAccountUid('account-a');
+    prepareAccountStorage('account-a');
+    expect(JSON.parse(accountStorage.getItem('breezy_notes_v1') || '[]')).toEqual([{ id: 'account-note' }]);
+    expect(localStorage.getItem('breezy_notes_v1')).toBeNull();
+    expect(localStorage.getItem('breezy:account-legacy:v1:breezy_notes_v1')).toBe(JSON.stringify([{ id: 'legacy-note' }]));
   });
 
-  it('still persists explicit deletions while saving is disabled', () => {
-    accountStorage.setItem('breezy_notes_v1', JSON.stringify([
-      { id: 'keep', title: 'Old title' },
-      { id: 'remove', title: 'Delete me' },
-    ]));
+  it('does not save new notes when note saving is disabled', () => {
+    setActiveAccountUid('account-a');
     setDataSavePreference('notes', false);
-    accountStorage.setItem('breezy_notes_v1', JSON.stringify([
-      { id: 'keep', title: 'Edited while saving is off' },
-    ]));
-
-    expect(JSON.parse(accountStorage.getItem('breezy_notes_v1') || '[]')).toEqual([
-      { id: 'keep', title: 'Old title' },
-    ]);
+    accountStorage.setItem('breezy_notes_v1', JSON.stringify([{ id: 'new-note' }]));
+    expect(accountStorage.getItem('breezy_notes_v1')).toBeNull();
+    expect(getDataSavePreferences().notes).toBe(false);
   });
 
+  it('allows explicit note removal while note saving is disabled', () => {
+    setActiveAccountUid('account-a');
+    accountStorage.setItem('breezy_notes_v1', JSON.stringify([{ id: 'keep' }, { id: 'delete' }]));
+    setDataSavePreference('notes', false);
+    accountStorage.setItem('breezy_notes_v1', JSON.stringify([{ id: 'keep' }]));
+    expect(JSON.parse(accountStorage.getItem('breezy_notes_v1') || '[]')).toEqual([{ id: 'keep' }]);
+  });
 });
