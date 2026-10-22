@@ -25,6 +25,6 @@ describe('backend CORS configuration', () => {
       ALLOWED_ORIGINS: 'https://breezy.example.test',
     });
 
-    expect(headers['Access-Control-Allow-Origin']).toBe('null');
+    expect(headers['Access-Control-Allow-Origin']).toBeUndefined();
   });
 });
