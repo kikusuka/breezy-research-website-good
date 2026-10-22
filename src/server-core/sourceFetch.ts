@@ -19,13 +19,21 @@ const TIMEOUT_MS = 4500;
 function isBlockedHostname(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
   if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) return true;
-  if (host.includes(':') && (host === '::1' || /^(fc|fd|fe80:)/i.test(host) || host.startsWith('::ffff:'))) return true;
+  if (host.includes(':')) {
+    if (host === '::1' || host.startsWith('::ffff:')) return true;
+    // Only allow IPv6 global-unicast space (2000::/3); block loopback, link-local,
+    // unique-local, multicast, unspecified, and other special-purpose ranges.
+    const firstHextet = host.split(':')[0];
+    if (!/^(?:2[0-9a-f]{3}|3[0-9a-f]{3})$/i.test(firstHextet)) return true;
+  }
   const parts = host.split('.');
   if (parts.length === 4 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)) {
-    const [a, b] = parts.map(Number);
+    const [a, b, c] = parts.map(Number);
     if (a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) ||
-        (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
-        (a === 100 && b >= 64 && b <= 127) || (a === 198 && (b === 18 || b === 19))) return true;
+        (a === 172 && b >= 16 && b <= 31) || (a === 192 && (b === 168 || (b === 0 && (c === 0 || c === 2)))) ||
+        (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100)) ||
+        (a === 203 && b === 0 && c === 113) ||
+        (a === 100 && b >= 64 && b <= 127)) return true;
   }
   return false;
 }
