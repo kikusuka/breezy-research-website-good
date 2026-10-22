@@ -13,6 +13,7 @@ import { useModelState, announceConfigChange } from '../lib/useModelState';
 import { providerConfigService } from '../services/providerConfigService';
 import { exportSynthexisAsMarkdown } from '../utils/exportTranscript';
 import { EvidenceMap } from './research/EvidenceMap';
+import { safeEvidenceHref } from '../lib/evidenceMap';
 
 const CANVAS_KEY = 'breezy_canvas_cards_v1';
 const SEATS = [{ id: 'architect', label: 'Analyst' }, { id: 'skeptic', label: 'Critic' }, { id: 'verifier', label: 'Verifier' }, { id: 'arbiter', label: 'Synthesizer' }] as const;
@@ -201,9 +202,13 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
             <section className="rounded-3xl border border-outline-variant/40 bg-surface-container p-space-lg">
               <div className="flex items-center justify-between gap-space-sm"><div><h3 className="font-headline-sm text-headline-sm">Sources discovered</h3><p className="font-body-sm text-body-sm text-on-surface-variant">Search-result records from this run; not proof that a claim is supported.</p></div><span className="font-code-sm text-code-sm text-outline">{sources.length}</span></div>
               <div className="mt-space-md grid grid-cols-1 md:grid-cols-2 gap-space-sm">
-                {sources.slice(0, 6).map((source) => <a key={source.id || source.url} href={source.url} target="_blank" rel="noreferrer noopener" className="flex min-w-0 items-start gap-space-sm rounded-xl bg-surface-container-low p-space-md hover:bg-surface-container-high">
-                  <Icon name="open_in_new" className="mt-0.5 shrink-0 text-[17px] text-secondary" /><span className="min-w-0"><span className="block break-words font-body-sm text-body-sm text-on-surface">{source.title || source.url}</span><span className="mt-1 block truncate font-code-sm text-code-sm text-outline">{source.domain || source.url}</span>{source.snippet && <span className="mt-1 block line-clamp-2 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</span>}</span>
-                </a>)}
+                {sources.slice(0, 6).map((source) => {
+                  const href = safeEvidenceHref(source.url);
+                  const content = <><Icon name={href ? 'open_in_new' : 'description'} className="mt-0.5 shrink-0 text-[17px] text-secondary" /><span className="min-w-0"><span className="block break-words font-body-sm text-body-sm text-on-surface">{source.title || source.url || 'Untitled source'}</span><span className="mt-1 block truncate font-code-sm text-code-sm text-outline">{source.domain || source.url || 'URL unavailable'}</span>{source.snippet && <span className="mt-1 block line-clamp-2 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</span>}</span></>;
+                  return href
+                    ? <a key={source.id || source.url} href={href} target="_blank" rel="noreferrer noopener" className="flex min-w-0 items-start gap-space-sm rounded-xl bg-surface-container-low p-space-md hover:bg-surface-container-high">{content}</a>
+                    : <div key={source.id || source.title} className="flex min-w-0 items-start gap-space-sm rounded-xl bg-surface-container-low p-space-md">{content}</div>;
+                })}
               </div>
               {sources.length > 6 && <button type="button" onClick={() => onPanelChange('map')} className="mt-space-md min-h-[40px] font-label-md text-label-md text-primary">View all sources in Evidence map</button>}
             </section>
