@@ -13,14 +13,13 @@ export type SourceFetchResult = {
 
 const MAX_REDIRECTS = 3;
 const MAX_BYTES = 512 * 1024;
-const MAX_TEXT_CHARS = 5000;
+const MAX_TEXT_CHARS = 4000;
 const TIMEOUT_MS = 4500;
 
 function isBlockedHostname(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
   if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) return true;
-  if (host === '::1' || host.startsWith('fc') || host.startsWith('fd') || host.startsWith('fe80:')) return true;
-  if (host.startsWith('::ffff:')) return true;
+  if (host.includes(':') && (host === '::1' || /^(fc|fd|fe80:)/i.test(host) || host.startsWith('::ffff:'))) return true;
   const parts = host.split('.');
   if (parts.length === 4 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)) {
     const [a, b] = parts.map(Number);
