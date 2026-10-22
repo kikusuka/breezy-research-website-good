@@ -92,4 +92,12 @@ describe('account-scoped local storage', () => {
     ]);
   });
 
+  it('does not save new notes when note saving is disabled', () => {
+    setActiveAccountUid('user-a');
+    setDataSavePreference('notes', false);
+    accountStorage.setItem('breezy_notes_v1', JSON.stringify([{ id: 'new-note', title: 'Should not persist' }]));
+    expect(accountStorage.getItem('breezy_notes_v1')).toBeNull();
+    expect(getDataSavePreferences().notes).toBe(false);
+  });
+
 });
