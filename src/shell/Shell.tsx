@@ -81,10 +81,10 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpande
         <nav className={`py-space-sm flex flex-col gap-space-xs ${isExpanded ? 'px-space-md' : 'items-center px-1'}`} aria-label="Main navigation">
           {MAIN_NAV.map(item)}
         </nav>
-        {isExpanded && <div className="px-space-md pt-space-md">
-          <div className="px-space-md pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Laboratories</div>
-          <nav className="flex flex-col gap-space-xs" aria-label="Laboratories">{LAB_NAV.map(item)}</nav>
-        </div>}
+        <div className={isExpanded ? 'px-space-md pt-space-md' : 'w-full pt-space-md'}>
+          {isExpanded && <div className="px-space-md pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Laboratories</div>}
+          <nav className={`flex flex-col gap-space-xs ${isExpanded ? '' : 'items-center px-1'}`} aria-label="Laboratories">{LAB_NAV.map(item)}</nav>
+        </div>
       </div>
       <div className={`relative flex flex-col ${isExpanded ? 'p-space-md gap-space-sm' : 'items-center pb-space-md gap-space-md'}`}>
         {profileMenuOpen && <div role="menu" aria-label="Profile menu" className={`absolute z-[90] bottom-full mb-space-sm rounded-2xl border border-outline-variant/60 bg-surface-container-low p-space-xs shadow-2xl coat ${isExpanded ? 'left-space-md right-space-md' : 'left-full ml-space-sm w-52'}`}>
