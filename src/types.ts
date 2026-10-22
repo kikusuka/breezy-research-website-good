@@ -102,6 +102,9 @@ export interface EvidenceSource {
   domain: string;
   isPrimary: boolean;
   snippet: string;
+  /** Whether bounded page-text extraction succeeded; not a claim-verification signal. */
+  retrievalStatus?: 'retrieved' | 'unavailable' | 'not_attempted';
+  pageText?: string;
   citationIndex?: number;
 }
 
