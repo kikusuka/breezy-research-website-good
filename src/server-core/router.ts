@@ -1016,7 +1016,15 @@ Analyze this deliberation and output the JSON object.`;
         // This is the main difference between "chat with search" and a research workflow.
         let researchPlan: string[] = [];
         let researchPlanContext = '';
+        let plannedSearchQueries: string[] = [];
+        // A non-grounded Solo inquiry should be one model call, not a hidden
+        // planning call followed by the answer call. Plan when retrieval is
+        // enabled or when a multi-stage protocol benefits from explicit scope.
+        const shouldPlanResearch = enableSearchGrounding || effectiveProtocol !== 'solo';
         try {
+          if (!shouldPlanResearch) {
+            researchPlan = ['Lightweight Solo inquiry: planner skipped to conserve tokens.'];
+          } else {
           await sendEvent('status', { message: 'Planning the research scope and evidence strategy...' });
           const plannerPrompt = `USER QUESTION:
 ${prompt}
@@ -1050,7 +1058,10 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
           const parsedPlan = JSON.parse(cleanedPlan);
           const scope = typeof parsedPlan.scope === 'string' ? parsedPlan.scope.trim() : '';
           const subquestions = Array.isArray(parsedPlan.subquestions) ? parsedPlan.subquestions.filter((q: any) => typeof q === 'string' && q.trim()).map((q: string) => q.trim()) : [];
-          const searchQueries = Array.isArray(parsedPlan.searchQueries) ? parsedPlan.searchQueries.filter((q: any) => typeof q === 'string' && q.trim()).map((q: string) => q.trim()) : [];
+          plannedSearchQueries = Array.isArray(parsedPlan.searchQueries)
+            ? parsedPlan.searchQueries.filter((q: any) => typeof q === 'string' && q.trim()).map((q: string) => q.trim()).slice(0, 3)
+            : [];
+          const searchQueries = plannedSearchQueries;
           const evidenceStandard = typeof parsedPlan.evidenceStandard === 'string' ? parsedPlan.evidenceStandard.trim() : '';
 
           researchPlan = [
@@ -1071,6 +1082,7 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
             scope,
             evidenceStandard,
           });
+          }
         } catch (planError: any) {
           console.warn('Research planning stage failed; continuing with method guidance:', planError);
           researchPlan = [`Method: ${researchMethod}`, 'Planner unavailable; continue with explicit evidence/uncertainty checks.'];
@@ -1086,7 +1098,29 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
           });
 
           try {
-            const groundingResult = await performSearchGrounding(prompt, searchEngine as SearchEngineProvider, keys, env);
+            const queriesToRun = Array.from(new Set([...(plannedSearchQueries.length ? plannedSearchQueries : []), prompt.trim()])).slice(0, 3);
+            const groundingResults = await Promise.all(
+              queriesToRun.map((query) => performSearchGrounding(query, searchEngine as SearchEngineProvider, keys, env))
+            );
+            const availableResults = groundingResults.filter((result): result is NonNullable<typeof result> => Boolean(result));
+            const firstGroundingResult = availableResults[0];
+            const seenSourceUrls = new Set<string>();
+            const mergedSearchResults = availableResults.flatMap((result) => result.results).filter((result) => {
+              if (!result.url) return false;
+              let normalizedUrl = result.url;
+              try {
+                const parsedUrl = new URL(result.url);
+                normalizedUrl = parsedUrl.origin + parsedUrl.pathname;
+              } catch {}
+              if (seenSourceUrls.has(normalizedUrl)) return false;
+              seenSourceUrls.add(normalizedUrl);
+              return true;
+            }).slice(0, 10);
+            const groundingResult = firstGroundingResult ? {
+              ...firstGroundingResult,
+              query: queriesToRun.join(' | '),
+              results: mergedSearchResults,
+            } : null;
             if (groundingResult) {
               discoveredSources = groundingResult.results.map((r, idx) => {
                 let domain = 'web-source';
