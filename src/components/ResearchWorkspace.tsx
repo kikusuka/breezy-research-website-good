@@ -60,6 +60,8 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
   const stepsWithContent = s.steps.filter((step) => step.content || step.status === 'running');
   const claims = g?.claims ?? [];
   const sources = g?.sourcesConsulted ?? [];
+  const runIsActive = running && s.status === 'running';
+  const wasInterrupted = !running && s.status === 'running';
   const actions = [
     ['content_copy', 'Copy', () => {
       void navigator.clipboard.writeText(s.finalOutput || '').then(() => researchStore.notify('Copied.')).catch(() => researchStore.notify('Copy failed.'));
@@ -101,7 +103,7 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
           <div className="mt-space-sm flex flex-wrap items-center gap-space-xs">
             <span className={`inline-flex items-center gap-space-xs rounded-full px-space-sm py-1 font-label-sm text-label-sm ${s.status === 'completed' ? 'bg-tertiary-container/50 text-tertiary' : s.status === 'error' ? 'bg-error-container/50 text-error' : s.status === 'running' || running ? 'bg-primary/10 text-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
               <span className={`h-1.5 w-1.5 rounded-full ${s.status === 'completed' ? 'bg-tertiary' : s.status === 'error' ? 'bg-error' : s.status === 'running' || running ? 'bg-primary animate-pulse' : 'bg-outline'}`} />
-              {running || s.status === 'running' ? 'Investigation running' : s.status === 'completed' ? 'Completed' : s.status === 'error' ? 'Failed' : 'Stopped'}
+              {runIsActive ? 'Investigation running' : wasInterrupted ? 'Interrupted' : s.status === 'completed' ? 'Completed' : s.status === 'error' ? 'Failed' : 'Stopped'}
             </span>
             {dur && <Chip><span className="text-outline">Duration</span>{dur}</Chip>}
             {sources.length > 0 && <Chip><span className="text-outline">Sources found</span>{sources.length}</Chip>}
@@ -129,9 +131,9 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
           <Icon name="error" className="mt-0.5 shrink-0 text-[18px]" /><span>{s.error}</span>
         </div>
       )}
-      {s.status === 'idle' && !running && (
+      {(s.status === 'idle' || wasInterrupted) && !running && (
         <div role="status" className="flex items-start gap-space-sm rounded-xl bg-surface-container-low p-space-md font-body-sm text-body-sm text-on-surface-variant">
-          <Icon name="stop_circle" className="mt-0.5 shrink-0 text-[18px]" /><span>This run was stopped. Its partial output, if any, remains available below.</span>
+          <Icon name="stop_circle" className="mt-0.5 shrink-0 text-[18px]" /><span>{wasInterrupted ? 'This session was saved while a run was active, but no live run is attached in this tab. Its partial output, if any, remains available below.' : 'This run was stopped. Its partial output, if any, remains available below.'}</span>
         </div>
       )}
 
@@ -287,7 +289,9 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
 
   const statusLabel = r.running
     ? 'Investigation running'
-    : s?.status === 'completed'
+    : s?.status === 'running'
+      ? 'Previous run interrupted'
+      : s?.status === 'completed'
       ? 'Completed'
       : s?.status === 'error'
         ? 'Run failed'
