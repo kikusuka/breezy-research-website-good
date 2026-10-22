@@ -6,6 +6,8 @@ export type EvidenceMapSourceNode = {
   url: string;
   domain?: string;
   snippet?: string;
+  retrievalStatus?: 'retrieved' | 'unavailable' | 'not_attempted';
+  pageText?: string;
   discovered: boolean;
 };
 
@@ -45,6 +47,8 @@ export function buildEvidenceMapSources(
       url: source.url,
       domain: source.domain,
       snippet: source.snippet,
+      retrievalStatus: source.retrievalStatus,
+      pageText: source.pageText,
       discovered: true,
     });
   }
