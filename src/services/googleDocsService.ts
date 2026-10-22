@@ -23,7 +23,7 @@ function toPlainResearchText(session: DebateSession): string {
   if (graph?.claims?.length) {
     lines.push('EVIDENCE CLAIMS', '');
     graph.claims.forEach((claim, index) => {
-      lines.push(`${index + 1}. [${claim.status}, ${claim.confidence}%] ${claim.claim}`);
+      lines.push(`${index + 1}. [${claim.status}${typeof claim.confidence === 'number' ? `, model-estimated confidence ${Math.round(claim.confidence)}%` : ''}] ${claim.claim}`);
     });
     lines.push('');
   }
