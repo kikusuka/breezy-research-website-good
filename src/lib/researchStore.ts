@@ -3,7 +3,7 @@ import type { DebateSession, DebateTone, SearchEngineProvider, Attachment } from
 import { apiClient } from '../services/apiClient';
 import { providerConfigService } from '../services/providerConfigService';
 import { effectiveProviderService } from '../services/effectiveProviderService';
-import { createNewSession, loadActiveSessionId, loadSessions, saveActiveSessionId, saveSessions } from '../services/sessionStorage';
+import { createNewSession, deleteSessionsFromIDB, loadActiveSessionId, loadSessions, saveActiveSessionId, saveSessions } from '../services/sessionStorage';
 import { googleDocsService } from '../services/googleDocsService';
 import { userProfileService } from '../services/userProfileService';
 import { authService } from '../services/authService';
@@ -50,8 +50,8 @@ export const researchStore = {
   open(id: string) { const s = state.sessions.find((x) => x.id === id); set({ activeId: id, draft: s ? { query: s.prompt, depth: protocolToDepth(s.protocol) } : state.draft }); persist(true); },
   newInquiry() { if (!state.running) { set({ activeId: null, events: [], plan: null, warnings: [], draft: { ...state.draft, query: '' } }); persist(true); } },
   stop() { controller?.abort(); },
-  remove(id: string) { if (state.running && state.activeId === id) return; set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id), activeId: s.activeId === id ? null : s.activeId })); persist(true); },
-  clearAll() { if (state.running) return; set({ sessions: [], activeId: null }); persist(true); },
+  remove(id: string) { if (state.running && state.activeId === id) return; set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id), activeId: s.activeId === id ? null : s.activeId })); void deleteSessionsFromIDB([id]); persist(true); },
+  clearAll() { if (state.running) return; set({ sessions: [], activeId: null }); void deleteSessionsFromIDB(); persist(true); },
   notify,
   async saveToGoogleDocs(id: string) {
     const s = state.sessions.find((x) => x.id === id); if (!s) return;

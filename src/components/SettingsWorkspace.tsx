@@ -3,6 +3,7 @@ import { providerConfigService, CanonicalWorkspaceConfig } from '../services/pro
 import { Page, Card, fieldCls } from '../ui/Page';
 import { Icon } from '../shell/Icon';
 import { announceConfigChange } from '../lib/useModelState';
+import { DataSaveCategory, getDataSavePreferences, setDataSavePreference } from '../services/accountStorage';
 
 const ENGINES = [
   ['duckduckgo', 'DuckDuckGo', 'No key needed'], ['tavily', 'Tavily', 'Key in Models'], ['serper', 'Serper', 'Key in Models'],
@@ -18,6 +19,11 @@ export const SettingsWorkspace: React.FC = () => {
   useEffect(() => setConfig(providerConfigService.getConfig()), []);
   const change = (p: Partial<CanonicalWorkspaceConfig>) => { const next = { ...config, ...p }; setConfig(next); providerConfigService.saveConfig(next); announceConfigChange(); setSaved(true); window.clearTimeout(t.current); t.current = window.setTimeout(() => setSaved(false), 1800); };
   const hb = config.heartbeatIntervalSec || 30;
+  const [savePrefs, setSavePrefs] = useState(getDataSavePreferences);
+  const toggleSavePref = (category: DataSaveCategory, enabled: boolean) => {
+    try { setSavePrefs(setDataSavePreference(category, enabled)); }
+    catch { setSaved(false); }
+  };
   return (
     <Page crumb="Settings" title="Settings" subtitle="How research runs search the web and reason. Changes save instantly on this device." narrow
       right={<span className={`flex items-center gap-1 font-code-sm text-code-sm text-tertiary transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`} aria-live="polite"><Icon name="check" className="text-[16px]" />Saved</span>}>
@@ -37,6 +43,29 @@ export const SettingsWorkspace: React.FC = () => {
         <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-md">Long runs send a small ping this often so proxies do not close the connection. Lower it if runs drop out partway.</p>
         <input type="range" min={10} max={60} step={5} value={hb} aria-label="Keep-alive interval in seconds" onChange={(e) => change({ heartbeatIntervalSec: parseInt(e.target.value, 10) })} className="w-full accent-[#4cd6fb] h-8" />
         <div className="flex justify-between font-code-sm text-code-sm text-outline"><span>10s</span><span>60s</span></div></Card>
+      <Card>
+        <h2 className="font-headline-md text-headline-md">Data &amp; privacy</h2>
+        <p className="font-body-sm text-body-sm text-on-surface-variant mb-space-md">Choose which kinds of work Breezy keeps on this device. These controls affect future saves; turning one off does not erase data already saved. Use each workspace's delete controls to remove existing items.</p>
+        <div className="flex flex-col divide-y divide-outline-variant/30">
+          {([
+            ['researchHistory', 'Research history', 'Research prompts, results, transcripts, and source notes.'],
+            ['chatHistory', 'Chat history', 'Messages in the Chat workspace.'],
+            ['notes', 'Notes', 'Notes you create in the Notes workspace.'],
+            ['canvas', 'Canvas cards', 'Cards and ideas saved to Canvas.'],
+          ] as Array<[DataSaveCategory, string, string]>).map(([category, title, description]) => (
+            <div key={category} className="flex items-center justify-between gap-space-md py-space-md">
+              <div className="min-w-0">
+                <div className="font-headline-sm text-headline-sm">{title}</div>
+                <p className="font-body-sm text-body-sm text-on-surface-variant mt-0.5">{description}</p>
+              </div>
+              <button type="button" role="switch" aria-checked={savePrefs[category]} aria-label={`Save ${title.toLowerCase()} on this device`} onClick={() => toggleSavePref(category, !savePrefs[category])} className={`relative w-12 h-7 shrink-0 rounded-circle transition-colors ${savePrefs[category] ? 'bg-primary' : 'bg-surface-container-highest'}`}>
+                <span className={`absolute top-1 w-5 h-5 rounded-circle bg-surface transition-all ${savePrefs[category] ? 'left-6' : 'left-1'}`} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="font-code-sm text-code-sm text-outline mt-space-sm">Saved locally by default. These switches do not enable cloud sync.</p>
+      </Card>
     </Page>
   );
 };

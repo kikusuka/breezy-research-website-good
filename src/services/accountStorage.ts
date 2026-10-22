@@ -31,12 +31,81 @@ export function getAccountDatabaseName(uid: string): string {
   return `synthexis_storage_db_${encode(uid)}`;
 }
 
+export type DataSaveCategory = 'researchHistory' | 'chatHistory' | 'notes' | 'canvas';
+export interface DataSavePreferences {
+  researchHistory: boolean;
+  chatHistory: boolean;
+  notes: boolean;
+  canvas: boolean;
+}
+const DATA_SAVE_PREFS_KEY = 'breezy_data_save_preferences_v1';
+const DEFAULT_DATA_SAVE_PREFS: DataSavePreferences = { researchHistory: true, chatHistory: true, notes: true, canvas: true };
+
+export function getDataSavePreferences(): DataSavePreferences {
+  try {
+    const raw = activeAccountUid
+      ? localStorage.getItem(scopedKey(activeAccountUid, DATA_SAVE_PREFS_KEY))
+      : localStorage.getItem(DATA_SAVE_PREFS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      researchHistory: parsed.researchHistory !== false,
+      chatHistory: parsed.chatHistory !== false,
+      notes: parsed.notes !== false,
+      canvas: parsed.canvas !== false,
+    };
+  } catch { return { ...DEFAULT_DATA_SAVE_PREFS }; }
+}
+
+export function shouldSaveDataCategory(category: DataSaveCategory): boolean {
+  return getDataSavePreferences()[category];
+}
+
+export function setDataSavePreference(category: DataSaveCategory, enabled: boolean): DataSavePreferences {
+  const next = { ...getDataSavePreferences(), [category]: enabled };
+  const key = activeAccountUid ? scopedKey(activeAccountUid, DATA_SAVE_PREFS_KEY) : DATA_SAVE_PREFS_KEY;
+  localStorage.setItem(key, JSON.stringify(next));
+  return next;
+}
+
+function categoryForStorageKey(key: string): DataSaveCategory | null {
+  if (['synthexis_research_sessions_v2', 'synthexis_debate_sessions_v1', 'synthexis_active_session_id_v2', 'synthexis_active_session_id_v1'].includes(key)) return 'researchHistory';
+  if (key === 'breezy_chat_history_v1') return 'chatHistory';
+  if (key === 'breezy_notes_v1') return 'notes';
+  if (key === 'breezy_canvas_cards_v1') return 'canvas';
+  return null;
+}
+
 export const accountStorage = {
   getItem(key: string): string | null {
     return localStorage.getItem(activeAccountUid ? scopedKey(activeAccountUid, key) : key);
   },
   setItem(key: string, value: string): void {
-    localStorage.setItem(activeAccountUid ? scopedKey(activeAccountUid, key) : key, value);
+    const storageKey = activeAccountUid ? scopedKey(activeAccountUid, key) : key;
+    const category = categoryForStorageKey(key);
+    if (category && !shouldSaveDataCategory(category)) {
+      // When saving is off, allow explicit removals from existing arrays to persist,
+      // but never add new records or persist edits to existing records.
+      try {
+        const previous = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        const incoming = JSON.parse(value);
+        if (Array.isArray(previous) && Array.isArray(incoming) && incoming.length < previous.length) {
+          const remaining = [...incoming];
+          const retained = previous.filter((oldItem) => {
+            const index = remaining.findIndex((newItem) =>
+              oldItem && newItem && oldItem.id != null && newItem.id != null
+                ? oldItem.id === newItem.id
+                : JSON.stringify(oldItem) === JSON.stringify(newItem)
+            );
+            if (index < 0) return false;
+            remaining.splice(index, 1);
+            return true;
+          });
+          localStorage.setItem(storageKey, JSON.stringify(retained));
+        }
+      } catch { /* Keep existing data intact if a safe removal cannot be determined. */ }
+      return;
+    }
+    localStorage.setItem(storageKey, value);
   },
   removeItem(key: string): void {
     localStorage.removeItem(activeAccountUid ? scopedKey(activeAccountUid, key) : key);

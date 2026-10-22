@@ -4,6 +4,8 @@ import {
   clearCurrentAccountStorage,
   prepareAccountStorage,
   setActiveAccountUid,
+  getDataSavePreferences,
+  setDataSavePreference,
 } from '../src/services/accountStorage';
 
 describe('account-scoped local storage', () => {
@@ -61,4 +63,33 @@ describe('account-scoped local storage', () => {
     expect(accountStorage.getItem('breezy_notes_v1')).toBe('new account data');
     expect(localStorage.getItem('breezy:account-legacy:v1:breezy_notes_v1')).toBe('old unscoped data');
   });
+  it('lets users disable saving independently for each data category', () => {
+    expect(getDataSavePreferences()).toEqual({ researchHistory: true, chatHistory: true, notes: true, canvas: true });
+
+    setDataSavePreference('chatHistory', false);
+    accountStorage.setItem('breezy_chat_history_v1', 'new chat');
+    accountStorage.setItem('breezy_notes_v1', 'keep this note');
+    expect(accountStorage.getItem('breezy_chat_history_v1')).toBeNull();
+    expect(accountStorage.getItem('breezy_notes_v1')).toBe('keep this note');
+
+    setDataSavePreference('chatHistory', true);
+    accountStorage.setItem('breezy_chat_history_v1', 'saved after opting in');
+    expect(accountStorage.getItem('breezy_chat_history_v1')).toBe('saved after opting in');
+  });
+
+  it('still persists explicit deletions while saving is disabled', () => {
+    accountStorage.setItem('breezy_notes_v1', JSON.stringify([
+      { id: 'keep', title: 'Old title' },
+      { id: 'remove', title: 'Delete me' },
+    ]));
+    setDataSavePreference('notes', false);
+    accountStorage.setItem('breezy_notes_v1', JSON.stringify([
+      { id: 'keep', title: 'Edited while saving is off' },
+    ]));
+
+    expect(JSON.parse(accountStorage.getItem('breezy_notes_v1') || '[]')).toEqual([
+      { id: 'keep', title: 'Old title' },
+    ]);
+  });
+
 });

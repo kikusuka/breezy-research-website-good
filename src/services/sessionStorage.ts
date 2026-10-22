@@ -1,5 +1,5 @@
 import { DebateSession, DebateStep, DebateTone } from '../types';
-import { accountStorage, getActiveAccountUid, getAccountDatabaseName } from './accountStorage';
+import { accountStorage, getActiveAccountUid, getAccountDatabaseName, shouldSaveDataCategory } from './accountStorage';
 
 // Storage key constants
 export const STORAGE_SESSIONS_KEY = 'synthexis_research_sessions_v2';
@@ -30,6 +30,7 @@ function openDatabase(): Promise<IDBDatabase> {
  * Async IndexedDB background sync for large session graphs
  */
 export async function syncSessionsToIDB(sessions: DebateSession[]): Promise<void> {
+  if (!shouldSaveDataCategory('researchHistory')) return;
   try {
     const db = await openDatabase();
     const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -42,6 +43,24 @@ export async function syncSessionsToIDB(sessions: DebateSession[]): Promise<void
   } catch (err) {
     // Non-blocking background sync warning
     console.debug('IndexedDB sync background note:', err);
+  }
+}
+
+/** Delete saved research records explicitly, even when future saving is disabled. */
+export async function deleteSessionsFromIDB(ids?: string[]): Promise<void> {
+  try {
+    const db = await openDatabase();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      if (ids) ids.forEach((id) => store.delete(id));
+      else store.clear();
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+      tx.onabort = () => { db.close(); reject(tx.error); };
+    });
+  } catch (err) {
+    console.debug('Could not remove research records from IndexedDB:', err);
   }
 }
 
