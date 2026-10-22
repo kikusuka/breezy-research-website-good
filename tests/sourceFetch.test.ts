@@ -61,6 +61,16 @@ describe('bounded source-page retrieval', () => {
     expect(oversized).toMatchObject({ status: 'unavailable', reason: 'body_too_large' });
   });
 
+  it('stops reading a streamed body once it exceeds the byte cap', async () => {
+    const oversizedBody = 'x'.repeat(512 * 1024 + 1);
+    const fetchImpl = (async () => new Response(oversizedBody, {
+      status: 200,
+      headers: { 'content-type': 'text/plain' },
+    })) as typeof fetch;
+    const result = await fetchReadableSource('https://example.com/streamed-large', fetchImpl);
+    expect(result).toMatchObject({ status: 'unavailable', reason: 'body_too_large' });
+  });
+
   it('returns an unavailable result when the fetch fails or times out', async () => {
     const fetchImpl = (async () => { throw new DOMException('aborted', 'TimeoutError'); }) as typeof fetch;
     await expect(fetchReadableSource('https://example.com/slow', fetchImpl)).resolves.toMatchObject({
