@@ -38,7 +38,7 @@ describe('feedback report endpoint', () => {
     const response = await handleBackendRequest(reportRequest({
       kind: 'secret-kind',
       description: 'This should not be sent',
-    }), { DISCORD_ALERT_WEBHOOK_URL: 'https://discord.example/webhook/test' });
+    }), { DISCORD_ALERT_WEBHOOK_URL: 'https://discord.com/api/webhooks/123456789012345678/test-token' });
 
     expect(response.status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();
@@ -53,7 +53,7 @@ describe('feedback report endpoint', () => {
       title: 'Research issue',
       description: 'Authorization: Bearer abcdefghijklmnop and sk-abcdefghijklmnopqrstuvwxyz',
       environment: 'feature=research',
-    }), { DISCORD_ALERT_WEBHOOK_URL: 'https://discord.example/webhook/test' });
+    }), { DISCORD_ALERT_WEBHOOK_URL: 'https://discord.com/api/webhooks/123456789012345678/test-token' });
 
     expect(response.status).toBe(202);
     await expect(response.json()).resolves.toEqual({ ok: true });
@@ -74,10 +74,28 @@ describe('feedback report endpoint', () => {
     const response = await handleBackendRequest(reportRequest({
       kind: 'suggestion',
       description: 'Add a keyboard shortcut',
-    }), { DISCORD_ALERT_WEBHOOK_URL: 'https://discord.example/webhook/test' });
+    }), { DISCORD_ALERT_WEBHOOK_URL: 'https://discord.com/api/webhooks/123456789012345678/test-token' });
 
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toMatchObject({ ok: false });
+  });
+
+
+  it('rejects non-Discord webhook destinations before making a network request', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await handleBackendRequest(reportRequest({
+      kind: 'bug',
+      description: 'Do not send this anywhere',
+    }), { DISCORD_ALERT_WEBHOOK_URL: 'https://attacker.example/api/webhooks/123/token' });
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: false,
+      code: 'REPORTING_NOT_CONFIGURED',
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('rejects empty user-submitted descriptions', async () => {
@@ -87,7 +105,7 @@ describe('feedback report endpoint', () => {
     const response = await handleBackendRequest(reportRequest({
       kind: 'suggestion',
       description: '   ',
-    }), { DISCORD_ALERT_WEBHOOK_URL: 'https://discord.example/webhook/test' });
+    }), { DISCORD_ALERT_WEBHOOK_URL: 'https://discord.com/api/webhooks/123456789012345678/test-token' });
 
     expect(response.status).toBe(400);
     expect(fetchMock).not.toHaveBeenCalled();

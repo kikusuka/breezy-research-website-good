@@ -37,18 +37,40 @@ function getClientIdentifier(req: Request): string {
   );
 }
 
+/** Accept only Discord webhook URLs and never follow redirects to another host. */
+function getDiscordWebhookUrl(env: BackendEnv): string | null {
+  const configured = env.DISCORD_ALERT_WEBHOOK_URL?.trim();
+  if (!configured) return null;
+  try {
+    const url = new URL(configured);
+    if (
+      url.protocol !== 'https:' ||
+      !['discord.com', 'discordapp.com'].includes(url.hostname.toLowerCase()) ||
+      url.username ||
+      url.password ||
+      url.port ||
+      !/^\/api\/webhooks\/\d+\/[^/]+\/?$/.test(url.pathname)
+    ) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Best-effort operational alert. Never forwards prompts, report bodies, API responses, or raw exception messages.
  */
 async function notifyDiscordOperationalAlert(env: BackendEnv, backendName: string, category: string): Promise<void> {
-  if (!env.DISCORD_ALERT_WEBHOOK_URL) return;
+  const webhookUrl = getDiscordWebhookUrl(env);
+  if (!webhookUrl) return;
   const limit = checkServerRateLimit(`ops-alert:${category}`, 5, 60000);
   if (!limit.allowed) return;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await fetch(env.DISCORD_ALERT_WEBHOOK_URL, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
+      redirect: 'error',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         content: `**Breezy operational alert**\\n**Event:** ${category}\\n**Backend:** ${backendName}\\n**Time:** ${new Date().toISOString()}\\nCheck server logs for the associated error details.`,
@@ -193,8 +215,9 @@ export async function handleBackendRequest(
     if (!kindLimit.allowed) {
       return createJsonResponse({ ok: false, error: 'Too many reports. Please wait a minute and try again.' }, 429, req, env);
     }
-    if (!env.DISCORD_ALERT_WEBHOOK_URL) {
-      return createJsonResponse({ ok: false, code: 'REPORTING_NOT_CONFIGURED', error: 'Reporting is not configured on this deployment yet.' }, 503, req, env);
+    const webhookUrl = getDiscordWebhookUrl(env);
+    if (!webhookUrl) {
+      return createJsonResponse({ ok: false, code: 'REPORTING_NOT_CONFIGURED', error: 'Reporting is not configured correctly on this deployment yet.' }, 503, req, env);
     }
     const declaredLength = Number(req.headers.get('content-length') || 0);
     if (declaredLength > 6000) return createJsonResponse({ ok: false, error: 'Report is too large.' }, 413, req, env);
@@ -234,8 +257,9 @@ export async function handleBackendRequest(
       const timeoutId = setTimeout(() => controller.abort(), 7000);
       let webhookResponse: Response;
       try {
-        webhookResponse = await fetch(env.DISCORD_ALERT_WEBHOOK_URL, {
+        webhookResponse = await fetch(webhookUrl, {
           method: 'POST',
+          redirect: 'error',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: content.slice(0, 1900), allowed_mentions: { parse: [] } }),
           signal: controller.signal,
