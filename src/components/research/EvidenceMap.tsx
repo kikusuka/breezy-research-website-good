@@ -17,7 +17,8 @@ const normalizeUrl = (value?: string) => {
   if (!value) return '';
   try {
     const u = new URL(value);
-    return `${u.origin}${u.pathname.replace(/\/$/, '')}`;
+    u.hash = '';
+    return u.toString();
   } catch {
     return value.trim();
   }
