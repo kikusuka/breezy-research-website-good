@@ -172,7 +172,7 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
     // A matching URL only means the reference appeared in search results. It does not
     // prove that the page was fetched, read, or actually supports the claim.
     const discoveredUrls = new Set(
-      discoveredSources.map((source) => normalizeEvidenceUrl(source?.url)).filter(Boolean),
+      discoveredSources.flatMap((source) => [normalizeEvidenceUrl(source?.url), normalizeEvidenceUrl(source?.retrievedUrl)]).filter(Boolean),
     );
 
     claims = claims.map((claim: any) => {
