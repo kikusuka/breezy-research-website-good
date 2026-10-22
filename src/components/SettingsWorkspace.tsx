@@ -4,7 +4,7 @@ import { Page, Card, fieldCls } from '../ui/Page';
 import { Icon } from '../shell/Icon';
 import { announceConfigChange } from '../lib/useModelState';
 import { accountStorage, DataSaveCategory, getDataSavePreferences, setDataSavePreference, shouldSaveDataCategory } from '../services/accountStorage';
-import { deleteSessionsFromIDB, loadSessions, loadSessionsFromIDB, saveSessions } from '../services/sessionStorage';
+import { deleteSessionsFromIDB, loadSessions, loadSessionsFromIDB, replaceSessionsInIDB, saveSessions } from '../services/sessionStorage';
 
 const ENGINES = [
   ['duckduckgo', 'DuckDuckGo', 'No key needed'], ['tavily', 'Tavily', 'Key in Models'], ['serper', 'Serper', 'Key in Models'],
@@ -78,9 +78,11 @@ export const SettingsWorkspace: React.FC = () => {
         if (!shouldSaveDataCategory(category)) continue;
         const value = parsed.categories[category];
         if (category === 'researchHistory') {
-          await deleteSessionsFromIDB();
+          // Commit the full-fidelity copy before reporting restore success. If IndexedDB
+          // is unavailable, saveSessions retains the app's localStorage-only fallback.
+          await replaceSessionsInIDB(value);
           const result = saveSessions(value);
-          if (result === 'failed') throw new Error('Could not save restored research history');
+          if (result === 'failed') throw new Error('Could not save restored research history to local browser storage');
         } else {
           accountStorage.setItem(backupKeys[category], JSON.stringify(value));
         }
