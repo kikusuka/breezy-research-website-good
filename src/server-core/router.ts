@@ -1528,11 +1528,18 @@ Synthesize the final, definitive, high-integrity answer for the user.`;
           },
         });
       } catch (err: any) {
-        console.error('Debate pipeline error:', err);
-        void notifyDiscordOperationalAlert(env, backendName, 'Research pipeline exception');
-        await sendEvent('error', {
-          message: err.message || 'An unexpected error occurred during debate deliberation.',
-        });
+        // A disconnected client cancels the readable side of the TransformStream,
+        // which can reject writes without indicating a backend failure.
+        const clientDisconnected = req.signal.aborted || err?.name === 'AbortError' || writer.desiredSize === null;
+        if (clientDisconnected) {
+          console.info('Research stream ended because the client disconnected.');
+        } else {
+          console.error('Debate pipeline error:', err);
+          void notifyDiscordOperationalAlert(env, backendName, 'Research pipeline exception');
+          await sendEvent('error', {
+            message: err.message || 'An unexpected error occurred during debate deliberation.',
+          });
+        }
       } finally {
         try {
           await writer.close();
