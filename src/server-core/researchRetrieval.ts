@@ -1,12 +1,16 @@
 import type { SearchGroundingResult, SearchResultItem } from './types.ts';
 
 /** Select up to three distinct retrieval queries, preferring planned subqueries. */
+export function shouldPlanResearch(protocol: string, enableSearchGrounding: boolean): boolean {
+  return enableSearchGrounding || protocol !== 'solo';
+}
+
 export function selectResearchQueries(plannedQueries: string[], originalPrompt: string, maxQueries = 3): string[] {
   const candidates = [...plannedQueries, originalPrompt];
   const seen = new Set<string>();
   const selected: string[] = [];
   for (const candidate of candidates) {
-    const query = candidate.trim();
+    const query = candidate.trim().slice(0, 300);
     const key = query.toLocaleLowerCase();
     if (!query || seen.has(key)) continue;
     seen.add(key);
