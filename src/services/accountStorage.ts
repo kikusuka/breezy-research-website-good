@@ -31,6 +31,50 @@ export function getAccountDatabaseName(uid: string): string {
   return `synthexis_storage_db_${encode(uid)}`;
 }
 
+export type DataSaveCategory = 'researchHistory' | 'chatHistory' | 'notes' | 'canvas';
+export interface DataSavePreferences {
+  researchHistory: boolean;
+  chatHistory: boolean;
+  notes: boolean;
+  canvas: boolean;
+}
+const DATA_SAVE_PREFS_KEY = 'breezy_data_save_preferences_v1';
+const DEFAULT_DATA_SAVE_PREFS: DataSavePreferences = { researchHistory: true, chatHistory: true, notes: true, canvas: true };
+
+export function getDataSavePreferences(): DataSavePreferences {
+  try {
+    const raw = activeAccountUid
+      ? localStorage.getItem(scopedKey(activeAccountUid, DATA_SAVE_PREFS_KEY))
+      : localStorage.getItem(DATA_SAVE_PREFS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      researchHistory: parsed.researchHistory !== false,
+      chatHistory: parsed.chatHistory !== false,
+      notes: parsed.notes !== false,
+      canvas: parsed.canvas !== false,
+    };
+  } catch { return { ...DEFAULT_DATA_SAVE_PREFS }; }
+}
+
+export function shouldSaveDataCategory(category: DataSaveCategory): boolean {
+  return getDataSavePreferences()[category];
+}
+
+export function setDataSavePreference(category: DataSaveCategory, enabled: boolean): DataSavePreferences {
+  const next = { ...getDataSavePreferences(), [category]: enabled };
+  const key = activeAccountUid ? scopedKey(activeAccountUid, DATA_SAVE_PREFS_KEY) : DATA_SAVE_PREFS_KEY;
+  localStorage.setItem(key, JSON.stringify(next));
+  return next;
+}
+
+function categoryForStorageKey(key: string): DataSaveCategory | null {
+  if (['synthexis_research_sessions_v2', 'synthexis_debate_sessions_v1', 'synthexis_active_session_id_v2', 'synthexis_active_session_id_v1'].includes(key)) return 'researchHistory';
+  if (key === 'breezy_chat_history_v1') return 'chatHistory';
+  if (key === 'breezy_notes_v1') return 'notes';
+  if (key === 'breezy_canvas_cards_v1') return 'canvas';
+  return null;
+}
+
 export const accountStorage = {
   getItem(key: string): string | null {
     return localStorage.getItem(activeAccountUid ? scopedKey(activeAccountUid, key) : key);
