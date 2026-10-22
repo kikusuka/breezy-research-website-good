@@ -80,9 +80,32 @@ export const accountStorage = {
     return localStorage.getItem(activeAccountUid ? scopedKey(activeAccountUid, key) : key);
   },
   setItem(key: string, value: string): void {
+    const storageKey = activeAccountUid ? scopedKey(activeAccountUid, key) : key;
     const category = categoryForStorageKey(key);
-    if (category && !shouldSaveDataCategory(category)) return;
-    localStorage.setItem(activeAccountUid ? scopedKey(activeAccountUid, key) : key, value);
+    if (category && !shouldSaveDataCategory(category)) {
+      // When saving is off, allow explicit removals from existing arrays to persist,
+      // but never add new records or persist edits to existing records.
+      try {
+        const previous = JSON.parse(localStorage.getItem(storageKey) || 'null');
+        const incoming = JSON.parse(value);
+        if (Array.isArray(previous) && Array.isArray(incoming) && incoming.length < previous.length) {
+          const remaining = [...incoming];
+          const retained = previous.filter((oldItem) => {
+            const index = remaining.findIndex((newItem) =>
+              oldItem && newItem && oldItem.id != null && newItem.id != null
+                ? oldItem.id === newItem.id
+                : JSON.stringify(oldItem) === JSON.stringify(newItem)
+            );
+            if (index < 0) return false;
+            remaining.splice(index, 1);
+            return true;
+          });
+          localStorage.setItem(storageKey, JSON.stringify(retained));
+        }
+      } catch { /* Keep existing data intact if a safe removal cannot be determined. */ }
+      return;
+    }
+    localStorage.setItem(storageKey, value);
   },
   removeItem(key: string): void {
     localStorage.removeItem(activeAccountUid ? scopedKey(activeAccountUid, key) : key);
