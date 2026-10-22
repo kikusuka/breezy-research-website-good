@@ -8,6 +8,10 @@ describe('bounded source-page retrieval', () => {
     expect(validatePublicSourceUrl('http://127.0.0.1/')).toBeNull();
     expect(validatePublicSourceUrl('http://10.0.0.2/')).toBeNull();
     expect(validatePublicSourceUrl('http://[::1]/')).toBeNull();
+    expect(validatePublicSourceUrl('http://[fd00::1]/')).toBeNull();
+    expect(validatePublicSourceUrl('http://[fe80::1]/')).toBeNull();
+    expect(validatePublicSourceUrl('http://[ff02::1]/')).toBeNull();
+    expect(validatePublicSourceUrl('http://192.0.2.1/')).toBeNull();
     expect(validatePublicSourceUrl('http://service.local/')).toBeNull();
     const fetchImpl = vi.fn() as unknown as typeof fetch;
     const result = await fetchReadableSource('http://127.0.0.1/', fetchImpl);
