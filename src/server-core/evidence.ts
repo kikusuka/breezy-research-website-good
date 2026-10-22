@@ -104,7 +104,7 @@ USER QUESTION:
 ${prompt}
 
 SOURCES DISCOVERED:
-${JSON.stringify(discoveredSources.map((s) => ({ title: s.title, url: s.url, domain: s.domain, snippet: s.snippet })))}
+${JSON.stringify(discoveredSources.map((s) => ({ title: s.title, url: s.url, domain: s.domain, snippet: s.snippet, pageText: typeof s.pageText === 'string' ? s.pageText.slice(0, 1200) : undefined })))}
 
 ANALYST PROPOSAL EXCERPT:
 ${proposalContent.slice(0, 1500)}
@@ -144,7 +144,10 @@ OUTPUT ONLY A VALID JSON OBJECT WITH THIS EXACT STRUCTURE (no backticks, no mark
       "reconciledResolution": "Resolution"
     }
   ]
-}\n\nCONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is a defensible basis; otherwise return null. Never derive confidence from the number of matching URLs.\n`;
+}
+
+CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is a defensible basis; otherwise return null. Never derive confidence from the number of matching URLs.
+`;
 
     const rawResult = await callAgentWithStream({
       provider,
