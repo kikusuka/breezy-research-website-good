@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeGroundingResults, selectResearchQueries } from '../src/server-core/researchRetrieval';
+import { mergeGroundingResults, selectResearchQueries, shouldPlanResearch } from '../src/server-core/researchRetrieval';
 import type { SearchGroundingResult } from '../src/server-core/types';
 
 const result = (query: string, urls: string[]): SearchGroundingResult => ({
@@ -10,9 +10,19 @@ const result = (query: string, urls: string[]): SearchGroundingResult => ({
 });
 
 describe('research retrieval helpers', () => {
+  it('skips planning only for non-grounded Solo mode', () => {
+    expect(shouldPlanResearch('solo', false)).toBe(false);
+    expect(shouldPlanResearch('solo', true)).toBe(true);
+    expect(shouldPlanResearch('trio', false)).toBe(true);
+    expect(shouldPlanResearch('quad', false)).toBe(true);
+  });
   it('uses planned subqueries first, deduplicates, and caps retrieval at three queries', () => {
     expect(selectResearchQueries([' what changed ', 'What Changed', 'why it changed', 'impact'], 'original question'))
       .toEqual(['what changed', 'why it changed', 'impact']);
+  });
+
+  it('bounds each query sent to the search provider', () => {
+    expect(selectResearchQueries(['x'.repeat(500)], 'fallback')[0]).toHaveLength(300);
   });
 
   it('uses the original prompt when no planned queries are available', () => {
