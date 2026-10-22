@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { EvidenceGraph, ResearchClaim } from '../../types';
 import { Icon } from '../../shell/Icon';
-import { buildEvidenceMapSources, claimEvidenceUrls, normalizeEvidenceUrl } from '../../lib/evidenceMap';
+import { buildEvidenceMapSources, claimEvidenceUrls, normalizeEvidenceUrl, safeEvidenceHref } from '../../lib/evidenceMap';
 
 type EvidenceMapProps = { graph?: EvidenceGraph | null };
 
@@ -67,7 +67,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                       <div key={`support-${source.url}-${i}`} className="rounded-lg bg-surface-container-low p-space-sm">
                         <div className="font-label-sm text-label-sm text-tertiary">Listed as supporting evidence</div>
                         {source.snippet && <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</p>}
-                        <a href={source.url} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-space-xs font-body-sm text-primary underline underline-offset-2"><Icon name="open_in_new" className="text-[14px] shrink-0" /><span className="truncate">{source.title || source.domain || source.url}</span></a>
+                        {safeEvidenceHref(source.url) ? <a href={safeEvidenceHref(source.url) || undefined} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-space-xs font-body-sm text-primary underline underline-offset-2"><Icon name="open_in_new" className="text-[14px] shrink-0" /><span className="truncate">{source.title || source.domain || source.url}</span></a> : <span className="mt-1 block break-words font-body-sm text-on-surface-variant">{source.title || source.domain || 'Source URL unavailable'}</span>}
                       </div>
                     ))}
                     {claim.counterEvidence?.map((source, i) => (
@@ -98,7 +98,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                 <div className="flex items-start gap-space-sm">
                   <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-container-low text-secondary"><Icon name="description" className="text-[18px]" /></span>
                   <div className="min-w-0 flex-1">
-                    <a href={source.url} target="_blank" rel="noreferrer noopener" className="font-body-md text-body-md text-on-surface underline decoration-outline-variant underline-offset-2 hover:text-primary break-words">{source.title}</a>
+                    {safeEvidenceHref(source.url) ? <a href={safeEvidenceHref(source.url) || undefined} target="_blank" rel="noreferrer noopener" className="font-body-md text-body-md text-on-surface underline decoration-outline-variant underline-offset-2 hover:text-primary break-words">{source.title}</a> : <span className="font-body-md text-body-md text-on-surface break-words">{source.title}</span>}
                     <p className="mt-1 truncate font-code-sm text-code-sm text-outline">{source.domain || source.url}</p>
                     <p className="mt-2 font-label-sm text-label-sm text-outline">{source.discovered ? 'Discovered source record' : 'Referenced by a claim; not in the discovered-source list'}</p>
                   </div>
