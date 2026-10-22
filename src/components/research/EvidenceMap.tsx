@@ -1,71 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import type { EvidenceGraph, EvidenceSource, ResearchClaim } from '../../types';
+import type { EvidenceGraph, ResearchClaim } from '../../types';
 import { Icon } from '../../shell/Icon';
+import { buildEvidenceMapSources, claimEvidenceUrls, normalizeEvidenceUrl } from '../../lib/evidenceMap';
 
 type EvidenceMapProps = { graph?: EvidenceGraph | null };
-
-type SourceNode = {
-  id: string;
-  title: string;
-  url: string;
-  domain?: string;
-  snippet?: string;
-  discovered: boolean;
-};
-
-const normalizeUrl = (value?: string) => {
-  if (!value) return '';
-  try {
-    const u = new URL(value);
-    u.hash = '';
-    return u.toString();
-  } catch {
-    return value.trim();
-  }
-};
 
 export function EvidenceMap({ graph }: EvidenceMapProps) {
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const claims = graph?.claims ?? [];
   const discoveredSources = graph?.sourcesConsulted ?? [];
 
-  const sources = useMemo<SourceNode[]>(() => {
-    const byUrl = new Map<string, SourceNode>();
-    for (const source of discoveredSources as EvidenceSource[]) {
-      const key = normalizeUrl(source.url);
-      if (!key) continue;
-      byUrl.set(key, {
-        id: source.id || key,
-        title: source.title || source.domain || source.url,
-        url: source.url,
-        domain: source.domain,
-        snippet: source.snippet,
-        discovered: true,
-      });
-    }
-    for (const claim of claims as ResearchClaim[]) {
-      for (const evidence of [...(claim.supportingSources ?? []), ...(claim.counterEvidence ?? [])]) {
-        const key = normalizeUrl(evidence.url);
-        if (!key || byUrl.has(key)) continue;
-        byUrl.set(key, {
-          id: key,
-          title: evidence.title || evidence.domain || evidence.url,
-          url: evidence.url,
-          domain: evidence.domain,
-          snippet: evidence.snippet,
-          discovered: false,
-        });
-      }
-    }
-    return [...byUrl.values()];
-  }, [claims, discoveredSources]);
-
+  const sources = useMemo(() => buildEvidenceMapSources(discoveredSources, claims), [claims, discoveredSources]);
   const selectedClaim = claims.find((claim) => claim.id === selectedClaimId) ?? null;
-  const linkedUrls = new Set(
-    selectedClaim
-      ? [...(selectedClaim.supportingSources ?? []), ...(selectedClaim.counterEvidence ?? [])].map((source) => normalizeUrl(source.url))
-      : []
-  );
+  const linkedUrls = claimEvidenceUrls(selectedClaim);
 
   const claimStatus = (claim: ResearchClaim) => {
     if (claim.status === 'supported') return { label: 'Model-assessed support', icon: 'check_circle', tone: 'text-tertiary' };
@@ -145,7 +92,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
         <div className="flex min-w-0 flex-col gap-space-sm">
           <div className="flex items-center gap-space-xs px-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline"><Icon name="link" className="text-[16px]" />Source records</div>
           {sources.length ? sources.map((source) => {
-            const highlighted = linkedUrls.has(normalizeUrl(source.url));
+            const highlighted = linkedUrls.has(normalizeEvidenceUrl(source.url));
             return (
               <article key={source.id} className={`min-w-0 rounded-2xl border p-space-md transition-colors ${highlighted ? 'border-primary/60 bg-surface-container-high' : 'border-outline-variant/40 bg-surface-container'}`}>
                 <div className="flex items-start gap-space-sm">
