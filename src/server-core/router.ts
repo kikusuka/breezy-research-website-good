@@ -9,6 +9,7 @@ import { verifyFirebaseIdToken } from './firebaseAuth';
 import { handleChatPersistenceRequest } from './chatPersistence';
 import { callAgentWithStream, sanitizeGeminiModel } from './providers';
 import { performSearchGrounding } from './search';
+import { fetchReadableSource } from './sourceFetch';
 import { summarizeStage, generateRealEvidenceGraph } from './evidence';
 
 // In-memory rate limiting map for server-provided key usage (resets per instance/isolate)
@@ -1100,10 +1101,29 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
                   url: r.url,
                   domain,
                   snippet: r.snippet,
+                  retrievalStatus: 'not_attempted' as const,
                   isPrimary,
                   citationIndex: idx + 1,
                 };
               });
+
+              // Read a small, bounded number of public source pages. Search snippets remain
+              // available when a page blocks retrieval or is not safe/readable.
+              if (discoveredSources.length) {
+                await sendEvent('status', { message: 'Reading up to 3 public source pages within safety and size limits...' });
+                const pageResults = await Promise.all(
+                  discoveredSources.slice(0, 3).map((source) => fetchReadableSource(source.url)),
+                );
+                discoveredSources = discoveredSources.map((source, idx) => {
+                  const page = pageResults[idx];
+                  if (!page) return source;
+                  return {
+                    ...source,
+                    retrievalStatus: page.status,
+                    ...(page.status === 'retrieved' && page.text ? { pageText: page.text } : {}),
+                  };
+                });
+              }
 
               await sendEvent('search_grounding', {
                 engine: groundingResult.engine,
@@ -1111,21 +1131,26 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
                 query: groundingResult.query,
                 summary: groundingResult.summary || undefined,
                 resultsCount: groundingResult.results.length,
-                sources: discoveredSources,
+                sources: discoveredSources.map(({ pageText, ...source }) => source),
               });
 
               if (groundingResult.results.length > 0 || groundingResult.summary) {
-                const snippets = groundingResult.results
-                  .map((r, i) => `${i + 1}. [${r.title}](${r.url})\n   "${r.snippet}"`)
+                const sourceMaterial = discoveredSources
+                  .map((source, i) => {
+                    const material = source.pageText
+                      ? `Retrieved page text (bounded extract):\n${source.pageText}`
+                      : `Search snippet only (page text unavailable/not fetched): ${source.snippet}`;
+                    return `${i + 1}. [${source.title}](${source.url})\n${material}`;
+                  })
                   .join('\n\n');
 
                 groundingContext = `\n\n---
-[VERIFIED REAL-TIME SEARCH GROUNDING - Source Engine: ${groundingResult.engineName}]
-${groundingResult.summary ? `Summary / Answer: ${groundingResult.summary}\n` : ''}
-Key Live Web Citations & Snippets:
-${snippets}
+[SEARCH RESULTS AND BOUNDED SOURCE-PAGE EXTRACTS - Search engine: ${groundingResult.engineName}]
+${groundingResult.summary ? `Search-engine summary (not independently verified): ${groundingResult.summary}\n` : ''}
+Source material:
+${sourceMaterial}
 ---
-Ground your technical architecture, critique, and trade-off claims in the above real-time empirical findings and citations.`;
+Treat this material as evidence to assess, not as proof by itself. Distinguish retrieved page text from search snippets, cite only source material actually present, and state uncertainty when the material does not support a claim.`;
               }
             }
           } catch (err: any) {
