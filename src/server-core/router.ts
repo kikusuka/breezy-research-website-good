@@ -63,7 +63,7 @@ export function getCorsHeaders(req: Request, env: BackendEnv = {}): Record<strin
   const requestOrigin = req.headers.get('Origin');
   const allowedOriginsConfig = env.ALLOWED_ORIGINS?.trim();
 
-  let resolvedOrigin = '*';
+  let resolvedOrigin: string | null = '*';
 
   if (allowedOriginsConfig) {
     if (allowedOriginsConfig === '*') {
@@ -76,7 +76,7 @@ export function getCorsHeaders(req: Request, env: BackendEnv = {}): Record<strin
           resolvedOrigin = requestOrigin;
         } else {
           // Fail-closed: do not reflect untrusted origins
-          resolvedOrigin = 'null';
+          resolvedOrigin = null;
         }
       } else {
         resolvedOrigin = allowedList[0] || 'null';
@@ -88,7 +88,7 @@ export function getCorsHeaders(req: Request, env: BackendEnv = {}): Record<strin
   }
 
   return {
-    'Access-Control-Allow-Origin': resolvedOrigin,
+    ...(resolvedOrigin ? { 'Access-Control-Allow-Origin': resolvedOrigin } : {}),
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Breezy-Client',
     'Access-Control-Max-Age': '86400',
