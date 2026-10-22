@@ -3,10 +3,9 @@ import { getCorsHeaders } from '../src/server-core/router';
 
 describe('backend CORS configuration', () => {
   it('allows the methods required by the chat persistence API', () => {
-    const request = new Request('https://api.example.test/api/chat/conversations/abc', {
-      method: 'OPTIONS',
-      headers: { Origin: 'https://breezy.example.test' },
-    });
+    const request = {
+      headers: new Headers({ Origin: 'https://breezy.example.test' }),
+    } as Request;
     const headers = getCorsHeaders(request, {
       ALLOWED_ORIGINS: 'https://breezy.example.test',
     });
@@ -17,14 +16,13 @@ describe('backend CORS configuration', () => {
   });
 
   it('does not reflect an origin that is not in the allowlist', () => {
-    const request = new Request('https://api.example.test/api/chat/conversations', {
-      method: 'OPTIONS',
-      headers: { Origin: 'https://untrusted.example.test' },
-    });
+    const request = {
+      headers: new Headers({ Origin: 'https://untrusted.example.test' }),
+    } as Request;
     const headers = getCorsHeaders(request, {
       ALLOWED_ORIGINS: 'https://breezy.example.test',
     });
 
-    expect(headers['Access-Control-Allow-Origin']).toBe('null');
+    expect(headers['Access-Control-Allow-Origin']).toBeUndefined();
   });
 });

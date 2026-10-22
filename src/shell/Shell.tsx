@@ -67,7 +67,7 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpande
   );
 
   return (
-    <aside className={`fixed inset-y-0 left-0 z-[70] flex flex-col justify-between bg-surface/90 backdrop-blur-xl border-r border-outline-variant/30 transition-[width,transform] duration-200 ease-out ${isExpanded ? 'w-64' : 'w-[4.25rem]'} ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+    <aside id="breezy-sidebar" className={`fixed inset-y-0 left-0 z-[70] flex flex-col justify-between bg-surface/90 backdrop-blur-xl border-r border-outline-variant/30 transition-[width,transform] duration-200 ease-out ${isExpanded ? 'w-64' : 'w-[4.25rem]'} ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
       <div className="flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
         <div className={`relative flex items-center h-16 shrink-0 px-2 gap-1 ${isExpanded ? 'lg:px-space-md lg:gap-space-sm' : 'justify-between lg:justify-center'}`}>
           <button type="button" onClick={() => { go('chat'); onNavigate(); }} aria-label="Go to chat" title="Go to chat" className="w-8 h-8 shrink-0 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-colors">
@@ -81,10 +81,10 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpande
         <nav className={`py-space-sm flex flex-col gap-space-xs ${isExpanded ? 'px-space-md' : 'items-center px-1'}`} aria-label="Main navigation">
           {MAIN_NAV.map(item)}
         </nav>
-        {isExpanded && <div className="px-space-md pt-space-md">
-          <div className="px-space-md pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Laboratories</div>
-          <nav className="flex flex-col gap-space-xs" aria-label="Laboratories">{LAB_NAV.map(item)}</nav>
-        </div>}
+        <div className={isExpanded ? 'px-space-md pt-space-md' : 'w-full pt-space-md'}>
+          {isExpanded && <div className="px-space-md pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Laboratories</div>}
+          <nav className={`flex flex-col gap-space-xs ${isExpanded ? '' : 'items-center px-1'}`} aria-label="Laboratories">{LAB_NAV.map(item)}</nav>
+        </div>
       </div>
       <div className={`relative flex flex-col ${isExpanded ? 'p-space-md gap-space-sm' : 'items-center pb-space-md gap-space-md'}`}>
         {profileMenuOpen && <div role="menu" aria-label="Profile menu" className={`absolute z-[90] bottom-full mb-space-sm rounded-2xl border border-outline-variant/60 bg-surface-container-low p-space-xs shadow-2xl coat ${isExpanded ? 'left-space-md right-space-md' : 'left-full ml-space-sm w-52'}`}>
@@ -114,6 +114,16 @@ export function Shell({ tab, go, children, previewMode = false }: ShellProps) {
     return () => window.removeEventListener('resize', updateForViewport);
   }, []);
 
+  // Keep the mobile drawer dismissible without requiring a tap on the backdrop.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [mobileOpen]);
+
   const closeMobile = () => setMobileOpen(false);
 
   return (
@@ -122,7 +132,7 @@ export function Shell({ tab, go, children, previewMode = false }: ShellProps) {
       <Sidebar tab={tab} go={go} isExpanded={sidebarExpanded} mobileOpen={mobileOpen} previewMode={previewMode} onToggleExpanded={() => setSidebarExpanded((open) => !open)} onNavigate={closeMobile} />
       <div className={`flex-1 min-w-0 flex flex-col transition-[padding-left] duration-200 ease-out ${sidebarExpanded ? 'lg:pl-64' : 'lg:pl-[4.25rem]'}`}>
         <main className="relative flex-1 min-h-0 overflow-y-auto splatter-soft pt-14 lg:pt-0" id="main">
-          <button type="button" aria-label="Open navigation" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)} className="lg:hidden fixed z-50 left-3 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low border border-outline-variant/60 text-on-surface shadow-lg shadow-black/30 hover:bg-surface-container-high transition-colors" title="Open navigation"><Icon name="menu" className="text-[21px]" /></button>
+          <button type="button" aria-label="Open navigation" aria-controls="breezy-sidebar" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)} className="lg:hidden fixed z-50 left-3 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low border border-outline-variant/60 text-on-surface shadow-lg shadow-black/30 hover:bg-surface-container-high transition-colors" title="Open navigation"><Icon name="menu" className="text-[21px]" /></button>
           {children}
         </main>
       </div>
