@@ -66,14 +66,16 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                   <div className="mt-space-md border-t border-outline-variant/40 pt-space-md pl-[27px] flex flex-col gap-space-sm">
                     {claim.supportingSources?.map((source, i) => (
                       <div key={`support-${source.url}-${i}`} className="rounded-lg bg-surface-container-low p-space-sm">
-                        <div className="font-label-sm text-label-sm text-tertiary">Listed as supporting evidence</div>
+                        <div className="font-label-sm text-label-sm text-tertiary">Model-listed supporting evidence</div>
+                        <div className="mt-1 font-label-sm text-label-sm text-outline">{source.referenceFound === true ? "Reference URL found in search results; claim support not verified" : source.referenceFound === false ? "Reference URL not matched to discovered results" : "Reference match status unavailable for this saved run"}</div>
                         {source.snippet && <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</p>}
                         {safeEvidenceHref(source.url) ? <a href={safeEvidenceHref(source.url) || undefined} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-space-xs font-body-sm text-primary underline underline-offset-2"><Icon name="open_in_new" className="text-[14px] shrink-0" /><span className="truncate">{source.title || source.domain || source.url}</span></a> : <span className="mt-1 block break-words font-body-sm text-on-surface-variant">{source.title || source.domain || 'Source URL unavailable'}</span>}
                       </div>
                     ))}
                     {claim.counterEvidence?.map((source, i) => (
                       <div key={`counter-${source.url}-${i}`} className="rounded-lg bg-surface-container-low p-space-sm">
-                        <div className="font-label-sm text-label-sm text-error">Listed as counter-evidence</div>
+                        <div className="font-label-sm text-label-sm text-error">Model-listed counter-evidence</div>
+                        <div className="mt-1 font-label-sm text-label-sm text-outline">{source.referenceFound === true ? "Reference URL found in search results; claim support not verified" : source.referenceFound === false ? "Reference URL not matched to discovered results" : "Reference match status unavailable for this saved run"}</div>
                         {source.snippet && <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</p>}
                         {safeEvidenceHref(source.url) ? <a href={safeEvidenceHref(source.url) || undefined} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-space-xs font-body-sm text-primary underline underline-offset-2"><Icon name="open_in_new" className="text-[14px] shrink-0" /><span className="truncate">{source.title || source.domain || source.url}</span></a> : <span className="mt-1 block break-words font-body-sm text-on-surface-variant">{source.title || source.domain || 'Source URL unavailable'}</span>}
                       </div>
