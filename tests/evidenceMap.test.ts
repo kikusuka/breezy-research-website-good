@@ -63,6 +63,8 @@ describe('evidence map model', () => {
 
   it('does not invent a URL for missing source references', () => {
     expect(normalizeEvidenceUrl('')).toBe('');
+    expect(normalizeEvidenceUrl('javascript:alert(1)')).toBe('');
+    expect(normalizeEvidenceUrl('file:///etc/passwd')).toBe('');
     expect(buildEvidenceMapSources([source({ url: '' })], [])).toHaveLength(0);
   });
 });
