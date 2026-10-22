@@ -101,8 +101,8 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
           <p className="font-label-sm text-label-sm uppercase tracking-wider text-secondary">Investigation</p>
           <h2 className="mt-1 font-headline-md text-headline-md break-words">{s.prompt}</h2>
           <div className="mt-space-sm flex flex-wrap items-center gap-space-xs">
-            <span className={`inline-flex items-center gap-space-xs rounded-full px-space-sm py-1 font-label-sm text-label-sm ${s.status === 'completed' ? 'bg-tertiary-container/50 text-tertiary' : s.status === 'error' ? 'bg-error-container/50 text-error' : s.status === 'running' || running ? 'bg-primary/10 text-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${s.status === 'completed' ? 'bg-tertiary' : s.status === 'error' ? 'bg-error' : s.status === 'running' || running ? 'bg-primary animate-pulse' : 'bg-outline'}`} />
+            <span className={`inline-flex items-center gap-space-xs rounded-full px-space-sm py-1 font-label-sm text-label-sm ${s.status === 'completed' ? 'bg-tertiary-container/50 text-tertiary' : s.status === 'error' ? 'bg-error-container/50 text-error' : runIsActive ? 'bg-primary/10 text-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${s.status === 'completed' ? 'bg-tertiary' : s.status === 'error' ? 'bg-error' : runIsActive ? 'bg-primary animate-pulse' : 'bg-outline'}`} />
               {runIsActive ? 'Investigation running' : wasInterrupted ? 'Interrupted' : s.status === 'completed' ? 'Completed' : s.status === 'error' ? 'Failed' : 'Stopped'}
             </span>
             {dur && <Chip><span className="text-outline">Duration</span>{dur}</Chip>}
@@ -352,7 +352,7 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
           <div className="flex min-w-0 flex-wrap items-center gap-space-sm">
             <div className="inline-flex min-h-[44px] max-w-full flex-wrap items-center gap-1 rounded-xl bg-surface-container-low p-1" role="group" aria-label="Research depth">
               {(Object.keys(DEPTH_PROTOCOL) as Depth[]).map((item) => {
-                const label = item === 'solo' ? 'Quick' : item === 'standard' ? 'Research' : 'Deep';
+                const label = DEPTH_PROTOCOL[item].label;
                 return <button key={item} type="button" disabled={r.running} aria-pressed={depth === item} title={DEPTH_PROTOCOL[item].blurb}
                   onClick={() => researchStore.setDraft({ depth: item })}
                   className={`min-h-[36px] rounded-lg px-space-md font-label-md text-label-md transition-colors ${depth === item ? 'bg-surface-container-high text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>
