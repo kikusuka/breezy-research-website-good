@@ -45,6 +45,19 @@ const notify = (msg: string) => { set({ notice: msg }); window.setTimeout(() => 
 export const researchStore = {
   get: () => state,
   subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; },
+  /** Abort work and reload the module-level store after the active local account changes. */
+  switchAccount() {
+    controller?.abort();
+    controller = null;
+    window.clearTimeout(saveTimer);
+    saveTimer = undefined;
+    state = {
+      sessions: loadSessions(), activeId: loadActiveSessionId(), running: false, startedAt: null,
+      explorationSeen: false, events: [], plan: null, warnings: [],
+      draft: { query: '', depth: 'standard' }, notice: null,
+    };
+    listeners.forEach((l) => l());
+  },
   refreshSessions() { if (!state.running) set({ sessions: loadSessions(), activeId: loadActiveSessionId() }); },
   setDraft(d: Partial<ResearchState['draft']>) { set((s) => ({ draft: { ...s.draft, ...d } })); },
   open(id: string) { const s = state.sessions.find((x) => x.id === id); set({ activeId: id, draft: s ? { query: s.prompt, depth: protocolToDepth(s.protocol) } : state.draft }); persist(true); },
