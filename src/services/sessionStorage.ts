@@ -46,6 +46,24 @@ export async function syncSessionsToIDB(sessions: DebateSession[]): Promise<void
   }
 }
 
+/** Delete saved research records explicitly, even when future saving is disabled. */
+export async function deleteSessionsFromIDB(ids?: string[]): Promise<void> {
+  try {
+    const db = await openDatabase();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      if (ids) ids.forEach((id) => store.delete(id));
+      else store.clear();
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+      tx.onabort = () => { db.close(); reject(tx.error); };
+    });
+  } catch (err) {
+    console.debug('Could not remove research records from IndexedDB:', err);
+  }
+}
+
 /**
  * Load full-fidelity sessions from IndexedDB
  */
