@@ -80,6 +80,8 @@ export const accountStorage = {
     return localStorage.getItem(activeAccountUid ? scopedKey(activeAccountUid, key) : key);
   },
   setItem(key: string, value: string): void {
+    const category = categoryForStorageKey(key);
+    if (category && !shouldSaveDataCategory(category)) return;
     localStorage.setItem(activeAccountUid ? scopedKey(activeAccountUid, key) : key, value);
   },
   removeItem(key: string): void {
