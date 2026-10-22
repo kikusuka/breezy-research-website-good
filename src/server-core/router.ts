@@ -38,6 +38,33 @@ function getClientIdentifier(req: Request): string {
 }
 
 /**
+ * Best-effort operational alert. Never forwards prompts, report bodies, API responses, or raw exception messages.
+ */
+async function notifyDiscordOperationalAlert(env: BackendEnv, backendName: string, category: string): Promise<void> {
+  if (!env.DISCORD_ALERT_WEBHOOK_URL) return;
+  const limit = checkServerRateLimit(`ops-alert:${category}`, 5, 60000);
+  if (!limit.allowed) return;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(env.DISCORD_ALERT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `**Breezy operational alert**\\n**Event:** ${category}\\n**Backend:** ${backendName}\\n**Time:** ${new Date().toISOString()}\\nCheck server logs for the associated error details.`,
+        allowed_mentions: { parse: [] },
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) console.error('Breezy operational alert delivery failed with status', response.status);
+  } catch {
+    console.error('Breezy operational alert delivery failed.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
  * Identify the best available provider/model for background research tasks (summarization, extraction)
  */
 function getExtractionConfig(keys: any, env: BackendEnv) {
@@ -158,6 +185,73 @@ export async function handleBackendRequest(
       timestamp: Date.now(),
     };
     return createJsonResponse(healthData, 200, req, env);
+  }
+
+  // Voluntary feedback and minimal automatic error reports. The Discord webhook is server-only.
+  if (path === '/api/reports' && req.method === 'POST') {
+    const kindLimit = checkServerRateLimit(`report:${clientIp}`, 4, 60000);
+    if (!kindLimit.allowed) {
+      return createJsonResponse({ ok: false, error: 'Too many reports. Please wait a minute and try again.' }, 429, req, env);
+    }
+    if (!env.DISCORD_ALERT_WEBHOOK_URL) {
+      return createJsonResponse({ ok: false, code: 'REPORTING_NOT_CONFIGURED', error: 'Reporting is not configured on this deployment yet.' }, 503, req, env);
+    }
+    const declaredLength = Number(req.headers.get('content-length') || 0);
+    if (declaredLength > 6000) return createJsonResponse({ ok: false, error: 'Report is too large.' }, 413, req, env);
+    try {
+      const raw = await req.text();
+      if (raw.length > 6000) return createJsonResponse({ ok: false, error: 'Report is too large.' }, 413, req, env);
+      const body = JSON.parse(raw);
+      const kind = body?.kind;
+      if (!['bug', 'suggestion', 'automatic_error'].includes(kind)) {
+        return createJsonResponse({ ok: false, error: 'Unsupported report type.' }, 400, req, env);
+      }
+      const clean = (value: unknown, max: number) => {
+        if (typeof value !== 'string') return '';
+        return value.slice(0, max)
+          .replace(/(?:Bearer\s+)[A-Za-z0-9._~+\/-]+=*/gi, 'Bearer [redacted]')
+          .replace(/\b(?:sk-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{20,})\b/g, '[redacted key]')
+          .replace(/https?:\/\/[^\s)]+/g, (url) => {
+            try { const parsed = new URL(url); return parsed.origin + parsed.pathname; } catch { return '[URL redacted]'; }
+          });
+      };
+      const title = clean(body.title, 120);
+      const description = clean(body.description, kind === 'automatic_error' ? 1200 : 2500);
+      const diagnostic = clean(body.diagnostic, 1200);
+      if (kind !== 'automatic_error' && !description.trim()) {
+        return createJsonResponse({ ok: false, error: 'Please describe what happened.' }, 400, req, env);
+      }
+      const label = kind === 'bug' ? 'User bug report' : kind === 'suggestion' ? 'User suggestion' : 'Automatic browser error';
+      const content = [
+        `**Breezy — ${label}**`,
+        title ? `**Summary:** ${title}` : '',
+        `**Details:** ${description || 'No additional details provided.'}`,
+        diagnostic ? `**Safe diagnostics:** ${diagnostic}` : '',
+        `**Environment:** ${clean(body.environment, 180) || 'Not provided'}`,
+        `**Received:** ${new Date().toISOString()}`,
+      ].filter(Boolean).join('\n');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 7000);
+      let webhookResponse: Response;
+      try {
+        webhookResponse = await fetch(env.DISCORD_ALERT_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: content.slice(0, 1900), allowed_mentions: { parse: [] } }),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+      if (!webhookResponse.ok) {
+        console.error('Breezy report delivery failed with status', webhookResponse.status);
+        return createJsonResponse({ ok: false, error: 'The report could not be delivered. Please try again later.' }, 502, req, env);
+      }
+      return createJsonResponse({ ok: true }, 202, req, env);
+    } catch (error: any) {
+      console.error('Breezy report delivery failed:', error?.name === 'AbortError' ? 'timeout' : 'request error');
+      return createJsonResponse({ ok: false, error: 'The report could not be delivered. Please check your connection and try again.' }, 502, req, env);
+    }
   }
 
   // Health is intentionally public. All product APIs that can consume resources or touch integrations require a valid Firebase ID token.
@@ -1411,6 +1505,7 @@ Synthesize the final, definitive, high-integrity answer for the user.`;
         });
       } catch (err: any) {
         console.error('Debate pipeline error:', err);
+        void notifyDiscordOperationalAlert(env, backendName, 'Research pipeline exception');
         await sendEvent('error', {
           message: err.message || 'An unexpected error occurred during debate deliberation.',
         });

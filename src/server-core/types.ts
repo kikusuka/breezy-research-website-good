@@ -36,6 +36,8 @@ export interface BackendEnv {
   OPENAI_COMPATIBLE_BASE_URL?: string;
   ALLOWED_ORIGINS?: string;
   FIREBASE_PROJECT_ID?: string;
+  /** Private Discord incoming webhook; never expose through VITE_ variables. */
+  DISCORD_ALERT_WEBHOOK_URL?: string;
   /** Cloudflare D1 binding for durable chat history. Must reference the canonical database. */
   DB?: D1DatabaseBinding;
   [key: string]: string | D1DatabaseBinding | undefined;

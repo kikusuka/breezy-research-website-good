@@ -18,6 +18,7 @@ import { userProfileService } from './services/userProfileService';
 import { GuestWorkspacePreview } from './components/GuestWorkspacePreview';
 import { prepareAccountStorage, setActiveAccountUid } from './services/accountStorage';
 import { researchStore } from './lib/researchStore';
+import { FeedbackWidget } from './components/FeedbackWidget';
 
 /**
  * Review access is enabled by default so the UI can be evaluated without sign-in.
@@ -177,6 +178,7 @@ export default function App() {
           </div>}
         </div>
       </Shell>
+      <FeedbackWidget />
       {showAuthGate && authOpen && <AuthView onClose={() => setAuthOpen(false)} />}
     </>
   );
