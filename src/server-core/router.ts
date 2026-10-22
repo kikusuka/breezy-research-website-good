@@ -64,6 +64,7 @@ export function getCorsHeaders(req: Request, env: BackendEnv = {}): Record<strin
   const allowedOriginsConfig = env.ALLOWED_ORIGINS?.trim();
 
   let resolvedOrigin = '*';
+  let allowOriginHeader = true;
 
   if (allowedOriginsConfig) {
     if (allowedOriginsConfig === '*') {
@@ -75,8 +76,9 @@ export function getCorsHeaders(req: Request, env: BackendEnv = {}): Record<strin
         if (allowedList.includes(lowerOrigin) || allowedList.includes('*')) {
           resolvedOrigin = requestOrigin;
         } else {
-          // Fail-closed: do not reflect untrusted origins
-          resolvedOrigin = 'null';
+          // Fail closed: omit ACAO entirely for untrusted origins. The literal
+          // "null" is itself a valid serialized origin in some browser contexts.
+          allowOriginHeader = false;
         }
       } else {
         resolvedOrigin = allowedList[0] || 'null';
@@ -88,7 +90,7 @@ export function getCorsHeaders(req: Request, env: BackendEnv = {}): Record<strin
   }
 
   return {
-    'Access-Control-Allow-Origin': resolvedOrigin,
+    ...(allowOriginHeader ? { 'Access-Control-Allow-Origin': resolvedOrigin } : {}),
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Breezy-Client',
     'Access-Control-Max-Age': '86400',
