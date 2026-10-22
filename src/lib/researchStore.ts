@@ -21,6 +21,7 @@ export interface ResearchState {
 let state: ResearchState = { sessions: loadSessions(), activeId: loadActiveSessionId(), running: false, startedAt: null, explorationSeen: false, events: [], plan: null, warnings: [], draft: { query: '', depth: 'standard' }, notice: null };
 const listeners = new Set<() => void>();
 let controller: AbortController | null = null;
+let accountGeneration = 0;
 let saveTimer: number | undefined;
 
 function set(patch: Partial<ResearchState> | ((s: ResearchState) => Partial<ResearchState>)) { state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) }; listeners.forEach((l) => l()); }
@@ -45,6 +46,20 @@ const notify = (msg: string) => { set({ notice: msg }); window.setTimeout(() => 
 export const researchStore = {
   get: () => state,
   subscribe(l: () => void) { listeners.add(l); return () => { listeners.delete(l); }; },
+  /** Abort work and reload the module-level store after the active local account changes. */
+  switchAccount() {
+    accountGeneration += 1;
+    controller?.abort();
+    controller = null;
+    window.clearTimeout(saveTimer);
+    saveTimer = undefined;
+    state = {
+      sessions: loadSessions(), activeId: loadActiveSessionId(), running: false, startedAt: null,
+      explorationSeen: false, events: [], plan: null, warnings: [],
+      draft: { query: '', depth: 'standard' }, notice: null,
+    };
+    listeners.forEach((l) => l());
+  },
   refreshSessions() { if (!state.running) set({ sessions: loadSessions(), activeId: loadActiveSessionId() }); },
   setDraft(d: Partial<ResearchState['draft']>) { set((s) => ({ draft: { ...s.draft, ...d } })); },
   open(id: string) { const s = state.sessions.find((x) => x.id === id); set({ activeId: id, draft: s ? { query: s.prompt, depth: protocolToDepth(s.protocol) } : state.draft }); persist(true); },
@@ -61,8 +76,10 @@ export const researchStore = {
   async start(query: string, depth: Depth, attachments: Attachment[] = []): Promise<'ok' | 'no-model'> {
     const prompt = query.trim();
     if (!prompt || state.running) return 'ok';
+    const generation = accountGeneration;
     let serverOk = effectiveProviderService.isServerGeminiConfigured();
     try { const h = await apiClient.getHealth(); serverOk = Boolean(h.serverGeminiConfigured); } catch { /* offline: cached state */ }
+    if (generation !== accountGeneration) return 'ok';
     const cfg = providerConfigService.getConfig();
     if (!serverOk && !effectiveProviderService.getActiveRoutableModel() && providerConfigService.getConfiguredProviders().length === 0) return 'no-model';
 
@@ -82,8 +99,9 @@ export const researchStore = {
         keys: providerConfigService.getKeys(), seats: providerConfigService.getSeatsPayload(cfg), enableSearchGrounding: true, autoResolve: cfg.autoResolve ?? true,
         selectedRound: mapping.selectedRound, researchMethod: cfg.researchMethod || 'adaptive', heartbeatEnabled: cfg.heartbeatEnabled !== false, heartbeatIntervalSec: cfg.heartbeatIntervalSec || 60,
       }, {
-        signal: c.signal, onNotice: (m) => log('warn', m),
+        signal: c.signal, onNotice: (m) => { if (generation === accountGeneration) log('warn', m); },
         onEvent: (d) => {
+          if (generation !== accountGeneration) return;
           switch (d.type) {
             case 'status': case 'notice': if (d.message) log(d.type === 'notice' ? 'warn' : 'info', d.message); break;
             case 'research_plan': set({ explorationSeen: true, plan: { method: d.method, plan: d.plan || [], searchQueries: d.searchQueries || [] } }); log('info', 'Research plan ready.'); break;
@@ -102,9 +120,12 @@ export const researchStore = {
       });
       if (userProfileService.getProfile().autoSaveToDrive && authService.getAccessToken()) { const done = state.sessions.find((s) => s.id === session.id); if (done?.status === 'completed') void googleDocsService.saveResearchSession(done).catch(() => {}); }
     } catch (e: any) {
+      if (generation !== accountGeneration) return 'ok';
       if (e?.name !== 'AbortError') { const msg = e?.message || 'Research failed'; patchSession(session.id, (s) => ({ ...s, status: 'error', error: msg })); log('error', msg); }
       else { patchSession(session.id, (s) => (s.status === 'running' ? { ...s, status: 'idle', steps: s.steps.map((st) => (st.status === 'running' ? { ...st, status: 'pending' as const } : st)) } : s)); log('warn', 'Run stopped.'); }
-    } finally { set({ running: false }); persist(true); controller = null; }
+    } finally {
+      if (generation === accountGeneration) { set({ running: false }); persist(true); controller = null; }
+    }
     return 'ok';
   },
 };
