@@ -9,6 +9,7 @@ import { verifyFirebaseIdToken } from './firebaseAuth';
 import { handleChatPersistenceRequest } from './chatPersistence';
 import { callAgentWithStream, sanitizeGeminiModel } from './providers';
 import { performSearchGrounding } from './search';
+import { mergeGroundingResults, selectResearchQueries } from './researchRetrieval';
 import { summarizeStage, generateRealEvidenceGraph } from './evidence';
 
 // In-memory rate limiting map for server-provided key usage (resets per instance/isolate)
@@ -1098,29 +1099,11 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
           });
 
           try {
-            const queriesToRun = Array.from(new Set([...(plannedSearchQueries.length ? plannedSearchQueries : []), prompt.trim()])).slice(0, 3);
+            const queriesToRun = selectResearchQueries(plannedSearchQueries, prompt);
             const groundingResults = await Promise.all(
               queriesToRun.map((query) => performSearchGrounding(query, searchEngine as SearchEngineProvider, keys, env))
             );
-            const availableResults = groundingResults.filter((result): result is NonNullable<typeof result> => Boolean(result));
-            const firstGroundingResult = availableResults[0];
-            const seenSourceUrls = new Set<string>();
-            const mergedSearchResults = availableResults.flatMap((result) => result.results).filter((result) => {
-              if (!result.url) return false;
-              let normalizedUrl = result.url;
-              try {
-                const parsedUrl = new URL(result.url);
-                normalizedUrl = parsedUrl.origin + parsedUrl.pathname;
-              } catch {}
-              if (seenSourceUrls.has(normalizedUrl)) return false;
-              seenSourceUrls.add(normalizedUrl);
-              return true;
-            }).slice(0, 10);
-            const groundingResult = firstGroundingResult ? {
-              ...firstGroundingResult,
-              query: queriesToRun.join(' | '),
-              results: mergedSearchResults,
-            } : null;
+            const groundingResult = mergeGroundingResults(groundingResults, queriesToRun);
             if (groundingResult) {
               discoveredSources = groundingResult.results.map((r, idx) => {
                 let domain = 'web-source';
