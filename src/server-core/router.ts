@@ -257,7 +257,7 @@ export async function handleBackendRequest(
       const timeoutId = setTimeout(() => controller.abort(), 7000);
       let webhookResponse: Response;
       try {
-        webhookResponse = await fetch(env.DISCORD_ALERT_WEBHOOK_URL, {
+        webhookResponse = await fetch(webhookUrl, {
           method: 'POST',
           redirect: 'error',
           headers: { 'Content-Type': 'application/json' },
