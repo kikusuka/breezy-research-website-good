@@ -43,6 +43,23 @@ describe('research retrieval helpers', () => {
     expect(merged?.query).toBe('first | second');
   });
 
+  it('interleaves result ranks so one subquery cannot dominate the source list', () => {
+    const merged = mergeGroundingResults([
+      result('first', ['https://first.example/1', 'https://first.example/2', 'https://first.example/3']),
+      result('second', ['https://second.example/1', 'https://second.example/2', 'https://second.example/3']),
+      result('third', ['https://third.example/1', 'https://third.example/2', 'https://third.example/3']),
+    ], ['first', 'second', 'third'], 6);
+
+    expect(merged?.results.map((item) => item.url)).toEqual([
+      'https://first.example/1',
+      'https://second.example/1',
+      'https://third.example/1',
+      'https://first.example/2',
+      'https://second.example/2',
+      'https://third.example/2',
+    ]);
+  });
+
   it('returns null when every search provider failed', () => {
     expect(mergeGroundingResults([null, undefined], ['question'])).toBeNull();
   });
