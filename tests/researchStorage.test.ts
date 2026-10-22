@@ -27,7 +27,7 @@ function session(id: string): DebateSession {
     tone: 'balanced',
     createdAt: Number(id.length),
     updatedAt: Number(id.length),
-    status: 'complete',
+    status: 'completed',
     steps: [],
   } as DebateSession;
 }
