@@ -126,7 +126,7 @@ OUTPUT ONLY A VALID JSON OBJECT WITH THIS EXACT STRUCTURE (no backticks, no mark
       "id": "claim-1",
       "claim": "Specific assertion extracted from findings",
       "status": "supported",
-      "confidence": 85,
+      "confidence": null,
       "supportingSources": [{"title": "Source name", "url": "https://...", "snippet": "relevant quote"}],
       "counterEvidence": [],
       "analystStance": "Position in proposal",
@@ -144,7 +144,7 @@ OUTPUT ONLY A VALID JSON OBJECT WITH THIS EXACT STRUCTURE (no backticks, no mark
       "reconciledResolution": "Resolution"
     }
   ]
-}`;
+}\n\nCONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is a defensible basis; otherwise return null. Never derive confidence from the number of matching URLs.\n`;
 
     const rawResult = await callAgentWithStream({
       provider,
