@@ -6,6 +6,7 @@
 
 import { callAgentWithStream } from './providers';
 import { BackendEnv } from './types';
+import { hasDiscoveredReference, normalizeClaimStatus, normalizeEvidenceUrl, normalizeModelConfidence } from './evidenceAssessment';
 
 export async function summarizeStage(
   content: string,
@@ -103,7 +104,7 @@ USER QUESTION:
 ${prompt}
 
 SOURCES DISCOVERED:
-${JSON.stringify(discoveredSources.map((s) => ({ title: s.title, url: s.url, domain: s.domain, snippet: s.snippet })))}
+${JSON.stringify(discoveredSources.map((s) => ({ title: s.title, url: s.url, domain: s.domain, snippet: s.snippet, pageText: typeof s.pageText === 'string' ? s.pageText.slice(0, 1200) : undefined })))}
 
 ANALYST PROPOSAL EXCERPT:
 ${proposalContent.slice(0, 1500)}
@@ -125,7 +126,7 @@ OUTPUT ONLY A VALID JSON OBJECT WITH THIS EXACT STRUCTURE (no backticks, no mark
       "id": "claim-1",
       "claim": "Specific assertion extracted from findings",
       "status": "supported",
-      "confidence": 85,
+      "confidence": null,
       "supportingSources": [{"title": "Source name", "url": "https://...", "snippet": "relevant quote"}],
       "counterEvidence": [],
       "analystStance": "Position in proposal",
@@ -143,7 +144,10 @@ OUTPUT ONLY A VALID JSON OBJECT WITH THIS EXACT STRUCTURE (no backticks, no mark
       "reconciledResolution": "Resolution"
     }
   ]
-}`;
+}
+
+CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is a defensible basis; otherwise return null. Never derive confidence from the number of matching URLs.
+`;
 
     const rawResult = await callAgentWithStream({
       provider,
@@ -165,44 +169,29 @@ OUTPUT ONLY A VALID JSON OBJECT WITH THIS EXACT STRUCTURE (no backticks, no mark
 
     let claims = Array.isArray(parsed.claims) ? parsed.claims : [];
     
-    // Rigorous Code-Level Source Verification against discoveredSources
-    const validUrls = new Set(discoveredSources.map((s) => s.url).filter(Boolean));
-    const combinedSnippets = discoveredSources.map((s) => (s.snippet || '').toLowerCase()).join(' ');
+    // A matching URL only means the reference appeared in search results. It does not
+    // prove that the page was fetched, read, or actually supports the claim.
+    const discoveredUrls = new Set(
+      discoveredSources.flatMap((source) => [normalizeEvidenceUrl(source?.url), normalizeEvidenceUrl(source?.retrievedUrl)]).filter(Boolean),
+    );
 
-    claims = claims.map((c: any) => {
-      let verifiedSources = (c.supportingSources || []).map((src: any) => {
-        const urlMatch = src.url && validUrls.has(src.url);
-        const snippetMatch = src.snippet && combinedSnippets.includes(src.snippet.toLowerCase().slice(0, 30));
-        const isVerified = Boolean(urlMatch || snippetMatch);
-        return {
-          ...src,
-          verified: isVerified,
-        };
-      });
-
-      const verifiedCount = verifiedSources.filter((s: any) => s.verified).length;
-      let status = c.status;
-
-      // Deterministic evidence confidence calculation (not arbitrary LLM hallucinated percentage)
-      let calculatedConfidence: number;
-      if (verifiedCount >= 2 && status === 'supported') {
-        calculatedConfidence = 90;
-      } else if (verifiedCount === 1 && status === 'supported') {
-        calculatedConfidence = 75;
-      } else if (status === 'contradicted') {
-        calculatedConfidence = 30;
-      } else if (status === 'unresolved') {
-        calculatedConfidence = 50;
-      } else {
-        status = 'unverified';
-        calculatedConfidence = 40;
-      }
+    claims = claims.map((claim: any) => {
+      const confidence = normalizeModelConfidence(claim.confidence);
+      const supportingSources = (Array.isArray(claim.supportingSources) ? claim.supportingSources : []).map((source: any) => ({
+        ...source,
+        referenceFound: hasDiscoveredReference(source?.url, discoveredUrls),
+      }));
+      const counterEvidence = (Array.isArray(claim.counterEvidence) ? claim.counterEvidence : []).map((source: any) => ({
+        ...source,
+        referenceFound: hasDiscoveredReference(source?.url, discoveredUrls),
+      }));
 
       return {
-        ...c,
-        status,
-        confidence: calculatedConfidence,
-        supportingSources: verifiedSources,
+        ...claim,
+        status: normalizeClaimStatus(claim.status),
+        confidence,
+        supportingSources,
+        counterEvidence,
       };
     });
 

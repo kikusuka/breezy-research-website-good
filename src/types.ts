@@ -74,9 +74,10 @@ export interface ResearchClaim {
   id: string;
   claim: string;
   status: 'supported' | 'contradicted' | 'unresolved';
-  confidence: number; // 0 - 100%
-  supportingSources: Array<{ title: string; url: string; snippet?: string; domain?: string }>;
-  counterEvidence: Array<{ title: string; url: string; snippet?: string; domain?: string }>;
+  /** Model-estimated confidence; not an independently measured probability. */
+  confidence?: number; // 0 - 100%, omitted when the model did not provide a valid estimate
+  supportingSources: Array<{ title: string; url: string; snippet?: string; domain?: string; referenceFound?: boolean }>;
+  counterEvidence: Array<{ title: string; url: string; snippet?: string; domain?: string; referenceFound?: boolean }>;
   analystStance?: string;
   criticStance?: string;
   reviewerVerdict?: string;
@@ -101,6 +102,11 @@ export interface EvidenceSource {
   domain: string;
   isPrimary: boolean;
   snippet: string;
+  /** Whether bounded page-text extraction succeeded; not a claim-verification signal. */
+  retrievalStatus?: 'retrieved' | 'unavailable' | 'not_attempted';
+  pageText?: string;
+  /** Final URL after a validated redirect, when retrieval succeeded. */
+  retrievedUrl?: string;
   citationIndex?: number;
 }
 

@@ -66,14 +66,16 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                   <div className="mt-space-md border-t border-outline-variant/40 pt-space-md pl-[27px] flex flex-col gap-space-sm">
                     {claim.supportingSources?.map((source, i) => (
                       <div key={`support-${source.url}-${i}`} className="rounded-lg bg-surface-container-low p-space-sm">
-                        <div className="font-label-sm text-label-sm text-tertiary">Listed as supporting evidence</div>
+                        <div className="font-label-sm text-label-sm text-tertiary">Model-listed supporting evidence</div>
+                        <div className="mt-1 font-label-sm text-label-sm text-outline">{source.referenceFound === true ? "Reference URL matched a discovered/fetched source; claim support not verified" : source.referenceFound === false ? "Reference URL not matched to discovered results" : "Reference match status unavailable for this saved run"}</div>
                         {source.snippet && <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</p>}
                         {safeEvidenceHref(source.url) ? <a href={safeEvidenceHref(source.url) || undefined} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-space-xs font-body-sm text-primary underline underline-offset-2"><Icon name="open_in_new" className="text-[14px] shrink-0" /><span className="truncate">{source.title || source.domain || source.url}</span></a> : <span className="mt-1 block break-words font-body-sm text-on-surface-variant">{source.title || source.domain || 'Source URL unavailable'}</span>}
                       </div>
                     ))}
                     {claim.counterEvidence?.map((source, i) => (
                       <div key={`counter-${source.url}-${i}`} className="rounded-lg bg-surface-container-low p-space-sm">
-                        <div className="font-label-sm text-label-sm text-error">Listed as counter-evidence</div>
+                        <div className="font-label-sm text-label-sm text-error">Model-listed counter-evidence</div>
+                        <div className="mt-1 font-label-sm text-label-sm text-outline">{source.referenceFound === true ? "Reference URL found in search results; claim support not verified" : source.referenceFound === false ? "Reference URL not matched to discovered results" : "Reference match status unavailable for this saved run"}</div>
                         {source.snippet && <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</p>}
                         {safeEvidenceHref(source.url) ? <a href={safeEvidenceHref(source.url) || undefined} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-space-xs font-body-sm text-primary underline underline-offset-2"><Icon name="open_in_new" className="text-[14px] shrink-0" /><span className="truncate">{source.title || source.domain || source.url}</span></a> : <span className="mt-1 block break-words font-body-sm text-on-surface-variant">{source.title || source.domain || 'Source URL unavailable'}</span>}
                       </div>
@@ -102,9 +104,12 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                     {safeEvidenceHref(source.url) ? <a href={safeEvidenceHref(source.url) || undefined} target="_blank" rel="noreferrer noopener" className="font-body-md text-body-md text-on-surface underline decoration-outline-variant underline-offset-2 hover:text-primary break-words">{source.title}</a> : <span className="font-body-md text-body-md text-on-surface break-words">{source.title}</span>}
                     <p className="mt-1 truncate font-code-sm text-code-sm text-outline">{source.domain || source.url}</p>
                     <p className="mt-2 font-label-sm text-label-sm text-outline">{source.discovered ? 'Discovered source record' : 'Referenced by a claim; not in the discovered-source list'}</p>
+                    {source.retrievedUrl && source.retrievedUrl !== source.url && <p className="mt-1 break-words font-label-sm text-label-sm text-outline">Fetched after redirect: {source.retrievedUrl}</p>}
+                    {source.discovered && <p className="mt-1 font-label-sm text-label-sm text-outline">{source.retrievalStatus === 'retrieved' ? 'Page text retrieved (bounded extract)' : source.retrievalStatus === 'unavailable' ? 'Page text unavailable; search snippet only' : source.retrievalStatus === 'not_attempted' ? 'Page retrieval not attempted' : 'Retrieval status unavailable for this saved run'}</p>}
                   </div>
                 </div>
                 {source.snippet && <p className="mt-space-sm border-t border-outline-variant/30 pt-space-sm font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</p>}
+                {source.pageText && <details className="mt-space-sm rounded-lg bg-surface-container-low p-space-sm"><summary className="cursor-pointer font-label-sm text-label-sm text-primary">Read extracted page text</summary><p className="mt-space-sm whitespace-pre-wrap break-words font-body-sm text-body-sm text-on-surface-variant">{source.pageText}</p></details>}
                 {highlighted && <div className="mt-space-sm inline-flex items-center gap-space-xs rounded-md bg-primary/10 px-space-sm py-1 font-code-sm text-primary"><Icon name="link" className="text-[14px]" />Linked to selected claim</div>}
               </article>
             );
