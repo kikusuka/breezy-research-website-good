@@ -1144,7 +1144,7 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
                 query: groundingResult.query,
                 summary: groundingResult.summary || undefined,
                 resultsCount: groundingResult.results.length,
-                sources: discoveredSources.map(({ pageText, ...source }) => source),
+                sources: discoveredSources,
               });
 
               if (groundingResult.results.length > 0 || groundingResult.summary) {
