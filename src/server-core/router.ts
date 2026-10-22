@@ -9,6 +9,7 @@ import { verifyFirebaseIdToken } from './firebaseAuth';
 import { handleChatPersistenceRequest } from './chatPersistence';
 import { callAgentWithStream, sanitizeGeminiModel } from './providers';
 import { performSearchGrounding } from './search';
+import { mergeGroundingResults, selectResearchQueries } from './researchRetrieval';
 import { fetchReadableSource } from './sourceFetch';
 import { summarizeStage, generateRealEvidenceGraph } from './evidence';
 
@@ -1017,6 +1018,8 @@ Analyze this deliberation and output the JSON object.`;
         // This is the main difference between "chat with search" and a research workflow.
         let researchPlan: string[] = [];
         let researchPlanContext = '';
+        let plannedSearchQueries: string[] = [];
+        if (enableSearchGrounding || effectiveProtocol !== 'solo') {
         try {
           await sendEvent('status', { message: 'Planning the research scope and evidence strategy...' });
           const plannerPrompt = `USER QUESTION:
@@ -1052,6 +1055,7 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
           const scope = typeof parsedPlan.scope === 'string' ? parsedPlan.scope.trim() : '';
           const subquestions = Array.isArray(parsedPlan.subquestions) ? parsedPlan.subquestions.filter((q: any) => typeof q === 'string' && q.trim()).map((q: string) => q.trim()) : [];
           const searchQueries = Array.isArray(parsedPlan.searchQueries) ? parsedPlan.searchQueries.filter((q: any) => typeof q === 'string' && q.trim()).map((q: string) => q.trim()) : [];
+          plannedSearchQueries = searchQueries;
           const evidenceStandard = typeof parsedPlan.evidenceStandard === 'string' ? parsedPlan.evidenceStandard.trim() : '';
 
           researchPlan = [
@@ -1078,6 +1082,10 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
           researchPlanContext = '\n\n--- RESEARCH PLAN ---\n' + researchPlan.join('\n') + '\n--- END RESEARCH PLAN ---';
           await sendEvent('notice', { message: 'Research planner unavailable. Continuing with the selected method.' });
         }
+        } else {
+          // A non-grounded Solo answer should not pay for a hidden planning call.
+          await sendEvent('research_plan', { method: researchMethod, plan: [], searchQueries: [] });
+        }
 
         let groundingContext = '';
         let discoveredSources: any[] = [];
@@ -1087,7 +1095,11 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
           });
 
           try {
-            const groundingResult = await performSearchGrounding(prompt, searchEngine as SearchEngineProvider, keys, env);
+            const queries = selectResearchQueries(plannedSearchQueries, prompt);
+            const queryResults = await Promise.all(
+              queries.map((query) => performSearchGrounding(query, searchEngine as SearchEngineProvider, keys, env)),
+            );
+            const groundingResult = mergeGroundingResults(queryResults, queries, 10);
             if (groundingResult) {
               discoveredSources = groundingResult.results.map((r, idx) => {
                 let domain = 'web-source';
