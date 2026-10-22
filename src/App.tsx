@@ -17,6 +17,7 @@ import { AuthView } from './components/AuthView';
 import { userProfileService } from './services/userProfileService';
 import { GuestWorkspacePreview } from './components/GuestWorkspacePreview';
 import { prepareAccountStorage, setActiveAccountUid } from './services/accountStorage';
+import { researchStore } from './lib/researchStore';
 
 /**
  * Review access is enabled by default so the UI can be evaluated without sign-in.
@@ -44,6 +45,7 @@ export default function App() {
     if (!AUTH_REQUIRED) {
       setAuthLoading(false);
       setActiveAccountUid(null);
+      researchStore.switchAccount();
       setAuthUser(null);
       setAuthOpen(false);
       return;
@@ -52,6 +54,7 @@ export default function App() {
     setAuthLoading(false);
     if (!user) {
       setActiveAccountUid(null);
+      researchStore.switchAccount();
       setAuthUser(null);
       setAuthOpen(false);
       return;
@@ -60,6 +63,7 @@ export default function App() {
     try {
       setActiveAccountUid(user.uid);
       prepareAccountStorage(user.uid);
+      researchStore.switchAccount();
       const providerId = user.providerId || '';
       const authorizationType = providerId === 'google.com' ? 'google_oauth'
         : providerId === 'github.com' ? 'github_oauth'
@@ -77,6 +81,7 @@ export default function App() {
       setAuthOpen(false);
     } catch {
       setActiveAccountUid(null);
+      researchStore.switchAccount();
       setAuthUser(null);
       setAuthOpen(false);
       setAuthStorageError('Breezy could not safely separate this account’s local data. Free up browser storage, then retry. Your existing data has not been intentionally cleared.');
@@ -89,10 +94,12 @@ export default function App() {
     try {
       setActiveAccountUid(user.uid);
       prepareAccountStorage(user.uid);
+      researchStore.switchAccount();
       setAuthStorageError(null);
       setAuthUser(user);
     } catch {
       setActiveAccountUid(null);
+      researchStore.switchAccount();
       setAuthStorageError('Breezy still cannot separate this account’s local data. Free up browser storage and retry.');
     }
   };
@@ -145,7 +152,7 @@ export default function App() {
     <>
       <Shell tab={activeTab} go={navigateTo} backendOnline={backendOnline} endpointName={endpointName} previewMode={showAuthGate}>
         <div className="relative min-h-full">
-          <div className={showAuthGate ? 'pointer-events-none select-none blur-[1px]' : ''} aria-hidden={showAuthGate}>
+          <div key={authUser?.uid || 'local'} className={showAuthGate ? 'pointer-events-none select-none blur-[1px]' : ''} aria-hidden={showAuthGate}>
             {workspaceEnabled ? <>
               {activeTab === 'research' && <ResearchWorkspace />}
               {activeTab === 'chat' && <ChatWorkspace />}
