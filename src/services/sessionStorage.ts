@@ -22,7 +22,8 @@ function openDatabase(): Promise<IDBDatabase> {
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () => reject(request.error || new Error('Could not open research storage.'));
+    request.onblocked = () => reject(new Error('Research storage is blocked by another tab.'));
   });
 }
 
@@ -63,25 +64,43 @@ export async function deleteSessionsFromIDB(ids?: string[]): Promise<void> {
 }
 
 /**
- * Load full-fidelity sessions from IndexedDB
+ * Load full-fidelity sessions from IndexedDB.
+ *
+ * When IndexedDB is unavailable, an empty result is safe because no IndexedDB
+ * copy can exist. When IndexedDB exists but a read fails, reject instead of
+ * silently returning an empty list: callers such as backup export must not
+ * mistake a storage failure for an empty database and create an incomplete backup.
  */
 export async function loadSessionsFromIDB(): Promise<DebateSession[]> {
-  try {
-    const db = await openDatabase();
-    return new Promise((resolve) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const req = store.getAll();
-      req.onsuccess = () => {
-        const results = req.result || [];
-        resolve(results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
-        db.close();
-      };
-      req.onerror = () => { resolve([]); db.close(); };
-    });
-  } catch {
-    return [];
-  }
+  if (typeof indexedDB === 'undefined') return [];
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const fail = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      db.close();
+      reject(error instanceof Error ? error : new Error('Could not read research history from browser storage.'));
+    };
+    let tx: IDBTransaction;
+    try {
+      tx = db.transaction(STORE_NAME, 'readonly');
+    } catch (error) {
+      fail(error);
+      return;
+    }
+    const req = tx.objectStore(STORE_NAME).getAll();
+    req.onsuccess = () => {
+      if (settled) return;
+      settled = true;
+      const results = (req.result || []) as DebateSession[];
+      db.close();
+      resolve(results.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)));
+    };
+    req.onerror = () => fail(req.error || new Error('Could not read research history from browser storage.'));
+    tx.onerror = () => fail(tx.error || new Error('Could not read research history from browser storage.'));
+    tx.onabort = () => fail(tx.error || new Error('Research history read was interrupted.'));
+  });
 }
 
 /**
