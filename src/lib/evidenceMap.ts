@@ -9,16 +9,24 @@ export type EvidenceMapSourceNode = {
   discovered: boolean;
 };
 
-/** Normalize fragments only: query parameters may change the resource and must not be discarded. */
-export function normalizeEvidenceUrl(value?: string): string {
-  if (!value) return '';
+/** Only permit external HTTP(S) links from untrusted search/model output. */
+export function safeEvidenceHref(value?: string): string | null {
+  if (!value) return null;
   try {
     const url = new URL(value);
-    url.hash = '';
-    return url.toString();
+    return url.protocol === 'http:' || url.protocol === 'https:' ? value : null;
   } catch {
-    return value.trim();
+    return null;
   }
+}
+
+/** Normalize fragments only: query parameters may change the resource and must not be discarded. */
+export function normalizeEvidenceUrl(value?: string): string {
+  const safeUrl = safeEvidenceHref(value);
+  if (!safeUrl) return '';
+  const url = new URL(safeUrl);
+  url.hash = '';
+  return url.toString();
 }
 
 /** Build map source nodes only from real discovered records or explicit claim references. */
