@@ -65,8 +65,27 @@ export const researchStore = {
   open(id: string) { const s = state.sessions.find((x) => x.id === id); set({ activeId: id, draft: s ? { query: s.prompt, depth: protocolToDepth(s.protocol) } : state.draft }); persist(true); },
   newInquiry() { if (!state.running) { set({ activeId: null, events: [], plan: null, warnings: [], draft: { ...state.draft, query: '' } }); persist(true); } },
   stop() { controller?.abort(); },
-  remove(id: string) { if (state.running && state.activeId === id) return; set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id), activeId: s.activeId === id ? null : s.activeId })); void deleteSessionsFromIDB([id]); persist(true); },
-  clearAll() { if (state.running) return; set({ sessions: [], activeId: null }); void deleteSessionsFromIDB(); persist(true); },
+  async remove(id: string) {
+    if (state.running && state.activeId === id) return;
+    try {
+      // Remove the full-fidelity copy before removing the visible/local record.
+      await deleteSessionsFromIDB([id]);
+      set((s) => ({ sessions: s.sessions.filter((x) => x.id !== id), activeId: s.activeId === id ? null : s.activeId }));
+      persist(true);
+    } catch {
+      notify('Could not fully delete this research item from browser storage. It has not been removed from the list; close other Breezy tabs and try again.');
+    }
+  },
+  async clearAll() {
+    if (state.running) return;
+    try {
+      await deleteSessionsFromIDB();
+      set({ sessions: [], activeId: null });
+      persist(true);
+    } catch {
+      notify('Could not fully erase research history from browser storage. Your list was kept; close other Breezy tabs and try again.');
+    }
+  },
   notify,
   async saveToGoogleDocs(id: string) {
     const s = state.sessions.find((x) => x.id === id); if (!s) return;
