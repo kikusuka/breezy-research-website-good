@@ -8,6 +8,7 @@ export type EvidenceMapSourceNode = {
   snippet?: string;
   retrievalStatus?: 'retrieved' | 'unavailable' | 'not_attempted';
   pageText?: string;
+  retrievedUrl?: string;
   discovered: boolean;
 };
 
@@ -49,6 +50,7 @@ export function buildEvidenceMapSources(
       snippet: source.snippet,
       retrievalStatus: source.retrievalStatus,
       pageText: source.pageText,
+      retrievedUrl: source.retrievedUrl,
       discovered: true,
     });
   }
