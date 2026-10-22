@@ -38,6 +38,33 @@ function getClientIdentifier(req: Request): string {
 }
 
 /**
+ * Best-effort operational alert. Never forwards prompts, report bodies, API responses, or raw exception messages.
+ */
+async function notifyDiscordOperationalAlert(env: BackendEnv, backendName: string, category: string): Promise<void> {
+  if (!env.DISCORD_ALERT_WEBHOOK_URL) return;
+  const limit = checkServerRateLimit(`ops-alert:${category}`, 5, 60000);
+  if (!limit.allowed) return;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(env.DISCORD_ALERT_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `**Breezy operational alert**\\n**Event:** ${category}\\n**Backend:** ${backendName}\\n**Time:** ${new Date().toISOString()}\\nCheck server logs for the associated error details.`,
+        allowed_mentions: { parse: [] },
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) console.error('Breezy operational alert delivery failed with status', response.status);
+  } catch {
+    console.error('Breezy operational alert delivery failed.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
  * Identify the best available provider/model for background research tasks (summarization, extraction)
  */
 function getExtractionConfig(keys: any, env: BackendEnv) {
@@ -1478,6 +1505,7 @@ Synthesize the final, definitive, high-integrity answer for the user.`;
         });
       } catch (err: any) {
         console.error('Debate pipeline error:', err);
+        void notifyDiscordOperationalAlert(env, backendName, 'Research pipeline exception');
         await sendEvent('error', {
           message: err.message || 'An unexpected error occurred during debate deliberation.',
         });
