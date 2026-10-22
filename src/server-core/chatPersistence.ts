@@ -61,15 +61,31 @@ export async function handleChatPersistenceRequest(
   if (path === root && req.method === 'GET') {
     const rawLimit = Number(url.searchParams.get('limit') || 30);
     const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(MAX_PAGE_SIZE, Math.floor(rawLimit))) : 30;
-    const cursor = Number(url.searchParams.get('before') || 0);
-    const result = cursor > 0
+    const beforeRaw = url.searchParams.get('before') || '';
+    const cursor = Number(beforeRaw);
+    const beforeId = url.searchParams.get('beforeId') || '';
+    const hasStableCursor = Number.isFinite(cursor) && cursor > 0 && safeId(beforeId);
+    const result = hasStableCursor
       ? await db.prepare(
-          'SELECT id, title, created_at, updated_at, last_message_at FROM conversations WHERE owner_uid = ? AND deleted_at IS NULL AND updated_at < ? ORDER BY updated_at DESC LIMIT ?'
-        ).bind(ownerUid, cursor, limit).all()
-      : await db.prepare(
-          'SELECT id, title, created_at, updated_at, last_message_at FROM conversations WHERE owner_uid = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT ?'
-        ).bind(ownerUid, limit).all();
-    return respond({ ok: true, conversations: result.results || [], limit }, 200, req, env);
+          'SELECT id, title, created_at, updated_at, last_message_at FROM conversations WHERE owner_uid = ? AND deleted_at IS NULL AND (updated_at < ? OR (updated_at = ? AND id < ?)) ORDER BY updated_at DESC, id DESC LIMIT ?'
+        ).bind(ownerUid, cursor, cursor, beforeId, limit).all()
+      : Number.isFinite(cursor) && cursor > 0
+        ? await db.prepare(
+            'SELECT id, title, created_at, updated_at, last_message_at FROM conversations WHERE owner_uid = ? AND deleted_at IS NULL AND updated_at < ? ORDER BY updated_at DESC, id DESC LIMIT ?'
+          ).bind(ownerUid, cursor, limit).all()
+        : await db.prepare(
+            'SELECT id, title, created_at, updated_at, last_message_at FROM conversations WHERE owner_uid = ? AND deleted_at IS NULL ORDER BY updated_at DESC, id DESC LIMIT ?'
+          ).bind(ownerUid, limit).all();
+    const conversations = result.results || [];
+    const last = conversations[conversations.length - 1] as { id?: string; updated_at?: number } | undefined;
+    return respond({
+      ok: true,
+      conversations,
+      limit,
+      nextCursor: conversations.length === limit && last?.id && typeof last.updated_at === 'number'
+        ? { before: last.updated_at, beforeId: last.id }
+        : null,
+    }, 200, req, env);
   }
 
   if (path === root && req.method === 'POST') {
@@ -91,7 +107,7 @@ export async function handleChatPersistenceRequest(
     if (!body) return jsonError(respond, req, env, 400, 'INVALID_JSON', 'Send a valid JSON object.');
     const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
     const idempotencyKey = typeof body.idempotencyKey === 'string' ? body.idempotencyKey.trim() : '';
-    if (!prompt || prompt.length > MAX_PROMPT) return jsonError(respond, req, env, 400, 'INVALID_PROMPT', 'Prompt must contain 1–200,000 characters.');
+    if (!prompt || prompt.length > MAX_PROMPT) return jsonError(respond, req, env, 400, 'INVALID_PROMPT', 'Prompt must contain 1–20,000 characters.');
     if (!idempotencyKey || idempotencyKey.length > 128) return jsonError(respond, req, env, 400, 'INVALID_IDEMPOTENCY_KEY', 'A unique idempotency key of at most 128 characters is required.');
 
     const conversation = await db.prepare(
@@ -106,10 +122,13 @@ export async function handleChatPersistenceRequest(
 
     const messageId = crypto.randomUUID();
     const runId = crypto.randomUUID();
+    // Allocate the sequence atomically. A MAX(sequence_no) read followed by a later
+    // insert can collide when two tabs send messages at the same time.
     const sequence = await db.prepare(
-      'SELECT COALESCE(MAX(sequence_no), -1) + 1 AS next_sequence FROM chat_messages WHERE conversation_id = ? AND owner_uid = ?'
-    ).bind(conversationId, ownerUid).first<{ next_sequence: number }>();
-    const sequenceNo = Number(sequence?.next_sequence ?? 0);
+      'UPDATE conversations SET next_sequence = next_sequence + 1 WHERE id = ? AND owner_uid = ? RETURNING next_sequence - 1 AS sequence_no'
+    ).bind(conversationId, ownerUid).first<{ sequence_no: number }>();
+    if (!sequence) return jsonError(respond, req, env, 404, 'CONVERSATION_NOT_FOUND', 'This conversation does not exist or is not available to this account.');
+    const sequenceNo = Number(sequence.sequence_no);
     const provider = typeof body.provider === 'string' ? body.provider.slice(0, 64) : null;
     const model = typeof body.model === 'string' ? body.model.slice(0, 200) : null;
 
@@ -208,9 +227,10 @@ export async function handleChatPersistenceRequest(
     const output = partialOutput || run.partial_output || '';
     const assistantId = terminal && output ? crypto.randomUUID() : null;
     const seq = assistantId ? await db.prepare(
-      'SELECT COALESCE(MAX(sequence_no), -1) + 1 AS next_sequence FROM chat_messages WHERE conversation_id = ? AND owner_uid = ?'
-    ).bind(run.conversation_id, ownerUid).first<{ next_sequence: number }>() : null;
-    const sequenceNo = Number(seq?.next_sequence ?? 0);
+      'UPDATE conversations SET next_sequence = next_sequence + 1 WHERE id = ? AND owner_uid = ? RETURNING next_sequence - 1 AS sequence_no'
+    ).bind(run.conversation_id, ownerUid).first<{ sequence_no: number }>() : null;
+    if (assistantId && !seq) return jsonError(respond, req, env, 404, 'CONVERSATION_NOT_FOUND', 'This conversation does not exist or is not available to this account.');
+    const sequenceNo = Number(seq?.sequence_no ?? 0);
     const statements = [];
     if (assistantId) {
       statements.push(db.prepare(

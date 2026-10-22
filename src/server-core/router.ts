@@ -89,7 +89,7 @@ export function getCorsHeaders(req: Request, env: BackendEnv = {}): Record<strin
 
   return {
     'Access-Control-Allow-Origin': resolvedOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, X-Breezy-Client',
     'Access-Control-Max-Age': '86400',
     'X-Content-Type-Options': 'nosniff',
