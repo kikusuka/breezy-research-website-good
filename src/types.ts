@@ -105,6 +105,8 @@ export interface EvidenceSource {
   /** Whether bounded page-text extraction succeeded; not a claim-verification signal. */
   retrievalStatus?: 'retrieved' | 'unavailable' | 'not_attempted';
   pageText?: string;
+  /** Final URL after a validated redirect, when retrieval succeeded. */
+  retrievedUrl?: string;
   citationIndex?: number;
 }
 
