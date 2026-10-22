@@ -140,7 +140,7 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
 
       <div className="flex gap-1 overflow-x-auto rounded-2xl border border-outline-variant/40 bg-surface-container-low p-1" role="tablist" aria-label="Investigation views">
         {tabs.map((tab) => (
-          <button key={tab.id} type="button" role="tab" aria-selected={panel === tab.id} onClick={() => onPanelChange(tab.id)}
+          <button key={tab.id} id={`research-tab-${tab.id}`} type="button" role="tab" aria-selected={panel === tab.id} aria-controls={`research-panel-${tab.id}`} onClick={() => onPanelChange(tab.id)}
             className={`inline-flex min-h-[42px] shrink-0 items-center justify-center gap-space-xs rounded-xl px-space-md font-label-md text-label-md transition-colors ${panel === tab.id ? 'bg-surface-container-high text-on-surface shadow-sm' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'}`}>
             <Icon name={tab.icon} className="text-[18px]" />{tab.label}
             {tab.id === 'map' && <span className="rounded-full bg-surface-container px-1.5 py-0.5 font-code-sm text-code-sm">{claims.length + sources.length}</span>}
@@ -149,7 +149,7 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
       </div>
 
       {panel === 'findings' && (
-        <div className="flex flex-col gap-space-md min-w-0">
+        <div id="research-panel-findings" role="tabpanel" aria-labelledby="research-tab-findings" className="flex flex-col gap-space-md min-w-0">
           {s.finalOutput ? (
             <article className="min-w-0 rounded-3xl border border-outline-variant/40 bg-surface-container p-space-lg sm:p-space-xl">
               <div className="mb-space-md flex items-center gap-space-sm">
@@ -217,10 +217,10 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
         </div>
       )}
 
-      {panel === 'map' && <EvidenceMap graph={g} />}
+      {panel === 'map' && <div id="research-panel-map" role="tabpanel" aria-labelledby="research-tab-map"><EvidenceMap graph={g} /></div>}
 
       {panel === 'activity' && (
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] gap-space-md items-start">
+        <div id="research-panel-activity" role="tabpanel" aria-labelledby="research-tab-activity" className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] gap-space-md items-start">
           <section className="min-w-0 rounded-2xl border border-outline-variant/40 bg-surface-container p-space-lg">
             <div className="mb-space-lg"><h3 className="font-headline-sm text-headline-sm">Research stages</h3><p className="font-body-sm text-body-sm text-on-surface-variant">Progress reflects recorded stage events.</p></div>
             <Stepper stages={deriveStages(s, running, Boolean(plan))} />
