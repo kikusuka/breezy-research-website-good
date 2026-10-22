@@ -75,7 +75,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                       <div key={`counter-${source.url}-${i}`} className="rounded-lg bg-surface-container-low p-space-sm">
                         <div className="font-label-sm text-label-sm text-error">Listed as counter-evidence</div>
                         {source.snippet && <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</p>}
-                        <a href={source.url} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-space-xs font-body-sm text-primary underline underline-offset-2"><Icon name="open_in_new" className="text-[14px] shrink-0" /><span className="truncate">{source.title || source.domain || source.url}</span></a>
+                        {safeEvidenceHref(source.url) ? <a href={safeEvidenceHref(source.url) || undefined} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-space-xs font-body-sm text-primary underline underline-offset-2"><Icon name="open_in_new" className="text-[14px] shrink-0" /><span className="truncate">{source.title || source.domain || source.url}</span></a> : <span className="mt-1 block break-words font-body-sm text-on-surface-variant">{source.title || source.domain || 'Source URL unavailable'}</span>}
                       </div>
                     ))}
                     {!evidenceCount && <p className="font-body-sm text-on-surface-variant">No source references were attached to this claim.</p>}
