@@ -1,0 +1,70 @@
+import { describe, expect, it } from 'vitest';
+import type { EvidenceSource, ResearchClaim } from '../src/types';
+import { buildEvidenceMapSources, claimEvidenceUrls, normalizeEvidenceUrl } from '../src/lib/evidenceMap';
+
+const source = (overrides: Partial<EvidenceSource> = {}): EvidenceSource => ({
+  id: 'source-1',
+  title: 'Documentation',
+  url: 'https://example.com/docs',
+  domain: 'example.com',
+  isPrimary: false,
+  snippet: 'Actual source snippet',
+  ...overrides,
+});
+
+const claim = (overrides: Partial<ResearchClaim> = {}): ResearchClaim => ({
+  id: 'claim-1',
+  claim: 'The documented behavior is supported.',
+  status: 'unresolved',
+  confidence: 50,
+  supportingSources: [],
+  counterEvidence: [],
+  ...overrides,
+});
+
+describe('evidence map model', () => {
+  it('uses discovered source records without inventing extra nodes', () => {
+    const result = buildEvidenceMapSources([source()], []);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ title: 'Documentation', url: 'https://example.com/docs', discovered: true });
+  });
+
+  it('includes explicit claim references missing from the discovered-source list and marks them honestly', () => {
+    const item = claim({
+      supportingSources: [{ title: 'Referenced page', url: 'https://example.org/guide', snippet: 'A quoted passage' }],
+    });
+    const result = buildEvidenceMapSources([], [item]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ title: 'Referenced page', discovered: false, snippet: 'A quoted passage' });
+  });
+
+  it('deduplicates fragments but preserves distinct query-string resources', () => {
+    const result = buildEvidenceMapSources([
+      source({ url: 'https://example.com/docs#intro' }),
+      source({ id: 'source-2', url: 'https://example.com/docs#details', title: 'Second record' }),
+      source({ id: 'source-3', url: 'https://example.com/docs?version=2', title: 'Version two' }),
+    ]);
+    expect(result).toHaveLength(2);
+    expect(result[0].title).toBe('Second record');
+    expect(result[1].url).toBe('https://example.com/docs?version=2');
+  });
+
+  it('links a selected claim only to its explicit support and counter-evidence references', () => {
+    const item = claim({
+      supportingSources: [{ title: 'Support', url: 'https://example.com/a#passage' }],
+      counterEvidence: [{ title: 'Counter', url: 'https://example.com/b' }],
+    });
+    expect([...claimEvidenceUrls(item)]).toEqual([
+      'https://example.com/a',
+      'https://example.com/b',
+    ]);
+    expect(claimEvidenceUrls(null).size).toBe(0);
+  });
+
+  it('does not invent a URL for missing source references', () => {
+    expect(normalizeEvidenceUrl('')).toBe('');
+    expect(normalizeEvidenceUrl('javascript:alert(1)')).toBe('');
+    expect(normalizeEvidenceUrl('file:///etc/passwd')).toBe('');
+    expect(buildEvidenceMapSources([source({ url: '' })], [])).toHaveLength(0);
+  });
+});

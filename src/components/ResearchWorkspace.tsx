@@ -12,6 +12,8 @@ import { useElapsed } from '../lib/useElapsed';
 import { useModelState, announceConfigChange } from '../lib/useModelState';
 import { providerConfigService } from '../services/providerConfigService';
 import { exportSynthexisAsMarkdown } from '../utils/exportTranscript';
+import { EvidenceMap } from './research/EvidenceMap';
+import { safeEvidenceHref } from '../lib/evidenceMap';
 
 const CANVAS_KEY = 'breezy_canvas_cards_v1';
 const SEATS = [{ id: 'architect', label: 'Analyst' }, { id: 'skeptic', label: 'Critic' }, { id: 'verifier', label: 'Verifier' }, { id: 'arbiter', label: 'Synthesizer' }] as const;
@@ -42,155 +44,393 @@ const Chip = ({ children, tone = 'text-on-surface' }: { children: React.ReactNod
   <span className={`inline-flex items-center gap-space-xs px-space-sm py-1 rounded-lg bg-surface-container-low font-code-sm text-code-sm ${tone}`}>{children}</span>
 );
 
-function Results({ s, running, events, plan, warnings }: { s: DebateSession; running: boolean; events: any[]; plan: any; warnings: string[] }) {
-  const g = s.evidenceGraph; const m = s.researchMetrics; const dur = formatDuration(m?.durationMs ?? s.metrics?.durationMs);
-  const stepsWithContent = s.steps.filter((x) => x.content || x.status === 'running');
-  const claimStyle = { supported: ['check_circle', 'text-tertiary'], contradicted: ['cancel', 'text-error'], unresolved: ['warning', 'text-[#F59E0B]'] } as const;
-  const act = [
-    ['content_copy', 'Copy', () => { void navigator.clipboard.writeText(s.finalOutput || '').then(() => researchStore.notify('Copied.')).catch(() => researchStore.notify('Copy failed.')); }],
-    ['download', 'Export', () => exportSynthexisAsMarkdown(s as any)],
-    ['draw', 'Pin to Canvas', () => { try { const ex = JSON.parse(accountStorage.getItem(CANVAS_KEY) || '[]'); accountStorage.setItem(CANVAS_KEY, JSON.stringify([{ id: `pin-${s.id}-${Date.now()}`, type: 'research', title: s.prompt.slice(0, 120), content: (s.finalOutput || '').slice(0, 1500), tags: ['Research', s.protocol], sourceSessionId: s.id, createdAt: Date.now() }, ...ex])); researchStore.notify('Pinned to Canvas.'); } catch { researchStore.notify('Could not pin.'); } }],
+type ResearchPanel = 'findings' | 'map' | 'activity';
+
+function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
+  s: DebateSession;
+  running: boolean;
+  events: Array<{ at: number; kind: string; message: string }>;
+  plan: any;
+  warnings: string[];
+  panel: ResearchPanel;
+  onPanelChange: (panel: ResearchPanel) => void;
+}) {
+  const g = s.evidenceGraph;
+  const m = s.researchMetrics;
+  const dur = formatDuration(m?.durationMs ?? s.metrics?.durationMs);
+  const stepsWithContent = s.steps.filter((step) => step.content || step.status === 'running');
+  const claims = g?.claims ?? [];
+  const sources = g?.sourcesConsulted ?? [];
+  const runIsActive = running && s.status === 'running';
+  const wasInterrupted = !running && s.status === 'running';
+  const actions = [
+    ['content_copy', 'Copy', () => {
+      void navigator.clipboard.writeText(s.finalOutput || '').then(() => researchStore.notify('Copied.')).catch(() => researchStore.notify('Copy failed.'));
+    }],
+    ['download', 'Export Markdown', () => exportSynthexisAsMarkdown(s as any)],
+    ['draw', 'Pin to Canvas', () => {
+      try {
+        const existing = JSON.parse(accountStorage.getItem(CANVAS_KEY) || '[]');
+        accountStorage.setItem(CANVAS_KEY, JSON.stringify([{
+          id: `pin-${s.id}-${Date.now()}`,
+          type: 'research',
+          title: s.prompt.slice(0, 120),
+          content: (s.finalOutput || '').slice(0, 1500),
+          tags: ['Research', s.protocol],
+          sourceSessionId: s.id,
+          createdAt: Date.now(),
+        }, ...existing]));
+        researchStore.notify('Pinned to Canvas.');
+      } catch {
+        researchStore.notify('Could not pin.');
+      }
+    }],
     ['description', 'Google Docs', () => void researchStore.saveToGoogleDocs(s.id)],
     ['replay', 'Run again', () => void researchStore.start(s.prompt, researchStore.get().draft.depth)],
   ] as const;
+
+  const tabs: Array<{ id: ResearchPanel; label: string; icon: string }> = [
+    { id: 'findings', label: 'Findings', icon: 'article' },
+    { id: 'map', label: 'Evidence map', icon: 'account_tree' },
+    { id: 'activity', label: 'Activity', icon: 'timeline' },
+  ];
+
   return (
-    <div className="flex flex-col gap-space-lg">
-      {warnings.map((w, i) => <div key={i} className="flex gap-space-sm items-start bg-surface-container-low rounded-xl p-space-md text-[#F59E0B] font-body-sm text-body-sm"><Icon name="warning" className="text-[20px] shrink-0" /><span>{w}</span></div>)}
-      {s.status === 'error' && s.error && <div className="flex gap-space-sm items-start bg-error-container/30 rounded-xl p-space-md text-error font-body-sm text-body-sm"><Icon name="error" className="text-[20px] shrink-0" /><span>{s.error}</span></div>}
-      {s.finalOutput && (
-        <section className="bg-surface-container rounded-3xl coat p-space-lg lg:p-space-xl flex flex-col gap-space-md">
-          <div className="flex flex-wrap items-center justify-between gap-space-sm">
-            <h2 className="font-headline-md text-headline-md">Synthesis</h2>
-            <div className="flex flex-wrap gap-space-xs">{act.map(([ic, label, fn]) => (
-              <button key={label} type="button" onClick={fn} className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors"><Icon name={ic} className="text-[16px]" />{label}</button>))}</div>
-          </div>
-          <div className="flex flex-wrap gap-space-xs">
+    <section className="flex flex-col gap-space-md min-w-0">
+      <div className="flex flex-col gap-space-md sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="font-label-sm text-label-sm uppercase tracking-wider text-secondary">Investigation</p>
+          <h2 className="mt-1 font-headline-md text-headline-md break-words">{s.prompt}</h2>
+          <div className="mt-space-sm flex flex-wrap items-center gap-space-xs">
+            <span className={`inline-flex items-center gap-space-xs rounded-full px-space-sm py-1 font-label-sm text-label-sm ${s.status === 'completed' ? 'bg-tertiary-container/50 text-tertiary' : s.status === 'error' ? 'bg-error-container/50 text-error' : runIsActive ? 'bg-primary/10 text-primary' : 'bg-surface-container-high text-on-surface-variant'}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${s.status === 'completed' ? 'bg-tertiary' : s.status === 'error' ? 'bg-error' : runIsActive ? 'bg-primary animate-pulse' : 'bg-outline'}`} />
+              {runIsActive ? 'Investigation running' : wasInterrupted ? 'Interrupted' : s.status === 'completed' ? 'Completed' : s.status === 'error' ? 'Failed' : 'Stopped'}
+            </span>
             {dur && <Chip><span className="text-outline">Duration</span>{dur}</Chip>}
-            {m && <><Chip><span className="text-outline">Sources</span>{m.sourcesConsulted}</Chip><Chip tone="text-tertiary"><span className="text-outline">Supported</span>{m.claimsSupported}/{m.claimsIdentified}</Chip>{m.claimsContradicted ? <Chip tone="text-error"><span className="text-outline">Contradicted</span>{m.claimsContradicted}</Chip> : null}</>}
-            {s.usage?.totalTokens ? <Chip><span className="text-outline">Tokens</span>{s.usage.totalTokens.toLocaleString()}{s.usage.estimated ? ' (est.)' : ''}</Chip> : null}
+            {sources.length > 0 && <Chip><span className="text-outline">Sources found</span>{sources.length}</Chip>}
+            {claims.length > 0 && <Chip><span className="text-outline">Claims extracted</span>{claims.length}</Chip>}
+            {s.usage?.totalTokens ? <Chip><span className="text-outline">Tokens</span>{s.usage.totalTokens.toLocaleString()}{s.usage.estimated ? ' estimated' : ''}</Chip> : null}
           </div>
-          <div className="max-w-3xl"><Markdown>{s.finalOutput}</Markdown></div>
-        </section>
-      )}
-      {g && (g.claims?.length > 0 || g.sourcesConsulted?.length > 0) && (
-        <section className="bg-surface-container rounded-3xl p-space-lg flex flex-col gap-space-md">
-          <div className="flex items-center justify-between"><h2 className="font-headline-md text-headline-md">Evidence</h2><span className="font-code-sm text-code-sm text-outline">{g.sourcesConsulted.length} sources · {g.claims.length} claims</span></div>
-          {g.claims.length > 0 && <ul className="flex flex-col gap-space-sm">{g.claims.map((c) => { const [ic, tone] = claimStyle[c.status] || claimStyle.unresolved; return (
-            <li key={c.id} className="bg-surface-container-low rounded-xl p-space-md flex gap-space-md"><Icon name={ic} className={`${tone} text-[20px] shrink-0`} /><div className="min-w-0"><p className="font-body-sm text-body-sm">{c.claim}</p><p className="font-code-sm text-code-sm text-outline mt-1">{c.status}{typeof c.confidence === 'number' ? ` · confidence ${Math.round(c.confidence)}%` : ''} · {c.supportingSources?.length || 0} supporting · {c.counterEvidence?.length || 0} counter</p></div></li>); })}</ul>}
-          {g.sourcesConsulted.length > 0 && <div className="flex flex-wrap gap-space-xs">{g.sourcesConsulted.map((x) => (
-            <a key={x.id || x.url} href={x.url} target="_blank" rel="noreferrer noopener" title={x.title} className="flex items-center gap-space-xs px-space-sm py-1 rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-colors max-w-full"><Icon name="link" className="text-[14px] text-secondary" /><span className="font-code-sm text-code-sm text-on-surface-variant truncate">{x.domain || x.url}</span></a>))}</div>}
-        </section>
-      )}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-space-lg">
-        <div className="lg:col-span-3 flex flex-col gap-space-sm min-w-0">
-          <h2 className="font-headline-sm text-headline-sm px-space-xs">{s.finalOutput ? 'Stage outputs' : 'Live output'}</h2>
-          {stepsWithContent.map((st) => (
-            <details key={st.stepId} open={st.status === 'running'} className="group bg-surface-container-low rounded-2xl">
-              <summary className="flex items-center gap-space-sm px-space-lg py-space-md cursor-pointer list-none min-h-[48px]">
-                <span className={`w-1.5 h-1.5 rounded-circle shrink-0 ${st.status === 'completed' ? 'bg-tertiary' : st.status === 'running' ? 'bg-primary animate-pulse' : st.status === 'error' ? 'bg-error' : 'bg-outline'}`} />
-                <span className="font-headline-sm text-headline-sm">{st.agentName}</span>{st.model && <span className="font-code-sm text-code-sm text-outline truncate">{st.model}</span>}
-                <span className="ml-auto font-code-sm text-code-sm text-on-surface-variant">{st.status}</span><Icon name="expand_more" className="text-outline group-open:rotate-180 transition-transform" />
-              </summary>
-              <div className="px-space-lg pb-space-lg"><Markdown>{st.content || '_Waiting for the first tokens…_'}</Markdown></div>
-            </details>))}
-          {!stepsWithContent.length && <div className="bg-surface-container-low rounded-2xl p-space-lg font-body-sm text-body-sm text-on-surface-variant">{running ? 'Waiting for the first model output…' : 'No output was produced.'}</div>}
         </div>
-        <div className="lg:col-span-2 flex flex-col gap-space-sm min-w-0">
-          <h2 className="font-headline-sm text-headline-sm px-space-xs">Run log</h2>
-          <div className="bg-surface-container-low rounded-2xl p-space-md max-h-80 overflow-y-auto flex flex-col gap-1.5">
-            {plan?.plan?.length > 0 && <div className="pb-space-sm mb-space-xs border-b border-outline-variant/30"><p className="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Research plan{plan.method ? ` · ${plan.method}` : ''}</p><ol className="list-decimal pl-space-lg font-body-sm text-body-sm text-on-surface-variant space-y-0.5">{plan.plan.map((x: string, i: number) => <li key={i}>{x}</li>)}</ol></div>}
-            {!events.length && <span className="font-code-sm text-code-sm text-outline">Events appear here while a run is active in this session.</span>}
-            {events.map((e, i) => <div key={i} className="flex gap-space-sm font-code-sm text-code-sm"><span className="text-outline-variant shrink-0">{new Date(e.at).toLocaleTimeString([], { hour12: false })}</span><span className={e.kind === 'error' ? 'text-error' : e.kind === 'warn' ? 'text-[#F59E0B]' : e.kind === 'done' ? 'text-tertiary' : 'text-on-surface-variant'}>{e.message}</span></div>)}
-          </div>
+        <div className="flex flex-wrap gap-space-xs shrink-0">
+          {actions.map(([icon, label, action]) => (
+            <button key={label} type="button" onClick={action} disabled={label === 'Run again' && running}
+              className="inline-flex min-h-[38px] items-center gap-space-xs rounded-xl border border-outline-variant/50 bg-surface-container px-space-sm font-label-sm text-label-sm text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface disabled:opacity-40">
+              <Icon name={icon} className="text-[16px]" />{label}
+            </button>
+          ))}
         </div>
       </div>
-    </div>
+
+      {warnings.map((warning, index) => (
+        <div key={index} className="flex items-start gap-space-sm rounded-xl border border-[#F59E0B]/20 bg-[#F59E0B]/5 p-space-md font-body-sm text-body-sm text-[#F59E0B]">
+          <Icon name="warning" className="mt-0.5 shrink-0 text-[18px]" /><span>{warning}</span>
+        </div>
+      ))}
+      {s.status === 'error' && s.error && (
+        <div role="alert" className="flex items-start gap-space-sm rounded-xl border border-error/30 bg-error-container/20 p-space-md font-body-sm text-body-sm text-error">
+          <Icon name="error" className="mt-0.5 shrink-0 text-[18px]" /><span>{s.error}</span>
+        </div>
+      )}
+      {(s.status === 'idle' || wasInterrupted) && !running && (
+        <div role="status" className="flex items-start gap-space-sm rounded-xl bg-surface-container-low p-space-md font-body-sm text-body-sm text-on-surface-variant">
+          <Icon name="stop_circle" className="mt-0.5 shrink-0 text-[18px]" /><span>{wasInterrupted ? 'This session was saved while a run was active, but no live run is attached in this tab. Its partial output, if any, remains available below.' : 'This run was stopped. Its partial output, if any, remains available below.'}</span>
+        </div>
+      )}
+
+      <div className="flex gap-1 overflow-x-auto rounded-2xl border border-outline-variant/40 bg-surface-container-low p-1" role="tablist" aria-label="Investigation views">
+        {tabs.map((tab) => (
+          <button key={tab.id} id={`research-tab-${tab.id}`} type="button" role="tab" aria-selected={panel === tab.id} aria-controls={`research-panel-${tab.id}`} onClick={() => onPanelChange(tab.id)}
+            className={`inline-flex min-h-[42px] shrink-0 items-center justify-center gap-space-xs rounded-xl px-space-md font-label-md text-label-md transition-colors ${panel === tab.id ? 'bg-surface-container-high text-on-surface shadow-sm' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'}`}>
+            <Icon name={tab.icon} className="text-[18px]" />{tab.label}
+            {tab.id === 'map' && <span className="rounded-full bg-surface-container px-1.5 py-0.5 font-code-sm text-code-sm">{claims.length + sources.length}</span>}
+          </button>
+        ))}
+      </div>
+
+      {panel === 'findings' && (
+        <div id="research-panel-findings" role="tabpanel" aria-labelledby="research-tab-findings" className="flex flex-col gap-space-md min-w-0">
+          {s.finalOutput ? (
+            <article className="min-w-0 rounded-3xl border border-outline-variant/40 bg-surface-container p-space-lg sm:p-space-xl">
+              <div className="mb-space-md flex items-center gap-space-sm">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon name="auto_awesome" className="text-[20px]" /></span>
+                <div><h3 className="font-headline-sm text-headline-sm">Research findings</h3><p className="font-body-sm text-body-sm text-on-surface-variant">The answer produced by this investigation</p></div>
+              </div>
+              <div className="max-w-4xl"><Markdown>{s.finalOutput}</Markdown></div>
+            </article>
+          ) : (
+            <article className="rounded-3xl border border-outline-variant/40 bg-surface-container p-space-lg sm:p-space-xl">
+              <div className="flex items-start gap-space-md">
+                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${running ? 'bg-primary/10 text-primary' : 'bg-surface-container-high text-outline'}`}><Icon name={running ? 'travel_explore' : 'article'} className={`text-[22px] ${running ? 'animate-pulse' : ''}`} /></span>
+                <div className="min-w-0">
+                  <h3 className="font-headline-sm text-headline-sm">{running ? 'Investigating your question' : 'No final answer was produced'}</h3>
+                  <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{running ? 'Breezy is processing the run. Open Activity to see events and stage output as they arrive.' : 'Check Activity for the last recorded events and any error details.'}</p>
+                </div>
+              </div>
+              {running && <div className="mt-space-lg flex flex-col gap-space-sm">{stepsWithContent.map((step) => (
+                <div key={step.stepId} className="flex items-center gap-space-sm rounded-xl bg-surface-container-low p-space-md">
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${step.status === 'completed' ? 'bg-tertiary' : step.status === 'running' ? 'bg-primary animate-pulse' : step.status === 'error' ? 'bg-error' : 'bg-outline'}`} />
+                  <span className="font-body-sm text-body-sm">{step.agentName}</span><span className="ml-auto font-code-sm text-code-sm text-outline">{step.status}</span>
+                </div>
+              ))}</div>}
+            </article>
+          )}
+
+          {claims.length > 0 && (
+            <section className="rounded-3xl border border-outline-variant/40 bg-surface-container p-space-lg">
+              <div className="flex flex-col gap-space-xs sm:flex-row sm:items-center sm:justify-between">
+                <div><h3 className="font-headline-sm text-headline-sm">Claims to inspect</h3><p className="font-body-sm text-body-sm text-on-surface-variant">Model-assisted labels, not independent verification.</p></div>
+                <button type="button" onClick={() => onPanelChange('map')} className="inline-flex min-h-[40px] items-center gap-space-xs self-start rounded-xl px-space-sm font-label-md text-label-md text-primary hover:bg-surface-container-high">Explore evidence <Icon name="arrow_forward" className="text-[17px]" /></button>
+              </div>
+              <div className="mt-space-md grid grid-cols-1 md:grid-cols-2 gap-space-sm">
+                {claims.slice(0, 4).map((claim) => {
+                  const status = claim.status === 'supported'
+                    ? { label: 'Model-assessed support', icon: 'check_circle', tone: 'text-tertiary' }
+                    : claim.status === 'contradicted'
+                      ? { label: 'Model-assessed contradiction', icon: 'report', tone: 'text-error' }
+                      : { label: 'Unresolved', icon: 'help', tone: 'text-[#F59E0B]' };
+                  return <button key={claim.id} type="button" onClick={() => onPanelChange('map')} className="flex min-w-0 items-start gap-space-sm rounded-2xl bg-surface-container-low p-space-md text-left hover:bg-surface-container-high">
+                    <Icon name={status.icon} className={`mt-0.5 shrink-0 text-[19px] ${status.tone}`} />
+                    <span className="min-w-0"><span className="block font-body-sm text-body-sm text-on-surface">{claim.claim}</span><span className={`mt-1 block font-code-sm text-code-sm ${status.tone}`}>{status.label}</span></span>
+                  </button>;
+                })}
+              </div>
+            </section>
+          )}
+
+          {sources.length > 0 && (
+            <section className="rounded-3xl border border-outline-variant/40 bg-surface-container p-space-lg">
+              <div className="flex items-center justify-between gap-space-sm"><div><h3 className="font-headline-sm text-headline-sm">Sources discovered</h3><p className="font-body-sm text-body-sm text-on-surface-variant">Search-result records from this run; not proof that a claim is supported.</p></div><span className="font-code-sm text-code-sm text-outline">{sources.length}</span></div>
+              <div className="mt-space-md grid grid-cols-1 md:grid-cols-2 gap-space-sm">
+                {sources.slice(0, 6).map((source) => {
+                  const href = safeEvidenceHref(source.url);
+                  const content = <><Icon name={href ? 'open_in_new' : 'description'} className="mt-0.5 shrink-0 text-[17px] text-secondary" /><span className="min-w-0"><span className="block break-words font-body-sm text-body-sm text-on-surface">{source.title || source.url || 'Untitled source'}</span><span className="mt-1 block truncate font-code-sm text-code-sm text-outline">{source.domain || source.url || 'URL unavailable'}</span>{source.snippet && <span className="mt-1 block line-clamp-2 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</span>}</span></>;
+                  return href
+                    ? <a key={source.id || source.url} href={href} target="_blank" rel="noreferrer noopener" className="flex min-w-0 items-start gap-space-sm rounded-xl bg-surface-container-low p-space-md hover:bg-surface-container-high">{content}</a>
+                    : <div key={source.id || source.title} className="flex min-w-0 items-start gap-space-sm rounded-xl bg-surface-container-low p-space-md">{content}</div>;
+                })}
+              </div>
+              {sources.length > 6 && <button type="button" onClick={() => onPanelChange('map')} className="mt-space-md min-h-[40px] font-label-md text-label-md text-primary">View all sources in Evidence map</button>}
+            </section>
+          )}
+          {!s.finalOutput && !claims.length && !sources.length && !running && <p className="rounded-xl border border-dashed border-outline-variant/50 p-space-lg font-body-sm text-on-surface-variant">No findings or source records were saved for this run.</p>}
+        </div>
+      )}
+
+      {panel === 'map' && <div id="research-panel-map" role="tabpanel" aria-labelledby="research-tab-map"><EvidenceMap graph={g} /></div>}
+
+      {panel === 'activity' && (
+        <div id="research-panel-activity" role="tabpanel" aria-labelledby="research-tab-activity" className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)] gap-space-md items-start">
+          <section className="min-w-0 rounded-2xl border border-outline-variant/40 bg-surface-container p-space-lg">
+            <div className="mb-space-lg"><h3 className="font-headline-sm text-headline-sm">Research stages</h3><p className="font-body-sm text-body-sm text-on-surface-variant">Progress reflects recorded stage events.</p></div>
+            <Stepper stages={deriveStages(s, running, Boolean(plan))} />
+            <div className="mt-space-xl flex flex-col gap-space-sm">
+              {stepsWithContent.map((step) => (
+                <details key={step.stepId} open={step.status === 'running'} className="group rounded-xl bg-surface-container-low">
+                  <summary className="flex min-h-[48px] cursor-pointer list-none items-center gap-space-sm px-space-md py-space-sm">
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${step.status === 'completed' ? 'bg-tertiary' : step.status === 'running' ? 'bg-primary animate-pulse' : step.status === 'error' ? 'bg-error' : 'bg-outline'}`} />
+                    <span className="min-w-0 font-body-sm text-body-sm">{step.agentName}</span>
+                    {step.model && <span className="hidden sm:block max-w-[180px] truncate font-code-sm text-code-sm text-outline">{step.model}</span>}
+                    <span className="ml-auto font-code-sm text-code-sm text-outline">{step.status}</span><Icon name="expand_more" className="text-[17px] text-outline group-open:rotate-180" />
+                  </summary>
+                  <div className="px-space-md pb-space-md"><Markdown>{step.content || (running ? '_Waiting for output…_' : '_No output recorded for this stage._')}</Markdown></div>
+                </details>
+              ))}
+              {!stepsWithContent.length && <p className="font-body-sm text-body-sm text-on-surface-variant">{running ? 'Waiting for the first stage output.' : 'No stage output was recorded.'}</p>}
+            </div>
+          </section>
+          <section className="min-w-0 rounded-2xl border border-outline-variant/40 bg-surface-container p-space-lg">
+            <h3 className="font-headline-sm text-headline-sm">Activity log</h3>
+            {plan?.plan?.length > 0 && <div className="mt-space-md rounded-xl bg-surface-container-low p-space-md"><p className="font-label-sm text-label-sm uppercase tracking-wider text-outline">Research plan{plan.method ? ` · ${plan.method}` : ''}</p><ol className="mt-space-sm list-decimal space-y-1 pl-space-lg font-body-sm text-body-sm text-on-surface-variant">{plan.plan.map((item: string, index: number) => <li key={index}>{item}</li>)}</ol></div>}
+            <div className="mt-space-md flex max-h-[560px] flex-col gap-space-sm overflow-y-auto">
+              {events.length ? events.map((event, index) => <div key={index} className="flex min-w-0 gap-space-sm font-code-sm text-code-sm"><span className="shrink-0 text-outline-variant">{new Date(event.at).toLocaleTimeString([], { hour12: false })}</span><span className={`min-w-0 break-words ${event.kind === 'error' ? 'text-error' : event.kind === 'warn' ? 'text-[#F59E0B]' : event.kind === 'done' ? 'text-tertiary' : 'text-on-surface-variant'}`}>{event.message}</span></div>) : <p className="font-body-sm text-body-sm text-on-surface-variant">No activity events were recorded for this session.</p>}
+            </div>
+          </section>
+        </div>
+      )}
+    </section>
   );
 }
 
 export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initialPrompt = '' }) => {
-  const r = useResearch(); const model = useModelState(); const fileRef = useRef<HTMLInputElement>(null);
-  const [files, setFiles] = useState<Attachment[]>([]); const elapsed = useElapsed(r.startedAt, r.running);
-  const { query, depth } = r.draft; const s = r.active; const cfg = model.config;
+  const r = useResearch();
+  const model = useModelState();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [files, setFiles] = useState<Attachment[]>([]);
+  const [panel, setPanel] = useState<ResearchPanel>('findings');
+  const elapsed = useElapsed(r.startedAt, r.running);
+  const { query, depth } = r.draft;
+  const s = r.active;
+  const cfg = model.config;
+
   useEffect(() => { researchStore.refreshSessions(); }, []);
   useEffect(() => { if (initialPrompt) researchStore.setDraft({ query: initialPrompt }); }, [initialPrompt]);
+  useEffect(() => { setPanel('findings'); }, [s?.id]);
 
   const canRun = model.routable || model.serverGemini || providerConfigService.getConfiguredProviders().length > 0;
-  const stages = deriveStages(s, r.running, r.explorationSeen);
   const submit = async () => {
     if (r.running) return researchStore.stop();
-    const res = await researchStore.start(query, depth, files); setFiles([]);
-    if (res === 'no-model') { researchStore.notify('No model connected. Add a provider in Models first.'); window.location.hash = '#models'; }
+    const result = await researchStore.start(query, depth, files);
+    setFiles([]);
+    if (result === 'no-model') {
+      researchStore.notify('No model connected. Add a provider in Models first.');
+      window.location.hash = '#models';
+    }
   };
-  const onFiles = async (list: FileList) => { for (const f of Array.from(list)) { try { const a = await readAttachment(f); setFiles((x) => [...x, a]); } catch (e: any) { researchStore.notify(e?.message || `Could not read ${f.name}.`); } } };
-  const setMethod = (m: string) => { providerConfigService.saveConfig({ ...providerConfigService.getConfig(), researchMethod: m as any }); announceConfigChange(); };
-  const heading = r.running ? 'Synthesis in progress' : s?.status === 'completed' ? 'Synthesis complete' : s?.status === 'error' ? 'Synthesis stopped' : 'No active synthesis';
-  const sub = r.running ? 'Breezy is working through the pipeline with your configured models.' : s?.status === 'completed' ? 'Saved to History on this device.' : s?.status === 'error' ? (s.error || 'The run stopped with an error.') : canRun ? 'Submit an inquiry above to run exploration, challenge and synthesis.' : 'Connect a model in Models, then submit an inquiry above.';
-  const statusDot = r.running ? 'bg-primary animate-pulse' : canRun ? 'bg-tertiary' : 'bg-outline';
+  const onFiles = async (list: FileList) => {
+    for (const file of Array.from(list)) {
+      try {
+        const attachment = await readAttachment(file);
+        setFiles((current) => [...current, attachment]);
+      } catch (error: any) {
+        researchStore.notify(error?.message || `Could not read ${file.name}.`);
+      }
+    }
+  };
+  const setMethod = (method: string) => {
+    providerConfigService.saveConfig({ ...providerConfigService.getConfig(), researchMethod: method as any });
+    announceConfigChange();
+  };
+
+  const statusLabel = r.running
+    ? 'Investigation running'
+    : s?.status === 'running'
+      ? 'Previous run interrupted'
+      : s?.status === 'completed'
+      ? 'Completed'
+      : s?.status === 'error'
+        ? 'Run failed'
+        : s?.status === 'idle'
+          ? 'Stopped'
+          : canRun
+            ? 'Ready to investigate'
+            : 'No model configured';
+  const statusTone = r.running ? 'bg-primary' : s?.status === 'error' ? 'bg-error' : s?.status === 'completed' ? 'bg-tertiary' : canRun ? 'bg-secondary' : 'bg-outline';
+  const recent = r.sessions.filter((session) => session.id !== s?.id).slice(0, 3);
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-gutter lg:px-space-lg py-space-lg lg:py-space-xl flex flex-col gap-space-lg lg:gap-space-xl">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-space-md">
+    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-space-lg px-gutter py-space-lg sm:gap-space-xl lg:px-space-xl lg:py-space-xl">
+      <header className="flex min-w-0 flex-col gap-space-md sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <div className="hidden lg:flex items-center gap-space-sm font-code-sm text-code-sm uppercase tracking-wider text-outline min-w-0"><span>Workspace / Research</span><span className="text-outline-variant">/</span><span className="text-primary truncate normal-case">{s ? s.prompt : 'No active run'}</span></div>
-          <h1 className="font-headline-xl-mobile lg:font-headline-xl text-headline-xl-mobile lg:text-headline-xl tracking-tight mt-1">Research Workspace</h1>
+          <div className="mb-1 flex items-center gap-space-xs font-code-sm text-code-sm uppercase tracking-wider text-outline"><span>Workspace</span><Icon name="chevron_right" className="text-[14px]" /><span className="text-primary">Research</span></div>
+          <h1 className="font-headline-xl-mobile text-headline-xl-mobile tracking-tight sm:font-headline-xl sm:text-headline-xl">Research</h1>
+          <p className="mt-1 max-w-2xl font-body-md text-body-md text-on-surface-variant">Investigate a question, inspect the evidence, and keep the findings you need.</p>
         </div>
-        <div className="flex items-center gap-space-sm self-start md:self-auto">
-          <span className="flex items-center gap-space-sm px-space-md py-space-xs rounded-full bg-surface-container-high font-label-md text-label-md"><span className={`w-2 h-2 rounded-circle ${statusDot}`} />{r.running ? 'Run in progress' : canRun ? 'Model available' : 'No model connected'}<span className="text-outline-variant">·</span><span className="font-code-sm text-code-sm text-on-surface-variant truncate max-w-[180px]">{elapsed ?? (canRun ? (model.routable ? model.label : 'Server Gemini') : 'Open Models')}</span></span>
-          <span className="hidden xl:flex items-center gap-space-xs px-space-sm py-space-xs rounded-full bg-surface-container font-code-sm text-code-sm text-outline"><Icon name="travel_explore" className="text-[14px]" />Search: {model.searchEngine}</span>
+        <div className="flex flex-wrap items-center gap-space-sm">
+          <span className="inline-flex min-h-[36px] items-center gap-space-xs rounded-full border border-outline-variant/40 bg-surface-container px-space-md font-label-sm text-label-sm text-on-surface-variant" role="status" aria-live="polite">
+            <span className={`h-2 w-2 rounded-full ${statusTone} ${r.running ? 'animate-pulse' : ''}`} />
+            {statusLabel}
+          </span>
+          {r.running && elapsed && <span className="font-code-sm text-code-sm text-outline">{elapsed}</span>}
         </div>
-      </div>
+      </header>
 
-      <section className="relative bg-surface-container rounded-3xl coat p-space-lg">
-        <div className="pointer-events-none absolute -top-px left-10 right-10 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-        <div className="flex items-center justify-between pb-space-md">
-          <label htmlFor="inquiry" className="flex items-center gap-space-sm text-primary font-code-sm text-code-sm uppercase tracking-wide font-semibold"><Icon name="neurology" className="text-[20px]" />Inquiry formulation</label>
-          <span className="hidden sm:inline font-code-sm text-code-sm text-outline">Markdown output</span>
-        </div>
-        <div className="bg-surface-container-low rounded-2xl focus-within:bg-surface-container-lowest transition-colors hairline focus-within:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.45)]">
-          <textarea id="inquiry" rows={4} value={query} disabled={r.running} onChange={(e) => researchStore.setDraft({ query: e.target.value })}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); if (query.trim()) void submit(); } }}
-            placeholder="State your research question or hypothesis…" className="w-full bg-transparent px-space-md py-space-md font-body-lg text-body-lg placeholder:text-outline focus:outline-none resize-none disabled:opacity-60" />
-          <div className="px-space-md pb-space-sm flex items-center justify-between font-code-sm text-code-sm text-outline-variant"><span>{query.trim() ? `${query.length} characters` : 'Awaiting statement'}</span><span className="hidden sm:flex items-center gap-1 text-outline"><kbd className="bg-surface-container px-1 rounded">Shift</kbd>+<kbd className="bg-surface-container px-1 rounded">Return</kbd> newline</span></div>
-        </div>
-        {files.length > 0 && <div className="flex flex-wrap gap-space-xs pt-space-md">{files.map((a) => <span key={a.id} className="flex items-center gap-space-xs pl-space-sm pr-1 py-1 rounded-lg bg-surface-container-high font-code-sm text-code-sm text-on-surface-variant"><Icon name={a.fileType === 'pdf' ? 'picture_as_pdf' : 'description'} className="text-[14px] text-secondary" /><span className="truncate max-w-[180px]">{a.fileName}</span><button type="button" aria-label={`Remove ${a.fileName}`} onClick={() => setFiles((x) => x.filter((f) => f.id !== a.id))} className="p-0.5 rounded hover:bg-surface-container-highest"><Icon name="close" className="text-[14px]" /></button></span>)}</div>}
-        <div className="pt-space-md flex flex-col lg:flex-row lg:items-center justify-between gap-space-md">
-          <div className="flex flex-wrap items-center gap-space-sm">
-            <div className="flex p-1 rounded-xl bg-surface-container-low" role="group" aria-label="Depth">{(Object.keys(DEPTH_PROTOCOL) as Depth[]).map((d) => (
-              <button key={d} type="button" disabled={r.running} aria-pressed={depth === d} title={DEPTH_PROTOCOL[d].blurb} onClick={() => researchStore.setDraft({ depth: d })} className={`px-3 min-h-[40px] rounded-lg font-label-md text-label-md flex items-center gap-1.5 transition-all ${depth === d ? 'bg-surface-container-high text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}><Icon name={DEPTH_ICON[d]} className={`text-[16px] ${depth === d ? 'text-primary' : ''}`} />{DEPTH_PROTOCOL[d].label}</button>))}</div>
-            <label className="flex items-center gap-space-xs bg-surface-container-low rounded-xl px-space-sm min-h-[48px]"><Icon name="fact_check" className="text-[16px] text-tertiary" /><span className="font-label-sm text-label-sm text-outline uppercase tracking-wider">Method</span>
-              <select aria-label="Research method" value={cfg.researchMethod || 'adaptive'} disabled={r.running} onChange={(e) => setMethod(e.target.value)} className="bg-transparent font-label-md text-label-md focus:outline-none capitalize cursor-pointer">{RESEARCH_METHODS.map((m) => <option key={m} value={m} className="bg-surface-container-high capitalize">{m}</option>)}</select></label>
-            <button type="button" disabled={r.running} onClick={() => fileRef.current?.click()} className="flex items-center gap-space-xs bg-surface-container-low hover:bg-surface-container-high rounded-xl px-space-md min-h-[48px] text-on-surface-variant hover:text-on-surface font-label-md text-label-md transition-colors"><Icon name="attachment" className="text-[16px] text-secondary" />Attach</button>
+      <section className="relative overflow-hidden rounded-3xl border border-outline-variant/40 bg-surface-container p-space-md shadow-lg sm:p-space-lg lg:p-space-xl">
+        <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+        <div className="flex items-start gap-space-md">
+          <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary sm:flex"><Icon name="travel_explore" className="text-[24px]" /></span>
+          <div className="min-w-0 flex-1">
+            <label htmlFor="inquiry" className="block font-headline-sm text-headline-sm">What do you want to find out?</label>
+            <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">Be specific about the question, constraints, or decision you're trying to make.</p>
           </div>
-          <button type="button" onClick={() => void submit()} disabled={!r.running && !query.trim()} className="flex items-center justify-center gap-space-sm bg-primary hover:bg-primary-fixed text-on-primary font-headline-sm text-headline-sm px-space-lg min-h-[48px] rounded-2xl glow-primary transition-all active:scale-[0.98] disabled:opacity-40 disabled:shadow-none disabled:cursor-not-allowed"><span>{r.running ? 'Stop run' : 'Initiate Synthesis'}</span><Icon name={r.running ? 'stop_circle' : 'arrow_forward'} className="text-[20px]" /></button>
         </div>
-        <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,.csv,.json,.tsv,.html,.js,.ts,.tsx,.jsx,.py,.tex,.bib,text/*,application/pdf" className="hidden" onChange={(e) => { if (e.target.files?.length) void onFiles(e.target.files); e.target.value = ''; }} />
+        <div className="mt-space-md rounded-2xl border border-outline-variant/50 bg-surface-container-low focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/20">
+          <textarea id="inquiry" rows={4} value={query} disabled={r.running}
+            onChange={(event) => researchStore.setDraft({ query: event.target.value })}
+            onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); if (query.trim()) void submit(); } }}
+            placeholder="e.g. Compare the best free databases for a small TypeScript app, including limits, licensing, and migration risks."
+            className="w-full resize-y bg-transparent px-space-md py-space-md font-body-lg text-body-lg text-on-surface placeholder:text-outline focus:outline-none disabled:opacity-60 sm:px-space-lg" />
+          <div className="flex flex-wrap items-center justify-between gap-space-sm border-t border-outline-variant/30 px-space-md py-space-sm font-code-sm text-code-sm text-outline sm:px-space-lg">
+            <span>{query.trim() ? `${query.length} characters` : 'Start with a question or decision'}</span>
+            <span className="hidden items-center gap-1 sm:flex"><kbd className="rounded bg-surface-container px-1.5 py-0.5">Enter</kbd> research · <kbd className="rounded bg-surface-container px-1.5 py-0.5">Shift + Enter</kbd> newline</span>
+          </div>
+        </div>
+
+        {files.length > 0 && <div className="mt-space-md flex flex-wrap gap-space-xs">{files.map((file) => (
+          <span key={file.id} className="inline-flex max-w-full items-center gap-space-xs rounded-xl bg-surface-container-high px-space-sm py-1.5 font-code-sm text-code-sm text-on-surface-variant">
+            <Icon name={file.fileType === 'pdf' ? 'picture_as_pdf' : 'description'} className="shrink-0 text-[15px] text-secondary" /><span className="max-w-[180px] truncate">{file.fileName}</span>
+            <button type="button" aria-label={`Remove ${file.fileName}`} onClick={() => setFiles((current) => current.filter((item) => item.id !== file.id))} className="rounded p-0.5 hover:bg-surface-container-highest"><Icon name="close" className="text-[14px]" /></button>
+          </span>
+        ))}</div>}
+
+        <div className="mt-space-md flex flex-col gap-space-md lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-space-sm">
+            <div className="inline-flex min-h-[44px] max-w-full flex-wrap items-center gap-1 rounded-xl bg-surface-container-low p-1" role="group" aria-label="Research depth">
+              {(Object.keys(DEPTH_PROTOCOL) as Depth[]).map((item) => {
+                const label = DEPTH_PROTOCOL[item].label;
+                return <button key={item} type="button" disabled={r.running} aria-pressed={depth === item} title={DEPTH_PROTOCOL[item].blurb}
+                  onClick={() => researchStore.setDraft({ depth: item })}
+                  className={`min-h-[36px] rounded-lg px-space-md font-label-md text-label-md transition-colors ${depth === item ? 'bg-surface-container-high text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>
+                  {label}
+                </button>;
+              })}
+            </div>
+            <button type="button" disabled={r.running} onClick={() => fileRef.current?.click()} className="inline-flex min-h-[44px] items-center gap-space-xs rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md font-label-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface disabled:opacity-50">
+              <Icon name="attach_file" className="text-[17px]" />Attach files
+            </button>
+            <details className="relative">
+              <summary className="flex min-h-[44px] cursor-pointer list-none items-center gap-space-xs rounded-xl px-space-md font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low">
+                <Icon name="tune" className="text-[17px]" />Advanced options <Icon name="expand_more" className="text-[16px]" />
+              </summary>
+              <div className="mt-space-xs w-full rounded-2xl border border-outline-variant/50 bg-surface-container-low p-space-md sm:absolute sm:right-0 sm:z-20 sm:w-80 sm:shadow-xl">
+                <label className="block font-label-sm text-label-sm text-on-surface-variant" htmlFor="research-method">Research method</label>
+                <select id="research-method" aria-label="Research method" value={cfg.researchMethod || 'adaptive'} disabled={r.running} onChange={(event) => setMethod(event.target.value)}
+                  className="mt-1 min-h-[42px] w-full rounded-lg border border-outline-variant/40 bg-surface-container px-space-sm font-body-sm text-body-sm capitalize">
+                  {RESEARCH_METHODS.map((method) => <option key={method} value={method} className="capitalize">{method}</option>)}
+                </select>
+                <p className="mt-space-sm font-body-sm text-body-sm text-on-surface-variant">Depth controls how many existing research stages run. Deeper modes can use more model calls and are not automatically more accurate.</p>
+                <div className="mt-space-md border-t border-outline-variant/30 pt-space-md">
+                  <p className="font-label-sm text-label-sm text-on-surface-variant">Configured research seats</p>
+                  <div className="mt-space-sm flex flex-col gap-space-xs">
+                    {SEATS.map((seat) => {
+                      const role = cfg.roles[seat.id];
+                      const configured = Boolean(role?.provider && role?.model);
+                      return <button key={seat.id} type="button" onClick={() => { window.location.hash = '#models'; }}
+                        className="flex min-h-[36px] items-center gap-space-sm rounded-lg px-space-sm text-left hover:bg-surface-container-high">
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${configured ? 'bg-tertiary' : 'bg-outline'}`} />
+                        <span className="font-body-sm text-body-sm text-on-surface-variant">{seat.label}</span>
+                        <span className="ml-auto max-w-[150px] truncate font-code-sm text-code-sm text-outline">{configured ? role.model : 'Not assigned'}</span>
+                      </button>;
+                    })}
+                  </div>
+                  <button type="button" onClick={() => { window.location.hash = '#models'; }} className="mt-space-sm min-h-[36px] font-label-md text-label-md text-primary">Configure models <Icon name="arrow_forward" className="text-[16px] align-middle" /></button>
+                </div>
+              </div>
+            </details>
+          </div>
+          <button type="button" onClick={() => void submit()} disabled={!r.running && !query.trim()}
+            className={`inline-flex min-h-[48px] shrink-0 items-center justify-center gap-space-sm rounded-2xl px-space-lg font-headline-sm text-headline-sm transition-all disabled:cursor-not-allowed disabled:opacity-40 ${r.running ? 'border border-error/30 bg-error-container/30 text-error hover:bg-error-container/50' : 'bg-primary text-on-primary shadow-md shadow-primary/10 hover:brightness-110'}`}>
+            <Icon name={r.running ? 'stop_circle' : 'arrow_forward'} className="text-[20px]" />{r.running ? 'Stop research' : 'Start research'}
+          </button>
+        </div>
+        <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,.csv,.json,.tsv,.html,.js,.ts,.tsx,.jsx,.py,.tex,.bib,text/*,application/pdf" className="hidden"
+          onChange={(event) => { if (event.target.files?.length) void onFiles(event.target.files); event.target.value = ''; }} />
       </section>
 
-      <section className="bg-surface-container-low/80 rounded-3xl p-space-lg lg:p-space-xl flex flex-col items-center text-center gap-space-lg relative overflow-hidden">
-        <div className="absolute inset-0 opacity-[0.04] pointer-events-none [background-image:radial-gradient(circle_at_center,#4cd6fb_1px,transparent_1px)] [background-size:24px_24px]" />
-        <div className="relative w-full"><Stepper stages={stages} /></div>
-        <div className="relative max-w-xl"><h2 className="font-headline-md text-headline-md">{heading}</h2><p className="font-body-md text-body-md text-on-surface-variant mt-1">{sub}</p></div>
-        {!s && (
-          <div className="relative w-full max-w-3xl">
-            <div className="flex items-center justify-center gap-space-xs mb-space-md text-outline font-label-sm text-label-sm uppercase tracking-wider"><Icon name="bolt" className="text-[14px]" />Starter prompts</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-space-sm text-left">{RESEARCH_STARTERS.map((st, i) => (
-              <button key={st.id} type="button" onClick={() => researchStore.setDraft({ query: st.prompt })} className="group p-space-md min-h-[48px] bg-surface-container hover:bg-surface-container-high rounded-2xl transition-colors">
-                <div className="flex items-center justify-between mb-space-xs"><span className={`font-code-sm text-code-sm ${['text-primary', 'text-secondary', 'text-tertiary'][i]}`}>Starter</span><Icon name="north_east" className="text-[16px] text-outline group-hover:text-primary transition-colors" /></div>
-                <div className="font-headline-sm text-headline-sm">{st.title}</div><div className="font-body-sm text-body-sm text-on-surface-variant mt-0.5 line-clamp-2">{st.blurb}</div>
-              </button>))}</div>
-          </div>)}
-      </section>
+      {!s && !r.running && (
+        <section className="grid grid-cols-1 gap-space-md lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+          <div className="rounded-3xl border border-outline-variant/40 bg-surface-container p-space-lg sm:p-space-xl">
+            <div className="mb-space-md flex items-center gap-space-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary/10 text-secondary"><Icon name="lightbulb" className="text-[20px]" /></span><div><h2 className="font-headline-sm text-headline-sm">Start with a direction</h2><p className="font-body-sm text-body-sm text-on-surface-variant">Choose a prompt to shape your question.</p></div></div>
+            <div className="grid grid-cols-1 gap-space-sm sm:grid-cols-2">
+              {RESEARCH_STARTERS.map((starter) => <button key={starter.id} type="button" onClick={() => researchStore.setDraft({ query: starter.prompt })}
+                className="group min-w-0 rounded-2xl border border-outline-variant/30 bg-surface-container-low p-space-md text-left transition-colors hover:border-primary/40 hover:bg-surface-container-high">
+                <span className="flex items-center justify-between gap-space-sm"><span className="font-headline-sm text-headline-sm">{starter.title}</span><Icon name="north_east" className="shrink-0 text-[16px] text-outline group-hover:text-primary" /></span>
+                <span className="mt-1 block font-body-sm text-body-sm text-on-surface-variant">{starter.blurb}</span>
+              </button>)}
+            </div>
+          </div>
+          <div className="rounded-3xl border border-outline-variant/40 bg-surface-container p-space-lg sm:p-space-xl">
+            <div className="mb-space-md flex items-center gap-space-sm"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon name="history" className="text-[20px]" /></span><div><h2 className="font-headline-sm text-headline-sm">Pick up where you left off</h2><p className="font-body-sm text-body-sm text-on-surface-variant">Recent investigations saved in this browser.</p></div></div>
+            {recent.length ? <div className="flex flex-col gap-space-xs">{recent.map((session) => <button key={session.id} type="button" onClick={() => researchStore.open(session.id)} className="flex min-w-0 items-start gap-space-sm rounded-xl px-space-sm py-space-md text-left hover:bg-surface-container-low">
+              <Icon name="description" className="mt-0.5 shrink-0 text-[17px] text-secondary" /><span className="min-w-0 flex-1"><span className="block line-clamp-2 font-body-sm text-body-sm text-on-surface">{session.prompt}</span><span className="mt-1 block font-code-sm text-code-sm text-outline">{new Date(session.updatedAt || session.createdAt).toLocaleDateString()} · {session.status === 'completed' ? 'Completed' : session.status === 'error' ? 'Failed' : session.status === 'running' ? 'Previously running' : 'Stopped'}</span></span><Icon name="chevron_right" className="shrink-0 text-[17px] text-outline" />
+            </button>)}</div> : <p className="rounded-xl border border-dashed border-outline-variant/40 p-space-md font-body-sm text-body-sm text-on-surface-variant">Your saved investigations will appear here after you run one. History stays in this browser unless you export it.</p>}
+          </div>
+        </section>
+      )}
 
-      {s && <Results s={s} running={r.running} events={r.events} plan={r.plan} warnings={r.warnings} />}
+      {s && <Results s={s} running={r.running} events={r.events} plan={r.plan} warnings={r.warnings} panel={panel} onPanelChange={setPanel} />}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-sm font-code-sm text-code-sm pb-space-xl">
-        {SEATS.map((seat) => { const c = cfg.roles[seat.id]; const m = c?.provider && c?.model ? c.model : null; return (
-          <button key={seat.id} type="button" onClick={() => { window.location.hash = '#models'; }} className="flex items-center gap-space-sm bg-surface-container-low hover:bg-surface-container px-space-md min-h-[40px] rounded-full min-w-0 text-left transition-colors">
-            <span className={`w-1.5 h-1.5 rounded-circle shrink-0 ${m ? 'bg-tertiary' : 'bg-outline'}`} /><span className="text-on-surface-variant shrink-0">{seat.label}:</span><span className={`ml-auto truncate ${m ? 'text-on-surface' : 'text-outline'}`}>{m || 'Not assigned'}</span>
-          </button>); })}
-      </div>
-      {r.notice && <div role="status" className="fixed z-[90] left-1/2 -translate-x-1/2 bottom-24 lg:bottom-space-xl max-w-[92vw] px-space-lg py-space-sm bg-surface-container-highest rounded-xl shadow-[0_12px_32px_-8px_rgba(0,0,0,0.65)] font-body-sm text-body-sm">{r.notice}</div>}
+      {r.notice && <div role="status" className="fixed bottom-24 left-1/2 z-[90] max-w-[92vw] -translate-x-1/2 rounded-xl bg-surface-container-highest px-space-lg py-space-sm font-body-sm text-body-sm shadow-xl lg:bottom-space-xl">{r.notice}</div>}
     </div>
   );
 };
