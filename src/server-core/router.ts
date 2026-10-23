@@ -1206,6 +1206,7 @@ Structure your response in clean Markdown with clear headings.`;
             },
             onUsage: (usage) => emitUsage(1, usage),
             env,
+            signal: req.signal,
           });
 
           await sendEvent('round_complete', {
