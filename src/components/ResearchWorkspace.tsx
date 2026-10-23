@@ -372,7 +372,7 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
                 <p className="mt-space-sm font-body-sm text-body-sm text-on-surface-variant">One configured model call handles the analysis. Breezy still searches for sources and retrieves bounded page text, but it does not run separate critic, verifier, or synthesizer model calls.</p>
                 <div className="mt-space-md border-t border-outline-variant/30 pt-space-md">
                   <p className="font-label-sm text-label-sm text-on-surface-variant">Research model</p>
-                  <p className="mt-1 font-body-sm text-body-sm text-on-surface">{cfg.defaultProvider && cfg.defaultModel ? `${cfg.defaultProvider} · ${cfg.defaultModel}` : "No model configured"}</p>
+                  <p className="mt-1 font-body-sm text-body-sm text-on-surface">{(cfg.roles.architect.provider || cfg.defaultProvider) && (cfg.roles.architect.model || cfg.defaultModel) ? `${cfg.roles.architect.provider || cfg.defaultProvider} · ${cfg.roles.architect.model || cfg.defaultModel}` : "No model configured"}</p>
                   <button type="button" onClick={() => { window.location.hash = '#models'; }} className="mt-space-sm min-h-[36px] font-label-md text-label-md text-primary">Configure model <Icon name="arrow_forward" className="text-[16px] align-middle" /></button>
                 </div>
               </div>
