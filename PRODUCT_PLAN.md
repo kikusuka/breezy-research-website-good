@@ -42,11 +42,7 @@ The evidence-oriented workflow powered by Synthexis. The original conceptual seq
 
 **Propose → Challenge → Verify → Resolve → Synthesize**
 
-Research should make the process and evidence inspectable without overwhelming the user. Research modes may select different levels of work:
-
-- **Solo:** Analyst only.
-- **Trio:** Analyst, Critic, and Synthesizer.
-- **Quad / Deep:** all four configured stages, with the actual selected depth passed to the backend.
+Research should make the process and evidence inspectable without overwhelming the user. The production workflow uses **one configured model call per investigation**; it does not run separate Analyst, Critic, Verifier, or Synthesizer model calls. Search planning, search requests, and bounded source-page retrieval remain available, and retrieved evidence is not treated as proof by itself.
 
 Show progress only from real execution events. Surface sources and citations honestly; distinguish retrieval from verification. A run should remain coherent if the user navigates elsewhere, and stopped or failed runs should be represented truthfully.
 
