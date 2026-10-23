@@ -184,16 +184,35 @@ export async function searchSearXNG(query: string, baseUrl: string): Promise<Sea
   return [];
 }
 
+const TRACKING_QUERY_PARAMS = new Set([
+  'gclid', 'dclid', 'fbclid', 'msclkid', 'mc_cid', 'mc_eid',
+  'igshid', 'ref_src', 'yclid', '_hsenc', '_hsmi', 'vero_id',
+  'oly_anon_id', 'oly_enc_id', 'mkt_tok',
+]);
+
+/** Ignore fragments and common tracking parameters, but preserve query parameters that may select different content. */
+function normalizeSearchResultUrl(value: string): string {
+  try {
+    const parsed = new URL(value);
+    parsed.hash = '';
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (/^utm_/i.test(key) || TRACKING_QUERY_PARAMS.has(key.toLowerCase())) {
+        parsed.searchParams.delete(key);
+      }
+    }
+    parsed.searchParams.sort();
+    return parsed.toString();
+  } catch {
+    return value;
+  }
+}
+
 export function deduplicateAndRank(results: SearchResultItem[]): SearchResultItem[] {
   const seenUrls = new Set<string>();
   const unique: SearchResultItem[] = [];
   for (const item of results) {
     if (!item.url) continue;
-    let cleanUrl = item.url;
-    try {
-      const parsed = new URL(item.url);
-      cleanUrl = parsed.origin + parsed.pathname;
-    } catch {}
+    const cleanUrl = normalizeSearchResultUrl(item.url);
     if (!seenUrls.has(cleanUrl)) {
       seenUrls.add(cleanUrl);
       unique.push(item);
