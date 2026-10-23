@@ -36,7 +36,7 @@ Env: see `.env.example` (optional `GEMINI_API_KEY` on the server; users can also
 ### Research stream (`/api/debate/stream`)
 Request: `{ prompt, tone, searchEngine, keys, enableSearchGrounding, researchMethod, heartbeatEnabled, heartbeatIntervalSec }` (legacy `protocol`, `selectedRound`, and `seats` fields are ignored for compatibility).
 
-The backend enforces **single-model research** regardless of legacy `protocol`, `selectedRound`, or `seats` values. Each research run makes one main answer-generation call; the solo evidence graph uses retrieved sources directly and does not invoke a separate model-based evidence extraction call.
+The backend enforces **single-model research** regardless of legacy `protocol`, `selectedRound`, or `seats` values. Each research run makes exactly one LLM call for answer generation. Planning is deterministic/local, and the solo evidence graph uses retrieved sources directly without a separate model-based planning, heartbeat, summarization, or evidence-extraction call.
 
 SSE events: `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`,
 `usage`, `heartbeat`, `stage_warning`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed (`data.round`).
