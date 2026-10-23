@@ -35,12 +35,19 @@ describe('Solo research cancellation wiring', () => {
       }),
     });
 
-    await handleBackendRequest(req, {}, 'local-dev');
+    const response = await handleBackendRequest(req, {}, 'local-dev');
+    const reader = response.body!.getReader();
+    const drainPromise = (async () => {
+      while (!(await reader.read()).done) {
+        // Drain the SSE stream so backpressure does not pause the research task.
+      }
+    })();
 
     await vi.waitFor(() => {
       expect(callAgentWithStream).toHaveBeenCalledWith(
         expect.objectContaining({ signal: controller.signal }),
       );
     });
+    await drainPromise;
   });
 });
