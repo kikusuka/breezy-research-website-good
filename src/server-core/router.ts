@@ -1128,7 +1128,7 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
                 );
                 discoveredSources = discoveredSources.map((source, idx) => {
                   const page = pageResults[idx];
-                  if (!page) return source;
+                  if (!page) return { ...source, retrievalStatus: 'not_attempted' };
                   return {
                     ...source,
                     retrievalStatus: page.status,
