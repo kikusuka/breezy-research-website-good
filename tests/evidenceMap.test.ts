@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EvidenceSource, ResearchClaim } from '../src/types';
-import { buildEvidenceMapSources, claimEvidenceUrls, normalizeEvidenceUrl } from '../src/lib/evidenceMap';
+import { buildEvidenceMapSources, claimAssessmentPresentation, claimEvidenceUrls, normalizeEvidenceUrl } from '../src/lib/evidenceMap';
 
 const source = (overrides: Partial<EvidenceSource> = {}): EvidenceSource => ({
   id: 'source-1',
@@ -59,6 +59,42 @@ describe('evidence map model', () => {
       'https://example.com/b',
     ]);
     expect(claimEvidenceUrls(null).size).toBe(0);
+  });
+
+  it('does not label claims as supported when references are absent or unmatched', () => {
+    expect(claimAssessmentPresentation(claim({
+      status: 'supported',
+      evidenceBasis: 'no_references',
+    }))).toMatchObject({
+      label: 'Model assessment · no matched references',
+      icon: 'help',
+    });
+
+    expect(claimAssessmentPresentation(claim({
+      status: 'contradicted',
+      evidenceBasis: 'unmatched_references',
+    }))).toMatchObject({
+      label: 'Model assessment · no matched references',
+      icon: 'help',
+    });
+  });
+
+  it('makes limited provenance visible for snippet-only and legacy claims', () => {
+    expect(claimAssessmentPresentation(claim({
+      status: 'supported',
+      evidenceBasis: 'search_snippets_only',
+    })).label).toBe('Model-assessed support · snippets only');
+
+    expect(claimAssessmentPresentation(claim({
+      status: 'supported',
+    })).label).toBe('Model-assessed support · provenance unavailable');
+  });
+
+  it('retains the existing model-assisted label when bounded page text was retrieved', () => {
+    expect(claimAssessmentPresentation(claim({
+      status: 'supported',
+      evidenceBasis: 'referenced_page_text_available',
+    })).label).toBe('Model-assessed support');
   });
 
   it('does not invent a URL for missing source references', () => {
