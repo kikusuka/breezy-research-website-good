@@ -108,6 +108,32 @@ describe('evidence graph extraction failure paths', () => {
     });
   });
 
+  it('keeps valid claims when extraction includes malformed claim and contradiction records', async () => {
+    vi.mocked(callAgentWithStream).mockResolvedValue(JSON.stringify({
+      researchPlan: [],
+      claims: [
+        null,
+        'not-a-claim',
+        { id: 'claim-good', claim: 'A usable assertion', status: 'supported', supportingSources: [], counterEvidence: [] },
+      ],
+      contradictions: [
+        null,
+        42,
+        { id: 'contra-good', claimA: 'A', claimB: 'B', description: 'Conflict', resolutionStatus: 'contested' },
+      ],
+    }));
+
+    const result = await generateRealEvidenceGraph(baseOptions);
+
+    expect(result.evidenceGraph.auditStatus).toBe('model_assessed');
+    expect(result.evidenceGraph.claims).toHaveLength(1);
+    expect(result.evidenceGraph.claims[0]).toMatchObject({ id: 'claim-good', status: 'supported' });
+    expect(result.evidenceGraph.contradictions).toEqual([
+      expect.objectContaining({ id: 'contra-good', resolutionStatus: 'contested' }),
+    ]);
+    expect(result.researchMetrics).toMatchObject({ claimsIdentified: 1, claimsSupported: 1 });
+  });
+
   it('normalizes unknown contradiction statuses to unclear', async () => {
     vi.mocked(callAgentWithStream).mockResolvedValue(JSON.stringify({
       researchPlan: [],
