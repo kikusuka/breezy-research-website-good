@@ -1,17 +1,44 @@
-import { describe, it, expect } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../src/server-core/providers', () => ({
+  callAgentWithStream: vi.fn(),
+}));
+
+import { callAgentWithStream } from '../src/server-core/providers';
+import { generateRealEvidenceGraph } from '../src/server-core/evidence';
+
+const baseOptions = {
+  prompt: 'What does the evidence say?',
+  finalSynthexis: 'The final synthesis.',
+  proposalContent: 'The analyst proposal.',
+  critiqueContent: 'The critic objections.',
+  discoveredSources: [],
+  durationMs: 1250,
+};
 
 describe('Evidence & Pipeline Truthfulness', () => {
-  it('calculates primarySourcesCount correctly from domain indicators', () => {
-    const primaryDomainsRegex = /(\.gov|\.edu|\.org|github\.com|arxiv\.org|apache\.org|ietf\.org|w3\.org|docs?\.)/i;
-    const sources = [
-      { url: 'https://arxiv.org/abs/2301.00001' },
-      { url: 'https://github.com/facebook/react' },
-      { url: 'https://random-tech-blog.com/post' },
-      { url: 'https://docs.python.org/3/' }
-    ];
-
-    const count = sources.filter((s) => primaryDomainsRegex.test(s.url)).length;
-    expect(count).toBe(3); // arxiv.org, github.com, docs.python.org
+  beforeEach(() => {
+    vi.mocked(callAgentWithStream).mockReset();
   });
 
+  it('reports preferred-domain matches without calling them primary sources', async () => {
+    vi.mocked(callAgentWithStream).mockResolvedValue(JSON.stringify({
+      researchPlan: [],
+      claims: [],
+      contradictions: [],
+    }));
+
+    const result = await generateRealEvidenceGraph({
+      ...baseOptions,
+      discoveredSources: [
+        { url: 'https://arxiv.org/abs/2301.00001' },
+        { url: 'https://github.com/example/project' },
+        { url: 'https://docs.python.org/3/' },
+        { url: 'https://random-tech-blog.example/post' },
+      ],
+    });
+
+    expect(result.researchMetrics.preferredDomainSourcesCount).toBe(3);
+    expect(result.researchMetrics).not.toHaveProperty('primarySourcesCount');
+  });
 });
