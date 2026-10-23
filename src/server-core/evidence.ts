@@ -178,7 +178,11 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
     const extractedPlan = Array.isArray(parsed.researchPlan) && parsed.researchPlan.length > 0 ? parsed.researchPlan : [];
     const researchPlan = suppliedResearchPlan.length > 0 ? suppliedResearchPlan : extractedPlan;
 
-    let claims = Array.isArray(parsed.claims) ? parsed.claims : [];
+    // A malformed record should not discard the entire otherwise-usable graph.
+    // Keep only object records before normalizing fields below.
+    let claims = Array.isArray(parsed.claims)
+      ? parsed.claims.filter((claim: unknown) => Boolean(claim) && typeof claim === 'object' && !Array.isArray(claim))
+      : [];
     
     // A matching URL only means the reference appeared in search results. It does not
     // prove that the page was fetched, read, or actually supports the claim.
@@ -213,7 +217,9 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
       };
     });
 
-    const contradictions = (Array.isArray(parsed.contradictions) ? parsed.contradictions : []).map((contradiction: any) => ({
+    const contradictions = (Array.isArray(parsed.contradictions) ? parsed.contradictions : [])
+      .filter((contradiction: unknown) => Boolean(contradiction) && typeof contradiction === 'object' && !Array.isArray(contradiction))
+      .map((contradiction: any) => ({
       ...contradiction,
       // Keep the model's structured assessment within the documented UI contract.
       // An unexpected value must not silently become a new status.
