@@ -299,7 +299,8 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
         claimsContradicted: 0,
         claimsUnresolved: 0,
         sourcesConsulted: discoveredSources.length,
-        primarySourcesCount: 0,
+        // Keep failure metrics aligned with successful extraction: preferred-domain
+        // heuristics are not a defensible count of primary sources.
       },
     };
   }
