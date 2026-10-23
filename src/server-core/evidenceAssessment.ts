@@ -85,7 +85,7 @@ export function assessSourcePassageMatch(
   });
   const pageTexts = matchingSources
     .filter((source) => source.retrievalStatus === 'retrieved' && typeof source.pageText === 'string')
-    .map((source) => (source.pageText as string).replace(/\s+/g, ' ').trim().toLocaleLowerCase())
+    .map((source) => (source.pageText as string).slice(0, 1200).replace(/\s+/g, ' ').trim().toLocaleLowerCase())
     .filter(Boolean);
   if (!pageTexts.length) return 'not_checked_no_page_text';
 
