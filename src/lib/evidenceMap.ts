@@ -81,3 +81,41 @@ export function claimEvidenceUrls(claim?: ResearchClaim | null): Set<string> {
       .filter(Boolean),
   );
 }
+
+
+/** Present claim labels without implying source support when provenance is missing. */
+export function claimAssessmentPresentation(claim: ResearchClaim): { label: string; icon: string; tone: string } {
+  const statusLabel = claim.status === 'supported'
+    ? 'Model-assessed support'
+    : claim.status === 'contradicted'
+      ? 'Model-assessed contradiction'
+      : 'Unresolved';
+  const statusIcon = claim.status === 'supported'
+    ? 'check_circle'
+    : claim.status === 'contradicted'
+      ? 'report'
+      : 'help';
+  const statusTone = claim.status === 'supported'
+    ? 'text-tertiary'
+    : claim.status === 'contradicted'
+      ? 'text-error'
+      : 'text-[#F59E0B]';
+
+  if (claim.evidenceBasis === 'no_references' || claim.evidenceBasis === 'unmatched_references') {
+    return {
+      label: claim.status === 'unresolved' ? 'Unresolved · no matched references' : 'Model assessment · no matched references',
+      icon: 'help',
+      tone: 'text-[#F59E0B]',
+    };
+  }
+
+  if (claim.evidenceBasis === 'search_snippets_only') {
+    return { label: `${statusLabel} · snippets only`, icon: statusIcon, tone: statusTone };
+  }
+
+  if (!claim.evidenceBasis) {
+    return { label: `${statusLabel} · provenance unavailable`, icon: 'help', tone: 'text-[#F59E0B]' };
+  }
+
+  return { label: statusLabel, icon: statusIcon, tone: statusTone };
+}
