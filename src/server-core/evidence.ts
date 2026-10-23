@@ -208,7 +208,16 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
       };
     });
 
-    const contradictions = Array.isArray(parsed.contradictions) ? parsed.contradictions : [];
+    const contradictions = (Array.isArray(parsed.contradictions) ? parsed.contradictions : []).map((contradiction: any) => ({
+      ...contradiction,
+      // Keep the model's structured assessment within the documented UI contract.
+      // An unexpected value must not silently become a new status.
+      resolutionStatus: contradiction.resolutionStatus === 'resolved' ||
+        contradiction.resolutionStatus === 'contested' ||
+        contradiction.resolutionStatus === 'unclear'
+        ? contradiction.resolutionStatus
+        : 'unclear',
+    }));
 
     const claimsIdentified = claims.length;
     const claimsSupported = claims.filter((c: any) => c.status === 'supported').length;
