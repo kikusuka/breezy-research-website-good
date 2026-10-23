@@ -87,7 +87,7 @@ describe('Gemini retry safety after streaming begins', () => {
         if (!sentPartialChunk) {
           sentPartialChunk = true;
           controller.enqueue(new TextEncoder().encode(
-            'data: {"candidates":[{"content":{"parts":[{"text":"partial answer"}]}}]}\\n',
+            'data: {"candidates":[{"content":{"parts":[{"text":"partial answer"}]}}]}\n',
           ));
           return;
         }
