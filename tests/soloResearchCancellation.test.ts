@@ -9,6 +9,10 @@ vi.mock('../src/server-core/providers', () => ({
   sanitizeGeminiModel: (model: string) => model,
 }));
 
+vi.mock('../src/server-core/firebaseAuth', () => ({
+  verifyFirebaseIdToken: vi.fn(async () => ({ ok: true, uid: 'test-user' })),
+}));
+
 import { handleBackendRequest } from '../src/server-core/router';
 
 afterEach(() => {
