@@ -210,11 +210,13 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
       const confidence = normalizeModelConfidence(claim.confidence);
       const supportingSources = filterEvidenceReferenceRecords(claim.supportingSources).map((source) => ({
         ...source,
+        url: source.url,
         referenceFound: hasDiscoveredReference(source?.url, discoveredUrls),
         passageMatch: assessSourcePassageMatch(source, discoveredSources),
       }));
       const counterEvidence = filterEvidenceReferenceRecords(claim.counterEvidence).map((source) => ({
         ...source,
+        url: source.url,
         referenceFound: hasDiscoveredReference(source?.url, discoveredUrls),
         passageMatch: assessSourcePassageMatch(source, discoveredSources),
       }));
