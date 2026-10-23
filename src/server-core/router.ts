@@ -9,7 +9,7 @@ import { verifyFirebaseIdToken } from './firebaseAuth';
 import { handleChatPersistenceRequest } from './chatPersistence';
 import { callAgentWithStream, sanitizeGeminiModel } from './providers';
 import { performSearchGrounding } from './search';
-import { mergeGroundingResults, selectResearchQueries, shouldPlanResearch } from './researchRetrieval';
+import { mergeGroundingResults, selectResearchQueries } from './researchRetrieval';
 import { attachSourceFetchResults, fetchReadableSource } from './sourceFetch';
 import { summarizeStage, generateRealEvidenceGraph } from './evidence';
 
@@ -1013,78 +1013,22 @@ Analyze this deliberation and output the JSON object.`;
           });
         };
 
-        // PLAN: turn the question into an explicit scope before retrieval.
-        // This is the main difference between "chat with search" and a research workflow.
-        let researchPlan: string[] = [];
-        let researchPlanContext = '';
-        let plannedSearchQueries: string[] = [];
-        if (shouldPlanResearch(effectiveProtocol, enableSearchGrounding)) {
-        try {
-          await sendEvent('status', { message: 'Planning the research scope and evidence strategy...' });
-          const plannerPrompt = `USER QUESTION:
-${prompt}
-
-RESEARCH METHOD:
-${researchMethod}
-
-Create a compact research plan before evidence retrieval. Return ONLY valid JSON:
-{
-  "scope": "one sentence defining what this inquiry covers and what it does not",
-  "subquestions": ["2-5 concrete subquestions"],
-  "searchQueries": ["2-4 high-value search queries"],
-  "evidenceStandard": "one sentence describing what counts as strong evidence"
-}`;
-
-          const plannerRaw = await callAgentWithStream({
-            provider: architectConfig.provider,
-            model: architectConfig.model,
-            apiKey: keys[architectConfig.provider],
-            systemInstruction: 'You are the research planner. Define scope, subquestions, retrieval queries, and an evidence standard. Do not answer the question yet.',
-            userPrompt: plannerPrompt,
-            temperature: 0.2,
-            enableSearchGrounding: false,
-            onChunk: () => {},
-            onUsage: (usage) => emitUsage('planner', usage),
-            env,
-            signal: req.signal,
-          });
-
-          const cleanedPlan = plannerRaw.replace(/\`\`\`json/gi, '').replace(/\`\`\`/g, '').trim();
-          const parsedPlan = JSON.parse(cleanedPlan);
-          const scope = typeof parsedPlan.scope === 'string' ? parsedPlan.scope.trim() : '';
-          const subquestions = Array.isArray(parsedPlan.subquestions) ? parsedPlan.subquestions.filter((q: any) => typeof q === 'string' && q.trim()).map((q: string) => q.trim()) : [];
-          const searchQueries = Array.isArray(parsedPlan.searchQueries) ? parsedPlan.searchQueries.filter((q: any) => typeof q === 'string' && q.trim()).map((q: string) => q.trim()) : [];
-          plannedSearchQueries = searchQueries;
-          const evidenceStandard = typeof parsedPlan.evidenceStandard === 'string' ? parsedPlan.evidenceStandard.trim() : '';
-
-          researchPlan = [
-            scope ? 'Scope: ' + scope : '',
-            ...subquestions.map((q: string, i: number) => 'Subquestion ' + (i + 1) + ': ' + q),
-            searchQueries.length ? 'Retrieval queries: ' + searchQueries.join(' | ') : '',
-            evidenceStandard ? 'Evidence standard: ' + evidenceStandard : '',
-          ].filter(Boolean);
-
-          researchPlanContext = researchPlan.length
-            ? '\n\n--- RESEARCH PLAN ---\n' + researchPlan.join('\n') + '\n--- END RESEARCH PLAN ---'
-            : '';
-
-          await sendEvent('research_plan', {
-            method: researchMethod,
-            plan: researchPlan,
-            searchQueries,
-            scope,
-            evidenceStandard,
-          });
-        } catch (planError: any) {
-          console.warn('Research planning stage failed; continuing with method guidance:', planError);
-          researchPlan = [`Method: ${researchMethod}`, 'Planner unavailable; continue with explicit evidence/uncertainty checks.'];
-          researchPlanContext = '\n\n--- RESEARCH PLAN ---\n' + researchPlan.join('\n') + '\n--- END RESEARCH PLAN ---';
-          await sendEvent('notice', { message: 'Research planner unavailable. Continuing with the selected method.' });
-        }
-        } else {
-          // A non-grounded Solo answer should not pay for a hidden planning call.
-          await sendEvent('research_plan', { method: researchMethod, plan: [], searchQueries: [] });
-        }
+        // Keep planning deterministic and local: one main model call per research run.
+        // The previous planner made an additional LLM request before the answer generation.
+        const researchPlan: string[] = [
+          `Question: ${prompt.trim().slice(0, 300)}`,
+          `Method: ${researchMethod}`,
+          'Evidence standard: prefer retrieved source-page text over snippets, cite only supplied material, and state uncertainty when evidence is insufficient.',
+        ];
+        const researchPlanContext = '\\n\\n--- RESEARCH PLAN ---\\n' + researchPlan.join('\\n') + '\\n--- END RESEARCH PLAN ---';
+        const plannedSearchQueries: string[] = [];
+        await sendEvent('research_plan', {
+          method: researchMethod,
+          plan: researchPlan,
+          searchQueries: [],
+          scope: prompt.trim().slice(0, 300),
+          evidenceStandard: 'Prefer retrieved source-page text over snippets; do not treat retrieval as proof by itself.',
+        });
 
         let groundingContext = '';
         let discoveredSources: any[] = [];
