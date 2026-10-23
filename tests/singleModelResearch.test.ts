@@ -35,8 +35,8 @@ describe('single-model research workflow', () => {
     expect(steps[0]).toMatchObject({
       role: 'solo',
       agentName: 'Researcher',
-      provider: 'gemini',
-      model: 'gemini-2.5-flash',
+      provider: 'anthropic',
+      model: 'unused-analyst-model',
       status: 'pending',
     });
   });
