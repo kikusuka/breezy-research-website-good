@@ -39,7 +39,7 @@ Request: `{ prompt, tone, searchEngine, keys, enableSearchGrounding, researchMet
 The backend enforces **single-model research** regardless of legacy `protocol`, `selectedRound`, or `seats` values. Each research run makes exactly one LLM call for answer generation. Planning is deterministic/local, and the solo evidence graph uses retrieved sources directly without a separate model-based planning, heartbeat, summarization, or evidence-extraction call.
 
 SSE events: `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`,
-`usage`, `heartbeat`, `stage_warning`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed (`data.round`).
+`usage`, `heartbeat`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed (`data.round`).
 
 ## Prompt to paste into AI Studio (first UI pass)
 > This project is a finished backend for "Breezy Research" (read `BACKEND_README.md` first). Do not modify anything in
