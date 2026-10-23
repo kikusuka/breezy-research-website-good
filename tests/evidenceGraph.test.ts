@@ -108,6 +108,24 @@ describe('evidence graph extraction failure paths', () => {
     });
   });
 
+  it('normalizes unknown contradiction statuses to unclear', async () => {
+    vi.mocked(callAgentWithStream).mockResolvedValue(JSON.stringify({
+      researchPlan: [],
+      claims: [],
+      contradictions: [
+        { id: 'contra-1', claimA: 'A', claimB: 'B', description: 'Conflict', resolutionStatus: 'definitely_resolved' },
+        { id: 'contra-2', claimA: 'C', claimB: 'D', description: 'Conflict', resolutionStatus: 'contested' },
+      ],
+    }));
+
+    const result = await generateRealEvidenceGraph(baseOptions);
+
+    expect(result.evidenceGraph.contradictions).toEqual([
+      expect.objectContaining({ id: 'contra-1', resolutionStatus: 'unclear' }),
+      expect.objectContaining({ id: 'contra-2', resolutionStatus: 'contested' }),
+    ]);
+  });
+
   it('limits source page text in the extraction prompt to the bounded assessment context', async () => {
     vi.mocked(callAgentWithStream).mockResolvedValue(JSON.stringify({
       researchPlan: [],
