@@ -47,7 +47,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
     }
   };
 
-  if (!claims.length && !sources.length) {
+  if (!claims.length && !sources.length && !contradictions.length) {
     return (
       <section className="rounded-2xl border border-outline-variant/40 bg-surface-container-low p-space-xl text-center">
         <span className="mx-auto mb-space-md flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-container-high text-outline"><Icon name="account_tree" className="text-[24px]" /></span>
