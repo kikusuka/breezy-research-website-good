@@ -8,14 +8,23 @@ import { callAgentWithStream } from './providers';
 import { BackendEnv } from './types';
 import { assessClaimEvidenceBasis, assessSourcePassageMatch, hasDiscoveredReference, normalizeClaimStatus, normalizeEvidenceUrl, normalizeModelConfidence } from './evidenceAssessment';
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const error = new Error('The operation was aborted');
+  error.name = 'AbortError';
+  throw error;
+}
+
 export async function summarizeStage(
   content: string,
   roleName: string,
   apiKey?: string,
   env: BackendEnv = {},
   provider: 'gemini' | 'anthropic' | 'groq' | 'sambanova' | 'openrouter' = 'gemini',
-  model: string = 'gemini-2.5-flash'
+  model: string = 'gemini-2.5-flash',
+  signal?: AbortSignal
 ): Promise<string> {
+  throwIfAborted(signal);
   if (!content || content.length < 300) return content;
   try {
     const summaryPrompt = `You are a high-density technical outline compressor.
@@ -38,9 +47,11 @@ ${content}`;
       enableSearchGrounding: false,
       onChunk: () => {},
       env,
+      signal,
     });
     return summary ? summary.trim() : content;
-  } catch (err) {
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') throw err;
     console.warn(`Failed to condense ${roleName} turn, using raw content:`, err);
     return content;
   }
@@ -59,6 +70,7 @@ export async function generateRealEvidenceGraph(opts: {
   provider?: 'gemini' | 'anthropic' | 'groq' | 'sambanova' | 'openrouter';
   model?: string;
   researchPlan?: string[];
+  signal?: AbortSignal;
 }): Promise<{ evidenceGraph: any; researchMetrics: any }> {
   const {
     prompt,
@@ -73,7 +85,10 @@ export async function generateRealEvidenceGraph(opts: {
     provider = 'gemini',
     model = 'gemini-2.5-flash',
     researchPlan: suppliedResearchPlan = [],
+    signal,
   } = opts;
+
+  throwIfAborted(signal);
 
   if (isSolo) {
     return {
@@ -170,6 +185,7 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
       enableSearchGrounding: false,
       onChunk: () => {},
       env,
+      signal,
     });
 
     const cleaned = rawResult.replace(/```json/gi, '').replace(/```/gi, '').trim();
@@ -265,7 +281,8 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
     };
 
     return { evidenceGraph, researchMetrics };
-  } catch (err) {
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') throw err;
     console.warn('Evidence graph extraction could not parse structured findings:', err);
     return {
       evidenceGraph: {
