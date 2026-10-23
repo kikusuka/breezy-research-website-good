@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { EvidenceGraph, ResearchClaim } from '../../types';
 import { Icon } from '../../shell/Icon';
-import { buildEvidenceMapSources, claimAssessmentPresentation, claimEvidenceUrls, normalizeEvidenceUrl, safeEvidenceHref } from '../../lib/evidenceMap';
+import { buildEvidenceMapSources, claimAssessmentPresentation, claimEvidenceUrls, contradictionResolutionLabel, normalizeEvidenceUrl, safeEvidenceHref } from '../../lib/evidenceMap';
 
 type EvidenceMapProps = { graph?: EvidenceGraph | null };
 
@@ -9,6 +9,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null);
   const claims = graph?.claims ?? [];
   const discoveredSources = graph?.sourcesConsulted ?? [];
+  const contradictions = graph?.contradictions ?? [];
 
   const sources = useMemo(() => buildEvidenceMapSources(discoveredSources, claims), [claims, discoveredSources]);
   const selectedClaim = claims.find((claim) => claim.id === selectedClaimId) ?? null;
@@ -68,6 +69,30 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
       <div className="rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md py-space-sm font-body-sm text-on-surface-variant">
         <Icon name="info" className="mr-1 text-[16px] align-middle" />Claim labels are model-assisted and are not independent verification. Connections below reflect source references present in this run's data.
       </div>
+      {(graph?.contradictions?.length ?? 0) > 0 && (
+        <section className="rounded-2xl border border-outline-variant/40 bg-surface-container p-space-md">
+          <h4 className="font-headline-sm text-headline-sm">Potential contradictions</h4>
+          <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">Model-identified tensions are not independently verified. Any proposed resolution still needs source review.</p>
+          <div className="mt-space-md flex flex-col gap-space-sm">
+            {graph?.contradictions.map((item, index) => (
+              <article key={item.id || `contradiction-${index}`} className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-space-md">
+                <div className="flex flex-wrap items-center justify-between gap-space-sm">
+                  <span className="font-label-sm text-label-sm text-on-surface-variant">Tension {index + 1}</span>
+                  <span className="rounded-md bg-surface-container-high px-space-sm py-1 font-label-sm text-label-sm text-on-surface-variant">{contradictionResolutionLabel(item.resolutionStatus)}</span>
+                </div>
+                <div className="mt-space-sm grid grid-cols-1 md:grid-cols-2 gap-space-sm">
+                  <div className="rounded-lg border border-outline-variant/30 p-space-sm"><p className="font-label-sm text-label-sm text-outline">Position A</p><p className="mt-1 break-words font-body-md text-body-md text-on-surface">{item.claimA || 'Position not supplied'}</p></div>
+                  <div className="rounded-lg border border-outline-variant/30 p-space-sm"><p className="font-label-sm text-label-sm text-outline">Position B</p><p className="mt-1 break-words font-body-md text-body-md text-on-surface">{item.claimB || 'Position not supplied'}</p></div>
+                </div>
+                {item.description && <p className="mt-space-sm whitespace-pre-wrap break-words font-body-sm text-body-sm text-on-surface-variant">{item.description}</p>}
+                {item.resolutionStatus === 'resolved' && <div className="mt-space-sm rounded-lg bg-surface-container-high p-space-sm"><p className="font-label-sm text-label-sm text-outline">Model-assessed reconciliation</p><p className="mt-1 whitespace-pre-wrap break-words font-body-sm text-body-sm text-on-surface">{item.reconciledResolution || 'No reconciliation details were supplied.'}</p></div>}
+                {(item.sourceA || item.sourceB) && <p className="mt-space-sm break-words font-label-sm text-label-sm text-outline">Model-listed source references: {[item.sourceA, item.sourceB].filter(Boolean).join(' · ')}</p>}
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_40px_minmax(0,1fr)] gap-space-md items-start">
         <div className="flex min-w-0 flex-col gap-space-sm">
           <div className="flex items-center gap-space-xs px-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline"><Icon name="lightbulb" className="text-[16px]" />Claims / findings</div>
