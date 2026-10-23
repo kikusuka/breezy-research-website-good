@@ -114,3 +114,61 @@ describe('Gemini retry safety after streaming begins', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
+
+
+describe('provider SSE error events', () => {
+  it('surfaces a Gemini error payload delivered with HTTP 200', async () => {
+    stubSseResponse('data: {"error":{"code":503,"message":"model overloaded"}}');
+
+    await expect(streamGeminiREST({
+      apiKey: 'test-key',
+      model: 'test-model',
+      systemInstruction: '',
+      userPrompt: 'test',
+      onChunk: () => {},
+    })).rejects.toThrow('Gemini stream error: model overloaded');
+  });
+
+  it('surfaces an OpenAI-compatible error payload delivered with HTTP 200', async () => {
+    stubSseResponse('data: {"error":{"message":"provider overloaded"}}');
+
+    await expect(streamOpenAICompatible({
+      endpoint: 'https://provider.example/v1/chat/completions',
+      apiKey: 'test-key',
+      model: 'test-model',
+      systemInstruction: '',
+      userPrompt: 'test',
+      onChunk: () => {},
+    })).rejects.toThrow('Provider stream error: provider overloaded');
+  });
+
+  it('surfaces Anthropic error events instead of returning a successful partial response', async () => {
+    stubSseResponse('event: error\\ndata: {"type":"error","error":{"type":"overloaded_error","message":"overloaded"}}\\n');
+
+    await expect(streamAnthropicREST({
+      apiKey: 'test-key',
+      model: 'test-model',
+      systemInstruction: '',
+      userPrompt: 'test',
+      onChunk: () => {},
+    })).rejects.toThrow('Anthropic stream error: overloaded');
+  });
+
+  it('does not swallow an error that arrives after a visible Anthropic partial answer', async () => {
+    stubSseResponse(
+      'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"partial answer"}}\\n' +
+      'event: error\\ndata: {"type":"error","error":{"message":"stream failed"}}\\n',
+    );
+    const onChunk = vi.fn();
+
+    await expect(streamAnthropicREST({
+      apiKey: 'test-key',
+      model: 'test-model',
+      systemInstruction: '',
+      userPrompt: 'test',
+      onChunk,
+    })).rejects.toThrow('Anthropic stream error: stream failed');
+
+    expect(onChunk).toHaveBeenCalledWith('partial answer');
+  });
+});
