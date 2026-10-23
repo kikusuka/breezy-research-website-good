@@ -163,7 +163,11 @@ export function attachSourceFetchResults<T extends {
   retrievalStatus?: string;
   pageText?: string;
   retrievedUrl?: string;
-}>(sources: T[], pageResults: Array<SourceFetchResult | undefined>): T[] {
+}>(sources: T[], pageResults: Array<SourceFetchResult | undefined>): Array<T & {
+  retrievalStatus: 'retrieved' | 'unavailable' | 'not_attempted';
+  pageText?: string;
+  retrievedUrl?: string;
+}> {
   return sources.map((source, index) => {
     const page = pageResults[index];
     if (!page) return { ...source, retrievalStatus: 'not_attempted' };
