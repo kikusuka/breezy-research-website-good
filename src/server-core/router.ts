@@ -1227,6 +1227,7 @@ Structure your response in clean Markdown with clear headings.`;
             isSolo: true,
             apiKey: keys.gemini || env.GEMINI_API_KEY,
             env,
+            signal: req.signal,
           });
 
           await sendEvent('evidence_graph', { evidenceGraph, researchMetrics });
@@ -1304,7 +1305,8 @@ Structure in clean Markdown with clear headings.`;
           extractionConfig?.apiKey,
           env,
           extractionConfig?.provider as any,
-          extractionConfig?.model
+          extractionConfig?.model,
+          req.signal
         );
 
         await sendEvent('round_complete', {
@@ -1369,7 +1371,8 @@ Stress-test this proposal rigorously. Identify genuine technical vulnerabilities
           extractionConfig?.apiKey,
           env,
           extractionConfig?.provider as any,
-          extractionConfig?.model
+          extractionConfig?.model,
+          req.signal
         );
 
         await sendEvent('round_complete', {
@@ -1451,7 +1454,8 @@ Perform rigorous empirical and constraint verification on these analyses.`;
             extractionConfig?.apiKey,
             env,
             extractionConfig?.provider as any,
-            extractionConfig?.model
+            extractionConfig?.model,
+            req.signal
           );
 
           await sendEvent('round_complete', {
@@ -1542,6 +1546,7 @@ Synthesize the final, definitive, high-integrity answer for the user.`;
           env,
           provider: extractionConfig?.provider as any,
           model: extractionConfig?.model,
+          signal: req.signal,
         });
 
         await sendEvent('evidence_graph', { evidenceGraph, researchMetrics });
