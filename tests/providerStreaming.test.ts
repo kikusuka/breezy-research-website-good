@@ -81,11 +81,16 @@ describe('Gemini retry safety after streaming begins', () => {
   });
 
   it('does not retry or switch models after a partial stream has reached the caller', async () => {
+    let sentPartialChunk = false;
     const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode(
-          'data: {"candidates":[{"content":{"parts":[{"text":"partial answer"}]}}]}\n',
-        ));
+      pull(controller) {
+        if (!sentPartialChunk) {
+          sentPartialChunk = true;
+          controller.enqueue(new TextEncoder().encode(
+            'data: {"candidates":[{"content":{"parts":[{"text":"partial answer"}]}}]}\\n',
+          ));
+          return;
+        }
         controller.error(new Error('connection dropped mid-stream'));
       },
     });
