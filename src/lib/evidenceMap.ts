@@ -13,6 +13,13 @@ export type EvidenceMapSourceNode = {
 };
 
 /** Only permit external HTTP(S) links from untrusted search/model output. */
+/** Cautious labels for model-generated contradiction statuses. */
+export function contradictionResolutionLabel(status: unknown): string {
+  if (status === 'resolved') return 'Model-assessed resolution';
+  if (status === 'contested') return 'Contested';
+  return 'Unclear';
+}
+
 export function safeEvidenceHref(value?: string): string | null {
   if (!value) return null;
   try {
