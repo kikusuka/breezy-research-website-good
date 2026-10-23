@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EvidenceSource, ResearchClaim } from '../src/types';
-import { buildEvidenceMapSources, claimAssessmentPresentation, claimEvidenceUrls, normalizeEvidenceUrl } from '../src/lib/evidenceMap';
+import { buildEvidenceMapSources, claimAssessmentPresentation, claimEvidenceUrls, contradictionResolutionLabel, normalizeEvidenceUrl } from '../src/lib/evidenceMap';
 
 const source = (overrides: Partial<EvidenceSource> = {}): EvidenceSource => ({
   id: 'source-1',
@@ -95,6 +95,14 @@ describe('evidence map model', () => {
       status: 'supported',
       evidenceBasis: 'referenced_page_text_available',
     })).label).toBe('Model-assessed support');
+  });
+
+  it('labels model-generated contradiction statuses cautiously', () => {
+    expect(contradictionResolutionLabel('resolved')).toBe('Model-assessed resolution');
+    expect(contradictionResolutionLabel('contested')).toBe('Contested');
+    expect(contradictionResolutionLabel('unclear')).toBe('Unclear');
+    expect(contradictionResolutionLabel('unexpected-status')).toBe('Unclear');
+    expect(contradictionResolutionLabel(undefined)).toBe('Unclear');
   });
 
   it('does not invent a URL for missing source references', () => {
