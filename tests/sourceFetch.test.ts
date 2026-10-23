@@ -1,5 +1,46 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fetchReadableSource, validatePublicSourceUrl } from '../src/server-core/sourceFetch';
+import { attachSourceFetchResults, fetchReadableSource, validatePublicSourceUrl } from '../src/server-core/sourceFetch';
+
+describe('research source fallback mapping', () => {
+  it('attaches retrieved page text and the validated final URL to the matching source', () => {
+    const sources = [
+      { url: 'https://example.com/start', snippet: 'Original search snippet', retrievalStatus: 'not_attempted' },
+      { url: 'https://example.org/blocked', snippet: 'Fallback snippet', retrievalStatus: 'not_attempted' },
+    ];
+    const mapped = attachSourceFetchResults(sources, [
+      { status: 'retrieved', finalUrl: 'https://example.com/final', text: 'Bounded article text' },
+      { status: 'unavailable', reason: 'http_error' },
+    ]);
+
+    expect(mapped[0]).toMatchObject({
+      url: 'https://example.com/start',
+      retrievedUrl: 'https://example.com/final',
+      pageText: 'Bounded article text',
+      retrievalStatus: 'retrieved',
+      snippet: 'Original search snippet',
+    });
+    expect(mapped[1]).toMatchObject({
+      url: 'https://example.org/blocked',
+      retrievalStatus: 'unavailable',
+      snippet: 'Fallback snippet',
+    });
+    expect(mapped[1]).not.toHaveProperty('pageText');
+    expect(mapped[1]).not.toHaveProperty('retrievedUrl');
+  });
+
+  it('marks sources outside the bounded fetch batch as not attempted', () => {
+    const sources = [
+      { url: 'https://example.com/one', snippet: 'One' },
+      { url: 'https://example.com/two', snippet: 'Two' },
+    ];
+    expect(attachSourceFetchResults(sources, [
+      { status: 'unavailable', reason: 'timeout' },
+    ])).toEqual([
+      { ...sources[0], retrievalStatus: 'unavailable' },
+      { ...sources[1], retrievalStatus: 'not_attempted' },
+    ]);
+  });
+});
 
 describe('bounded source-page retrieval', () => {
   it('blocks non-web and local/private URLs before making a request', async () => {
