@@ -85,12 +85,12 @@ export function assessSourcePassageMatch(
   });
   const pageTexts = matchingSources
     .filter((source) => source.retrievalStatus === 'retrieved' && typeof source.pageText === 'string')
-    .map((source) => (source.pageText as string).replace(/\\s+/g, ' ').trim().toLocaleLowerCase())
+    .map((source) => (source.pageText as string).replace(/\s+/g, ' ').trim().toLocaleLowerCase())
     .filter(Boolean);
   if (!pageTexts.length) return 'not_checked_no_page_text';
 
   const snippet = typeof reference.snippet === 'string'
-    ? reference.snippet.replace(/\\s+/g, ' ').trim().toLocaleLowerCase()
+    ? reference.snippet.replace(/\s+/g, ' ').trim().toLocaleLowerCase()
     : '';
   if (snippet.length < 20) return 'quote_too_short';
   return pageTexts.some((pageText) => pageText.includes(snippet))
