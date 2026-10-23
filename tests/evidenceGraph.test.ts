@@ -50,6 +50,7 @@ describe('evidence graph extraction failure paths', () => {
     expect(result.evidenceGraph.auditStatus).toBe('incomplete');
     expect(result.evidenceGraph.claims).toEqual([]);
     expect(result.evidenceGraph.contradictions).toEqual([]);
+    expect(result.researchMetrics).not.toHaveProperty('primarySourcesCount');
     expect(result.researchMetrics).toMatchObject({
       durationMs: 1250,
       claimsIdentified: 0,
