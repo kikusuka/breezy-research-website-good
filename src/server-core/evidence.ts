@@ -6,7 +6,7 @@
 
 import { callAgentWithStream } from './providers';
 import { BackendEnv } from './types';
-import { assessClaimEvidenceBasis, hasDiscoveredReference, normalizeClaimStatus, normalizeEvidenceUrl, normalizeModelConfidence } from './evidenceAssessment';
+import { assessClaimEvidenceBasis, assessSourcePassageMatch, hasDiscoveredReference, normalizeClaimStatus, normalizeEvidenceUrl, normalizeModelConfidence } from './evidenceAssessment';
 
 export async function summarizeStage(
   content: string,
@@ -146,6 +146,12 @@ OUTPUT ONLY A VALID JSON OBJECT WITH THIS EXACT STRUCTURE (no backticks, no mark
   ]
 }
 
+SOURCE EXCERPT RULES:
+- For each supportingSources/counterEvidence snippet, provide a short verbatim excerpt from the source text supplied above when that pageText is available.
+- Do not invent quotes. If only a search snippet is available, use only wording actually present in that snippet.
+- A quote being present in retrieved text does not itself prove that the claim is supported or contradicted.
+- If no defensible excerpt is available, omit that source rather than fabricating one.
+
 CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is a defensible basis; otherwise return null. Never derive confidence from the number of matching URLs.
 `;
 
@@ -180,10 +186,12 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
       const supportingSources = (Array.isArray(claim.supportingSources) ? claim.supportingSources : []).map((source: any) => ({
         ...source,
         referenceFound: hasDiscoveredReference(source?.url, discoveredUrls),
+        passageMatch: assessSourcePassageMatch(source, discoveredSources),
       }));
       const counterEvidence = (Array.isArray(claim.counterEvidence) ? claim.counterEvidence : []).map((source: any) => ({
         ...source,
         referenceFound: hasDiscoveredReference(source?.url, discoveredUrls),
+        passageMatch: assessSourcePassageMatch(source, discoveredSources),
       }));
       const evidenceBasis = assessClaimEvidenceBasis(
         [...supportingSources, ...counterEvidence],
