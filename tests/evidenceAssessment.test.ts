@@ -71,6 +71,13 @@ describe('honest evidence assessment', () => {
     )).toBe('matched_retrieved_text');
   });
 
+  it('checks only the first 1,200 page-text characters supplied to the extraction model', () => {
+    expect(assessSourcePassageMatch(
+      { url: 'https://example.com/page', snippet: 'A quote that appears after the supplied model context boundary.' },
+      [{ url: 'https://example.com/page', retrievalStatus: 'retrieved', pageText: 'x'.repeat(1200) + ' A quote that appears after the supplied model context boundary.' }],
+    )).toBe('not_found_in_retrieved_text');
+  });
+
   it('flags a model-listed excerpt that is absent from the retrieved page', () => {
     expect(assessSourcePassageMatch(
       { url: 'https://example.com/page', snippet: 'This invented sentence is not in the actual page content.' },
