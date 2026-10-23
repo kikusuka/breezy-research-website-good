@@ -65,7 +65,7 @@ describe('provider SSE stream final event handling', () => {
 
 describe('Gemini retry safety after streaming begins', () => {
   it('forwards Gemini chunks to the caller as they arrive', async () => {
-    stubSseResponse('data: {"candidates":[{"content":{"parts":[{"text":"visible chunk"}]}}]}\\n');
+    stubSseResponse('data: {"candidates":[{"content":{"parts":[{"text":"visible chunk"}]}}]}\n');
     const onChunk = vi.fn();
 
     await expect(callAgentWithStream({
@@ -84,7 +84,7 @@ describe('Gemini retry safety after streaming begins', () => {
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new TextEncoder().encode(
-          'data: {"candidates":[{"content":{"parts":[{"text":"partial answer"}]}}]}\\n',
+          'data: {"candidates":[{"content":{"parts":[{"text":"partial answer"}]}}]}\n',
         ));
         controller.error(new Error('connection dropped mid-stream'));
       },
