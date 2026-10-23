@@ -18,7 +18,7 @@ export interface ResearchState {
 }
 
 /** Module-level store: a run keeps streaming while the user visits other screens. */
-let state: ResearchState = { sessions: loadSessions(), activeId: loadActiveSessionId(), running: false, startedAt: null, explorationSeen: false, events: [], plan: null, warnings: [], draft: { query: '', depth: 'standard' }, notice: null };
+let state: ResearchState = { sessions: loadSessions(), activeId: loadActiveSessionId(), running: false, startedAt: null, explorationSeen: false, events: [], plan: null, warnings: [], draft: { query: '', depth: 'solo' }, notice: null };
 const listeners = new Set<() => void>();
 let controller: AbortController | null = null;
 let accountGeneration = 0;
