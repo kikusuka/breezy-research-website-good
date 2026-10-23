@@ -1020,7 +1020,7 @@ Analyze this deliberation and output the JSON object.`;
           `Method: ${researchMethod}`,
           'Evidence standard: prefer retrieved source-page text over snippets, cite only supplied material, and state uncertainty when evidence is insufficient.',
         ];
-        const researchPlanContext = '\\n\\n--- RESEARCH PLAN ---\\n' + researchPlan.join('\\n') + '\\n--- END RESEARCH PLAN ---';
+        const researchPlanContext = '\n\n--- RESEARCH PLAN ---\n' + researchPlan.join('\n') + '\n--- END RESEARCH PLAN ---';
         const plannedSearchQueries: string[] = [];
         await sendEvent('research_plan', {
           method: researchMethod,
