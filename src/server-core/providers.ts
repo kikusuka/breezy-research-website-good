@@ -346,6 +346,8 @@ export async function callAgentWithStream(params: CallAgentParams): Promise<stri
     const modelsToTry = Array.from(new Set(fallbackCandidates.filter(Boolean)));
     let lastError: any = null;
     let hadRateLimit = false;
+    // Once text reaches the caller, retries would mix partial answers in one response.
+    let emittedAnyChunk = false;
 
     for (const m of modelsToTry) {
       for (let attempt = 1; attempt <= 2; attempt++) {
@@ -362,12 +364,15 @@ export async function callAgentWithStream(params: CallAgentParams): Promise<stri
             enableSearchGrounding,
             onChunk: (chunk) => {
               if (m !== rawModel && !announcedFallback) {
-                const notice = `> *Model Notice: Requested model '${rawModel}' was unavailable. Continued with '${m}'.*\n\n`;
+                const notice = `> *Model Notice: Requested model '${rawModel}' was unavailable. Continued with '${m}'.*\\n\\n`;
+                emittedAnyChunk = true;
                 onChunk(notice);
                 fullText += notice;
                 announcedFallback = true;
               }
+              emittedAnyChunk = true;
               fullText += chunk;
+              onChunk(chunk);
             },
             onUsage,
             signal,
@@ -376,6 +381,7 @@ export async function callAgentWithStream(params: CallAgentParams): Promise<stri
           return fullText;
         } catch (err: any) {
           lastError = err;
+          if (emittedAnyChunk) throw err;
           const msg = err?.message || String(err);
           if (msg.includes('429') || msg.includes('Quota') || msg.includes('RESOURCE_EXHAUSTED')) {
             hadRateLimit = true;
