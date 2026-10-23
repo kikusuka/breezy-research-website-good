@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assessClaimEvidenceBasis,
+  filterEvidenceReferenceRecords,
   assessSourcePassageMatch,
   hasDiscoveredReference,
   normalizeClaimStatus,
@@ -101,6 +102,28 @@ describe('honest evidence assessment', () => {
       { url: 'https://docs.example/new', snippet: 'A sufficiently long excerpt from the final destination.' },
       [{ url: 'https://redirect.example/old', retrievedUrl: 'https://docs.example/new', retrievalStatus: 'retrieved', pageText: 'A sufficiently long excerpt from the final destination.' }],
     )).toBe('matched_retrieved_text');
+  });
+
+  it('filters malformed nested source records without discarding valid evidence', () => {
+    const records = filterEvidenceReferenceRecords([
+      { url: 'https://example.com/valid', snippet: 'valid source excerpt' },
+      null,
+      undefined,
+      'not an object',
+      42,
+      ['nested array is not a source record'],
+      { url: 'https://example.com/also-valid' },
+    ]);
+
+    expect(records).toHaveLength(2);
+    expect(records[0]).toEqual({ url: 'https://example.com/valid', snippet: 'valid source excerpt' });
+    expect(records[1]).toEqual({ url: 'https://example.com/also-valid' });
+  });
+
+  it('treats non-array source fields as having no usable records', () => {
+    expect(filterEvidenceReferenceRecords(null)).toEqual([]);
+    expect(filterEvidenceReferenceRecords({ url: 'https://example.com' })).toEqual([]);
+    expect(filterEvidenceReferenceRecords('invalid')).toEqual([]);
   });
 
   it('preserves valid model assessments and makes unknown statuses unresolved', () => {
