@@ -34,10 +34,9 @@ Env: see `.env.example` (optional `GEMINI_API_KEY` on the server; users can also
 `POST /api/vault/verify-key` · `/api/ollama/*` · `POST /api/webhook/test`
 
 ### Research stream (`/api/debate/stream`)
-Request: `{ prompt, protocol: 'solo'|'trio'|'quad', selectedRound: 1|2|4, tone, searchEngine, keys, seats, enableSearchGrounding, autoResolve, researchMethod, heartbeatEnabled, heartbeatIntervalSec }`
+Request: `{ prompt, tone, searchEngine, keys, enableSearchGrounding, researchMethod, heartbeatEnabled, heartbeatIntervalSec }` (legacy `protocol`, `selectedRound`, and `seats` fields are ignored for compatibility).
 
-The protocol is chosen from `selectedRound`: **1 = solo, 2 = trio (analyst, critic, synthesizer), 4 = quad (adds verifier)**.
-Pass `selectedRound` or "Deep" will silently run as 3 rounds.
+The backend enforces **single-model research** regardless of legacy `protocol`, `selectedRound`, or `seats` values. Each research run makes one main answer-generation call; the solo evidence graph uses retrieved sources directly and does not invoke a separate model-based evidence extraction call.
 
 SSE events: `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`,
 `usage`, `heartbeat`, `stage_warning`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed (`data.round`).
