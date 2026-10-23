@@ -105,29 +105,34 @@ export async function streamGeminiREST(opts: {
       const dataStr = trimmed.slice(6).trim();
       if (dataStr === '[DONE]') continue;
 
+      let json: any;
       try {
-        const json = JSON.parse(dataStr);
-        if (json.usageMetadata && onUsage) {
-          onUsage({
-            inputTokens: json.usageMetadata.promptTokenCount,
-            outputTokens: json.usageMetadata.candidatesTokenCount,
-            totalTokens: json.usageMetadata.totalTokenCount,
-            reasoningTokens: json.usageMetadata.thoughtsTokenCount,
-            cachedInputTokens: json.usageMetadata.cachedContentTokenCount,
-          });
-        }
-        const candidates = json.candidates || [];
-        for (const candidate of candidates) {
-          const parts = candidate.content?.parts || [];
-          for (const part of parts) {
-            if (part.text) {
-              fullText += part.text;
-              onChunk(part.text);
-            }
+        json = JSON.parse(dataStr);
+      } catch {
+        // Ignore malformed provider events without hiding valid provider error events.
+        continue;
+      }
+      if (json?.error) {
+        throw new Error(`Gemini stream error: ${json.error.message || JSON.stringify(json.error)}`);
+      }
+      if (json.usageMetadata && onUsage) {
+        onUsage({
+          inputTokens: json.usageMetadata.promptTokenCount,
+          outputTokens: json.usageMetadata.candidatesTokenCount,
+          totalTokens: json.usageMetadata.totalTokenCount,
+          reasoningTokens: json.usageMetadata.thoughtsTokenCount,
+          cachedInputTokens: json.usageMetadata.cachedContentTokenCount,
+        });
+      }
+      const candidates = json.candidates || [];
+      for (const candidate of candidates) {
+        const parts = candidate.content?.parts || [];
+        for (const part of parts) {
+          if (part.text) {
+            fullText += part.text;
+            onChunk(part.text);
           }
         }
-      } catch {
-        // Skip incomplete chunks
       }
     }
     if (done) break;
@@ -207,24 +212,30 @@ export async function streamOpenAICompatible(opts: {
       if (trimmed === 'data: [DONE]') continue;
 
       if (trimmed.startsWith('data: ')) {
+        let json: any;
         try {
-          const json = JSON.parse(trimmed.slice(6));
-          if (json.usage && onUsage) {
-            onUsage({
-              inputTokens: json.usage.prompt_tokens,
-              outputTokens: json.usage.completion_tokens,
-              totalTokens: json.usage.total_tokens,
-              reasoningTokens: json.usage.completion_tokens_details?.reasoning_tokens,
-              cachedInputTokens: json.usage.prompt_tokens_details?.cached_tokens,
-            });
-          }
-          const delta = json.choices?.[0]?.delta?.content;
-          if (delta) {
-            fullContent += delta;
-            onChunk(delta);
-          }
+          json = JSON.parse(trimmed.slice(6));
         } catch {
-          // ignore incomplete json chunk in buffer
+          // Ignore malformed provider events; valid error payloads are handled below.
+          continue;
+        }
+        if (json?.error) {
+          const detail = json.error.message || JSON.stringify(json.error);
+          throw new Error(`Provider stream error: ${detail}`);
+        }
+        if (json.usage && onUsage) {
+          onUsage({
+            inputTokens: json.usage.prompt_tokens,
+            outputTokens: json.usage.completion_tokens,
+            totalTokens: json.usage.total_tokens,
+            reasoningTokens: json.usage.completion_tokens_details?.reasoning_tokens,
+            cachedInputTokens: json.usage.prompt_tokens_details?.cached_tokens,
+          });
+        }
+        const delta = json.choices?.[0]?.delta?.content;
+        if (delta) {
+          fullContent += delta;
+          onChunk(delta);
         }
       }
     }
@@ -301,20 +312,26 @@ export async function streamAnthropicREST(opts: {
       const dataStr = trimmed.slice(6).trim();
       if (dataStr === '[DONE]') continue;
 
+      let json: any;
       try {
-        const json = JSON.parse(dataStr);
-        if (json.type === 'message_start' && json.message?.usage && onUsage) {
-          onUsage({ inputTokens: json.message.usage.input_tokens, outputTokens: json.message.usage.output_tokens, totalTokens: (json.message.usage.input_tokens || 0) + (json.message.usage.output_tokens || 0) });
-        }
-        if (json.type === 'message_delta' && json.usage && onUsage) {
-          onUsage({ outputTokens: json.usage.output_tokens });
-        }
-        if (json.type === 'content_block_delta' && json.delta?.text) {
-          fullContent += json.delta.text;
-          onChunk(json.delta.text);
-        }
+        json = JSON.parse(dataStr);
       } catch {
-        // ignore incomplete json chunk in stream
+        // Ignore malformed provider events; valid error events are handled below.
+        continue;
+      }
+      if (json?.type === 'error' || json?.error) {
+        const detail = json.error?.message || json.message || JSON.stringify(json.error || json);
+        throw new Error(`Anthropic stream error: ${detail}`);
+      }
+      if (json.type === 'message_start' && json.message?.usage && onUsage) {
+        onUsage({ inputTokens: json.message.usage.input_tokens, outputTokens: json.message.usage.output_tokens, totalTokens: (json.message.usage.input_tokens || 0) + (json.message.usage.output_tokens || 0) });
+      }
+      if (json.type === 'message_delta' && json.usage && onUsage) {
+        onUsage({ outputTokens: json.usage.output_tokens });
+      }
+      if (json.type === 'content_block_delta' && json.delta?.text) {
+        fullContent += json.delta.text;
+        onChunk(json.delta.text);
       }
     }
     if (done) break;
