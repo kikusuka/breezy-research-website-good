@@ -19,7 +19,7 @@ Material Symbols, tonal surfaces with hairlines, soft blue "splatter" washes.
 ## What was fixed beyond styling
 - Research: single-model investigation with source search, bounded retrieval, evidence provenance, and progress driven by real stream events; legacy multi-round request fields are ignored by the backend; runs survive navigation and failed/stopped runs are saved.
 - Chat: text is selectable, Stop really cancels the request, per-message Copy, Regenerate.
-- Models: removed an "Enable Ollama" checkbox that saved nothing; per-seat "Custom model ID" so stale catalogs don't block newer models; corrected Verifier copy (no DOI/arXiv claims).
+- Models: removed an "Enable Ollama" checkbox that saved nothing; single research-model "Custom model ID" so stale catalogs don't block newer models; corrected Verifier copy (no DOI/arXiv claims).
 - Build: Console/Preview/Agent were unreachable between 768 and 1279px — now a toggleable bottom panel (right column from 1536px); breakpoints shifted for the new sidebar; removed a hard-coded default repository; console text is selectable.
 - Removed fake content: seeded Canvas cards, seeded Notes note, "Zero Cloud Retention", "zero tracking", DOI/arXiv verification claims, fake "LIVE" status (status now reflects a real health check).
 - Landing rebuilt to the Stitch composition with only claims the app can back up; the demo window is labelled SAMPLE.
