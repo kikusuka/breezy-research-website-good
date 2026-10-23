@@ -38,9 +38,9 @@ Expected basics include conversation history, readable/selectable responses, cop
 
 ### Research
 
-The evidence-oriented workflow powered by Synthexis. The original conceptual sequence is:
+The evidence-oriented workflow powered by Synthexis. The production sequence is:
 
-**Propose → Challenge → Verify → Resolve → Synthesize**
+**Question → Search → Retrieve → Analyze → Answer**
 
 Research should make the process and evidence inspectable without overwhelming the user. The production workflow uses **one configured model call per investigation**; it does not run separate Analyst, Critic, Verifier, or Synthesizer model calls. Search planning, search requests, and bounded source-page retrieval remain available, and retrieved evidence is not treated as proof by itself.
 
