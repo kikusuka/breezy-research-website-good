@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assessClaimEvidenceBasis,
   hasDiscoveredReference,
   normalizeClaimStatus,
   normalizeEvidenceUrl,
@@ -24,6 +25,42 @@ describe('honest evidence assessment', () => {
     expect(normalizeEvidenceUrl('javascript:alert(1)')).toBe('');
     expect(normalizeEvidenceUrl('file:///etc/passwd')).toBe('');
     expect(normalizeEvidenceUrl('not a url')).toBe('');
+  });
+
+  it('marks referenced page text as available without claiming semantic support', () => {
+    expect(assessClaimEvidenceBasis(
+      [{ url: 'https://example.com/page#claim' }],
+      [{ url: 'https://example.com/page', retrievalStatus: 'retrieved', pageText: 'The actual bounded page text.' }],
+    )).toBe('referenced_page_text_available');
+  });
+
+  it('distinguishes snippet-only matches from unmatched references', () => {
+    expect(assessClaimEvidenceBasis(
+      [{ url: 'https://example.com/page' }],
+      [{ url: 'https://example.com/page', retrievalStatus: 'unavailable', pageText: '' }],
+    )).toBe('search_snippets_only');
+    expect(assessClaimEvidenceBasis(
+      [{ url: 'https://not-found.example/page' }],
+      [{ url: 'https://example.com/page', retrievalStatus: 'retrieved', pageText: 'Page text' }],
+    )).toBe('unmatched_references');
+  });
+
+  it('reports when a claim has no source references', () => {
+    expect(assessClaimEvidenceBasis([], [{ url: 'https://example.com/page', retrievalStatus: 'retrieved', pageText: 'Page text' }]))
+      .toBe('no_references');
+    expect(assessClaimEvidenceBasis([{ url: 'javascript:alert(1)' }], []))
+      .toBe('no_references');
+  });
+
+  it('matches references against the validated final URL after redirects', () => {
+    expect(assessClaimEvidenceBasis(
+      [{ url: 'https://redirect.example/old' }],
+      [{ url: 'https://redirect.example/old', retrievedUrl: 'https://docs.example/new', retrievalStatus: 'retrieved', pageText: 'Page text' }],
+    )).toBe('referenced_page_text_available');
+    expect(assessClaimEvidenceBasis(
+      [{ url: 'https://docs.example/new' }],
+      [{ url: 'https://redirect.example/old', retrievedUrl: 'https://docs.example/new', retrievalStatus: 'retrieved', pageText: 'Page text' }],
+    )).toBe('referenced_page_text_available');
   });
 
   it('preserves valid model assessments and makes unknown statuses unresolved', () => {
