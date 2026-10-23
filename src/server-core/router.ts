@@ -1106,7 +1106,6 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
                 try {
                   domain = new URL(r.url).hostname.replace('www.', '');
                 } catch {}
-                const isPrimary = domain.endsWith('.org') || domain.endsWith('.gov') || domain.endsWith('.edu') || domain.includes('github') || domain.includes('apache') || domain.includes('arxiv');
                 return {
                   id: `src-${idx + 1}`,
                   title: r.title,
@@ -1114,7 +1113,6 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
                   domain,
                   snippet: r.snippet,
                   retrievalStatus: 'not_attempted' as const,
-                  isPrimary,
                   citationIndex: idx + 1,
                 };
               });
