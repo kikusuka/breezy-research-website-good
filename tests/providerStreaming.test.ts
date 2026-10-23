@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  callAgentWithStream,
   streamAnthropicREST,
   streamGeminiREST,
   streamOpenAICompatible,
@@ -58,5 +59,53 @@ describe('provider SSE stream final event handling', () => {
       userPrompt: 'test',
       onChunk: () => {},
     })).resolves.toBe('final Anthropic chunk');
+  });
+});
+
+
+describe('Gemini retry safety after streaming begins', () => {
+  it('forwards Gemini chunks to the caller as they arrive', async () => {
+    stubSseResponse('data: {"candidates":[{"content":{"parts":[{"text":"visible chunk"}]}}]}\\n');
+    const onChunk = vi.fn();
+
+    await expect(callAgentWithStream({
+      provider: 'gemini',
+      apiKey: 'test-key',
+      model: 'custom-model',
+      systemInstruction: '',
+      userPrompt: 'test',
+      onChunk,
+    })).resolves.toBe('visible chunk');
+
+    expect(onChunk).toHaveBeenCalledWith('visible chunk');
+  });
+
+  it('does not retry or switch models after a partial stream has reached the caller', async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(
+          'data: {"candidates":[{"content":{"parts":[{"text":"partial answer"}]}}]}\\n',
+        ));
+        controller.error(new Error('connection dropped mid-stream'));
+      },
+    });
+    const fetchMock = vi.fn(async () => new Response(body, {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const chunks: string[] = [];
+
+    await expect(callAgentWithStream({
+      provider: 'gemini',
+      apiKey: 'test-key',
+      model: 'custom-model',
+      systemInstruction: '',
+      userPrompt: 'test',
+      onChunk: (chunk) => chunks.push(chunk),
+    })).rejects.toThrow('connection dropped mid-stream');
+
+    expect(chunks).toEqual(['partial answer']);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
