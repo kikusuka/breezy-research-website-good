@@ -70,14 +70,28 @@ export interface DebateStep {
 
 export type DebateTone = 'diplomatic' | 'balanced' | 'rigorous' | 'aggressive';
 
+export type ClaimEvidenceBasis =
+  | 'referenced_page_text_available'
+  | 'search_snippets_only'
+  | 'unmatched_references'
+  | 'no_references';
+
+export type SourcePassageMatch =
+  | 'matched_retrieved_text'
+  | 'not_found_in_retrieved_text'
+  | 'quote_too_short'
+  | 'not_checked_no_page_text';
+
 export interface ResearchClaim {
   id: string;
   claim: string;
   status: 'supported' | 'contradicted' | 'unresolved';
   /** Model-estimated confidence; not an independently measured probability. */
   confidence?: number; // 0 - 100%, omitted when the model did not provide a valid estimate
-  supportingSources: Array<{ title: string; url: string; snippet?: string; domain?: string; referenceFound?: boolean }>;
-  counterEvidence: Array<{ title: string; url: string; snippet?: string; domain?: string; referenceFound?: boolean }>;
+  /** Retrieval provenance only; does not establish semantic support for this claim. */
+  evidenceBasis?: ClaimEvidenceBasis;
+  supportingSources: Array<{ title: string; url: string; snippet?: string; domain?: string; referenceFound?: boolean; passageMatch?: SourcePassageMatch }>;
+  counterEvidence: Array<{ title: string; url: string; snippet?: string; domain?: string; referenceFound?: boolean; passageMatch?: SourcePassageMatch }>;
   analystStance?: string;
   criticStance?: string;
   reviewerVerdict?: string;

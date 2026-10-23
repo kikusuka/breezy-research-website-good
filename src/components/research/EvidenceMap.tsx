@@ -20,6 +20,36 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
     return { label: 'Unresolved', icon: 'help', tone: 'text-[#F59E0B]' };
   };
 
+  const evidenceBasisLabel = (claim: ResearchClaim) => {
+    switch (claim.evidenceBasis) {
+      case 'referenced_page_text_available':
+        return 'Cited page text retrieved · support remains model-assessed';
+      case 'search_snippets_only':
+        return 'Search snippets only · support unverified';
+      case 'unmatched_references':
+        return 'References not matched to discovered sources';
+      case 'no_references':
+        return 'No source references attached';
+      default:
+        return 'Evidence provenance unavailable for this saved run';
+    }
+  };
+
+  const passageMatchLabel = (source: { passageMatch?: ResearchClaim['supportingSources'][number]['passageMatch'] }) => {
+    switch (source.passageMatch) {
+      case 'matched_retrieved_text':
+        return 'Excerpt matched retrieved page text; semantic support still unverified';
+      case 'not_found_in_retrieved_text':
+        return 'Excerpt not found in retrieved page text';
+      case 'quote_too_short':
+        return 'Excerpt too short for a reliable text match';
+      case 'not_checked_no_page_text':
+        return 'Excerpt could not be checked against retrieved page text';
+      default:
+        return 'Excerpt check unavailable for this saved run';
+    }
+  };
+
   if (!claims.length && !sources.length) {
     return (
       <section className="rounded-2xl border border-outline-variant/40 bg-surface-container-low p-space-xl text-center">
@@ -61,6 +91,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                   <span className={`rounded-md bg-surface-container-low px-space-sm py-1 font-code-sm text-code-sm ${status.tone}`}>{status.label}</span>
                   <span className="font-code-sm text-code-sm text-outline">{evidenceCount} linked references</span>
                 </div>
+                <p className="mt-1 pl-[27px] font-label-sm text-label-sm text-on-surface-variant">{evidenceBasisLabel(claim)}</p>
                 </button>
                 {active && (
                   <div className="mt-space-md border-t border-outline-variant/40 pt-space-md pl-[27px] flex flex-col gap-space-sm">
@@ -69,6 +100,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                         <div className="font-label-sm text-label-sm text-tertiary">Model-listed supporting evidence</div>
                         <div className="mt-1 font-label-sm text-label-sm text-outline">{source.referenceFound === true ? "Reference URL matched a discovered/fetched source; claim support not verified" : source.referenceFound === false ? "Reference URL not matched to discovered results" : "Reference match status unavailable for this saved run"}</div>
                         {source.snippet && <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</p>}
+                        <p className="mt-1 font-label-sm text-label-sm text-outline">{passageMatchLabel(source)}</p>
                         {safeEvidenceHref(source.url) ? <a href={safeEvidenceHref(source.url) || undefined} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-space-xs font-body-sm text-primary underline underline-offset-2"><Icon name="open_in_new" className="text-[14px] shrink-0" /><span className="truncate">{source.title || source.domain || source.url}</span></a> : <span className="mt-1 block break-words font-body-sm text-on-surface-variant">{source.title || source.domain || 'Source URL unavailable'}</span>}
                       </div>
                     ))}
