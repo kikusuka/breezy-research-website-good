@@ -8,6 +8,13 @@ import { callAgentWithStream } from './providers';
 import { BackendEnv } from './types';
 import { assessClaimEvidenceBasis, assessSourcePassageMatch, hasDiscoveredReference, normalizeClaimStatus, normalizeEvidenceUrl, normalizeModelConfidence } from './evidenceAssessment';
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const error = new Error('The operation was aborted');
+  error.name = 'AbortError';
+  throw error;
+}
+
 export async function summarizeStage(
   content: string,
   roleName: string,
@@ -17,6 +24,7 @@ export async function summarizeStage(
   model: string = 'gemini-2.5-flash',
   signal?: AbortSignal
 ): Promise<string> {
+  throwIfAborted(signal);
   if (!content || content.length < 300) return content;
   try {
     const summaryPrompt = `You are a high-density technical outline compressor.
@@ -79,6 +87,8 @@ export async function generateRealEvidenceGraph(opts: {
     researchPlan: suppliedResearchPlan = [],
     signal,
   } = opts;
+
+  throwIfAborted(signal);
 
   if (isSolo) {
     return {
