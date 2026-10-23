@@ -57,6 +57,7 @@ describe('evidence graph extraction failure paths', () => {
       claimsContradicted: 0,
       claimsUnresolved: 0,
     });
+    expect(result.researchMetrics).not.toHaveProperty('primarySourcesCount');
   });
 
   it('marks a valid extraction with no claims as insufficient evidence', async () => {

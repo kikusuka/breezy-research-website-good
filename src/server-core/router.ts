@@ -10,7 +10,7 @@ import { handleChatPersistenceRequest } from './chatPersistence';
 import { callAgentWithStream, sanitizeGeminiModel } from './providers';
 import { performSearchGrounding } from './search';
 import { mergeGroundingResults, selectResearchQueries, shouldPlanResearch } from './researchRetrieval';
-import { fetchReadableSource } from './sourceFetch';
+import { attachSourceFetchResults, fetchReadableSource } from './sourceFetch';
 import { summarizeStage, generateRealEvidenceGraph } from './evidence';
 
 // In-memory rate limiting map for server-provided key usage (resets per instance/isolate)
@@ -1124,16 +1124,7 @@ Create a compact research plan before evidence retrieval. Return ONLY valid JSON
                 const pageResults = await Promise.all(
                   discoveredSources.slice(0, 3).map((source) => fetchReadableSource(source.url)),
                 );
-                discoveredSources = discoveredSources.map((source, idx) => {
-                  const page = pageResults[idx];
-                  if (!page) return { ...source, retrievalStatus: 'not_attempted' };
-                  return {
-                    ...source,
-                    retrievalStatus: page.status,
-                    ...(page.status === 'retrieved' && page.text ? { pageText: page.text } : {}),
-                    ...(page.status === 'retrieved' && page.finalUrl ? { retrievedUrl: page.finalUrl } : {}),
-                  };
-                });
+                discoveredSources = attachSourceFetchResults(discoveredSources, pageResults);
               }
 
               await sendEvent('search_grounding', {
@@ -1206,6 +1197,7 @@ Structure your response in clean Markdown with clear headings.`;
             },
             onUsage: (usage) => emitUsage(1, usage),
             env,
+            signal: req.signal,
           });
 
           await sendEvent('round_complete', {
