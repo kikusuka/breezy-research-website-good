@@ -61,6 +61,24 @@ describe('evidence graph extraction failure paths', () => {
     expect(result.researchMetrics).not.toHaveProperty('primarySourcesCount');
   });
 
+  it('keeps failure metrics honest when the extraction provider throws', async () => {
+    vi.mocked(callAgentWithStream).mockRejectedValue(new Error('provider unavailable'));
+
+    const result = await generateRealEvidenceGraph(baseOptions);
+
+    expect(result.evidenceGraph.auditStatus).toBe('incomplete');
+    expect(result.evidenceGraph.claims).toEqual([]);
+    expect(result.researchMetrics).toMatchObject({
+      durationMs: 1250,
+      claimsIdentified: 0,
+      claimsSupported: 0,
+      claimsContradicted: 0,
+      claimsUnresolved: 0,
+      sourcesConsulted: 0,
+    });
+    expect(result.researchMetrics).not.toHaveProperty('primarySourcesCount');
+  });
+
   it('marks a valid extraction with no claims as insufficient evidence', async () => {
     vi.mocked(callAgentWithStream).mockResolvedValue(JSON.stringify({
       researchPlan: ['Check the original source'],
