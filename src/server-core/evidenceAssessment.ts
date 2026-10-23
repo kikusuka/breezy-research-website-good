@@ -98,6 +98,14 @@ export function assessSourcePassageMatch(
     : 'not_found_in_retrieved_text';
 }
 
+/** Keep only plain object records from model-generated nested evidence arrays. */
+export function filterEvidenceReferenceRecords(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is Record<string, unknown> =>
+    Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry),
+  );
+}
+
 /** Keep the model's assessment, but never manufacture a confidence percentage from URL counts. */
 export function normalizeClaimStatus(value: unknown): ClaimAssessmentStatus {
   return value === 'supported' || value === 'contradicted' || value === 'unresolved'
