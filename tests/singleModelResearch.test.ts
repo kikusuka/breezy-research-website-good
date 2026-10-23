@@ -29,7 +29,7 @@ describe('single-model research workflow', () => {
     expect(protocolToDepth('duel')).toBe('solo');
   });
 
-  it('creates exactly one step using the configured default model, not legacy role seats', () => {
+  it('creates exactly one step using the selected research model', () => {
     const steps = makeInitialSteps(config, 'solo');
     expect(steps).toHaveLength(1);
     expect(steps[0]).toMatchObject({
