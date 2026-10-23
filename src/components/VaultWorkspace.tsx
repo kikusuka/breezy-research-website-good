@@ -191,7 +191,7 @@ export const VaultWorkspace: React.FC = () => {
         <div className="bg-surface-container rounded-3xl p-space-lg coat">
           <label htmlFor="research-model-select" className="block font-label-md text-label-md text-on-surface-variant mb-space-xs">Provider and model</label>
           {(() => {
-            const cur = config.roles.architect;
+            const cur = config.roles?.architect || { provider: '', model: '' };
             const inCatalog = Boolean(cur?.provider && (AVAILABLE_MODELS[cur.provider] || []).some((m) => m.id === cur.model));
             const isCustom = Boolean(cur?.model) && !inCatalog;
             const sel = customOpen.architect || isCustom ? CUSTOM : !cur?.model ? '' : `${cur.provider}::${cur.model}`;
