@@ -66,7 +66,7 @@ describe('honest evidence assessment', () => {
 
   it('matches an excerpt against retrieved text after whitespace and case normalization', () => {
     expect(assessSourcePassageMatch(
-      { url: 'https://example.com/page', snippet: 'THE documented behavior\\nuses a stable key for each record.' },
+      { url: 'https://example.com/page', snippet: 'THE documented behavior\nuses a stable key for each record.' },
       [{ url: 'https://example.com/page', retrievalStatus: 'retrieved', pageText: 'The documented behavior uses a stable key for each record.' }],
     )).toBe('matched_retrieved_text');
   });
