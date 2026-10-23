@@ -91,7 +91,7 @@ export async function generateRealEvidenceGraph(opts: {
         claimsContradicted: 0,
         claimsUnresolved: 0,
         sourcesConsulted: discoveredSources.length,
-        primarySourcesCount: 0,
+        // No primary-source classification is available when extraction fails.
       },
     };
   }
@@ -250,7 +250,9 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
       claimsContradicted,
       claimsUnresolved,
       sourcesConsulted,
-      primarySourcesCount: preferredDomainSourcesCount,
+      // Domain heuristics are not enough to establish that a source is primary.
+      // Keep the narrower, honestly named signal and do not populate the legacy
+      // primarySourcesCount field with a proxy value.
       preferredDomainSourcesCount,
     };
 
