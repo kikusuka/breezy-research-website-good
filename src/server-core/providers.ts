@@ -364,7 +364,7 @@ export async function callAgentWithStream(params: CallAgentParams): Promise<stri
             enableSearchGrounding,
             onChunk: (chunk) => {
               if (m !== rawModel && !announcedFallback) {
-                const notice = `> *Model Notice: Requested model '${rawModel}' was unavailable. Continued with '${m}'.*\\n\\n`;
+                const notice = `> *Model Notice: Requested model '${rawModel}' was unavailable. Continued with '${m}'.*\n\n`;
                 emittedAnyChunk = true;
                 onChunk(notice);
                 fullText += notice;
