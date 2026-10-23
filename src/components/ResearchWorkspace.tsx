@@ -4,7 +4,7 @@ import type { Attachment, DebateSession } from '../types';
 import { Icon } from '../shell/Icon';
 import { Markdown } from '../ui/Markdown';
 import { researchStore, useResearch } from '../lib/researchStore';
-import { Depth, DEPTH_PROTOCOL, Stage, deriveStages, formatDuration } from '../lib/research';
+import { Stage, deriveStages, formatDuration } from '../lib/research';
 import { RESEARCH_STARTERS } from '../lib/starters';
 import { RESEARCH_METHODS } from '../lib/providers';
 import { readAttachment } from '../lib/files';
@@ -16,8 +16,6 @@ import { EvidenceMap } from './research/EvidenceMap';
 import { safeEvidenceHref } from '../lib/evidenceMap';
 
 const CANVAS_KEY = 'breezy_canvas_cards_v1';
-const SEATS = [{ id: 'architect', label: 'Analyst' }, { id: 'skeptic', label: 'Critic' }, { id: 'verifier', label: 'Verifier' }, { id: 'arbiter', label: 'Synthesizer' }] as const;
-const DEPTH_ICON: Record<Depth, string> = { solo: 'person', standard: 'speed', deep: 'radar' };
 
 function Stepper({ stages }: { stages: Stage[] }) {
   const current = stages.find((s) => s.state === 'active') || [...stages].reverse().find((s) => s.state === 'done') || stages[0];
@@ -28,7 +26,7 @@ function Stepper({ stages }: { stages: Stage[] }) {
         {stages.map((s) => {
           const tone = s.state === 'done' ? 'bg-tertiary-container text-on-tertiary-container' : s.state === 'active' ? 'bg-surface-container-high text-primary ring-1 ring-primary/60 glow-primary' : s.state === 'error' ? 'bg-error-container text-on-error-container' : s.state === 'skipped' ? 'bg-surface-container-low text-outline-variant' : 'bg-surface-container text-outline';
           return (
-            <li key={s.id} className="relative z-10 flex flex-col items-center gap-space-xs flex-1 min-w-0" title={s.description + (s.state === 'skipped' ? ' (not part of this depth)' : '')}>
+            <li key={s.id} className="relative z-10 flex flex-col items-center gap-space-xs flex-1 min-w-0" title={s.description}>
               <span className={`w-9 h-9 rounded-circle flex items-center justify-center ${tone}`}><Icon name={s.state === 'done' ? 'check' : s.icon} className={`text-[18px] ${s.state === 'active' ? 'animate-pulse' : ''}`} /></span>
               <span className={`hidden sm:block font-code-sm text-code-sm ${s.state === 'active' ? 'text-primary' : s.state === 'done' ? 'text-tertiary' : 'text-outline'} ${s.state === 'skipped' ? 'line-through' : ''}`}>{s.label}</span>
             </li>
@@ -355,16 +353,9 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
 
         <div className="mt-space-md flex flex-col gap-space-md lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-space-sm">
-            <div className="inline-flex min-h-[44px] max-w-full flex-wrap items-center gap-1 rounded-xl bg-surface-container-low p-1" role="group" aria-label="Research depth">
-              {(Object.keys(DEPTH_PROTOCOL) as Depth[]).map((item) => {
-                const label = DEPTH_PROTOCOL[item].label;
-                return <button key={item} type="button" disabled={r.running} aria-pressed={depth === item} title={DEPTH_PROTOCOL[item].blurb}
-                  onClick={() => researchStore.setDraft({ depth: item })}
-                  className={`min-h-[36px] rounded-lg px-space-md font-label-md text-label-md transition-colors ${depth === item ? 'bg-surface-container-high text-on-surface shadow-sm' : 'text-on-surface-variant hover:text-on-surface'}`}>
-                  {label}
-                </button>;
-              })}
-            </div>
+            <span className="inline-flex min-h-[44px] items-center gap-space-xs rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md font-label-md text-label-md text-on-surface-variant" title="Research uses one configured model call; source search and retrieval remain enabled.">
+              <Icon name="person" className="text-[17px]" />Single-model research
+            </span>
             <button type="button" disabled={r.running} onClick={() => fileRef.current?.click()} className="inline-flex min-h-[44px] items-center gap-space-xs rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md font-label-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface disabled:opacity-50">
               <Icon name="attach_file" className="text-[17px]" />Attach files
             </button>
@@ -378,22 +369,11 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
                   className="mt-1 min-h-[42px] w-full rounded-lg border border-outline-variant/40 bg-surface-container px-space-sm font-body-sm text-body-sm capitalize">
                   {RESEARCH_METHODS.map((method) => <option key={method} value={method} className="capitalize">{method}</option>)}
                 </select>
-                <p className="mt-space-sm font-body-sm text-body-sm text-on-surface-variant">Depth controls how many existing research stages run. Deeper modes can use more model calls and are not automatically more accurate.</p>
+                <p className="mt-space-sm font-body-sm text-body-sm text-on-surface-variant">One configured model call handles the analysis. Breezy still searches for sources and retrieves bounded page text, but it does not run separate critic, verifier, or synthesizer model calls.</p>
                 <div className="mt-space-md border-t border-outline-variant/30 pt-space-md">
-                  <p className="font-label-sm text-label-sm text-on-surface-variant">Configured research seats</p>
-                  <div className="mt-space-sm flex flex-col gap-space-xs">
-                    {SEATS.map((seat) => {
-                      const role = cfg.roles[seat.id];
-                      const configured = Boolean(role?.provider && role?.model);
-                      return <button key={seat.id} type="button" onClick={() => { window.location.hash = '#models'; }}
-                        className="flex min-h-[36px] items-center gap-space-sm rounded-lg px-space-sm text-left hover:bg-surface-container-high">
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${configured ? 'bg-tertiary' : 'bg-outline'}`} />
-                        <span className="font-body-sm text-body-sm text-on-surface-variant">{seat.label}</span>
-                        <span className="ml-auto max-w-[150px] truncate font-code-sm text-code-sm text-outline">{configured ? role.model : 'Not assigned'}</span>
-                      </button>;
-                    })}
-                  </div>
-                  <button type="button" onClick={() => { window.location.hash = '#models'; }} className="mt-space-sm min-h-[36px] font-label-md text-label-md text-primary">Configure models <Icon name="arrow_forward" className="text-[16px] align-middle" /></button>
+                  <p className="font-label-sm text-label-sm text-on-surface-variant">Research model</p>
+                  <p className="mt-1 font-body-sm text-body-sm text-on-surface">{cfg.defaultProvider && cfg.defaultModel ? `${cfg.defaultProvider} · ${cfg.defaultModel}` : "No model configured"}</p>
+                  <button type="button" onClick={() => { window.location.hash = '#models'; }} className="mt-space-sm min-h-[36px] font-label-md text-label-md text-primary">Configure model <Icon name="arrow_forward" className="text-[16px] align-middle" /></button>
                 </div>
               </div>
             </details>
