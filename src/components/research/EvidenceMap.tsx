@@ -35,6 +35,21 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
     }
   };
 
+  const passageMatchLabel = (source: { passageMatch?: ResearchClaim['supportingSources'][number]['passageMatch'] }) => {
+    switch (source.passageMatch) {
+      case 'matched_retrieved_text':
+        return 'Excerpt matched retrieved page text; semantic support still unverified';
+      case 'not_found_in_retrieved_text':
+        return 'Excerpt not found in retrieved page text';
+      case 'quote_too_short':
+        return 'Excerpt too short for a reliable text match';
+      case 'not_checked_no_page_text':
+        return 'Excerpt could not be checked against retrieved page text';
+      default:
+        return 'Excerpt check unavailable for this saved run';
+    }
+  };
+
   if (!claims.length && !sources.length) {
     return (
       <section className="rounded-2xl border border-outline-variant/40 bg-surface-container-low p-space-xl text-center">
@@ -85,6 +100,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                         <div className="font-label-sm text-label-sm text-tertiary">Model-listed supporting evidence</div>
                         <div className="mt-1 font-label-sm text-label-sm text-outline">{source.referenceFound === true ? "Reference URL matched a discovered/fetched source; claim support not verified" : source.referenceFound === false ? "Reference URL not matched to discovered results" : "Reference match status unavailable for this saved run"}</div>
                         {source.snippet && <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">{source.snippet}</p>}
+                        <p className="mt-1 font-label-sm text-label-sm text-outline">{passageMatchLabel(source)}</p>
                         {safeEvidenceHref(source.url) ? <a href={safeEvidenceHref(source.url) || undefined} target="_blank" rel="noreferrer noopener" onClick={(event) => event.stopPropagation()} className="mt-1 inline-flex max-w-full items-center gap-space-xs font-body-sm text-primary underline underline-offset-2"><Icon name="open_in_new" className="text-[14px] shrink-0" /><span className="truncate">{source.title || source.domain || source.url}</span></a> : <span className="mt-1 block break-words font-body-sm text-on-surface-variant">{source.title || source.domain || 'Source URL unavailable'}</span>}
                       </div>
                     ))}
