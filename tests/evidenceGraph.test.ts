@@ -152,6 +152,26 @@ describe('evidence graph extraction failure paths', () => {
     ]);
   });
 
+  it('does not label preferred-domain matches as verified primary sources', async () => {
+    vi.mocked(callAgentWithStream).mockResolvedValue(JSON.stringify({
+      researchPlan: [],
+      claims: [],
+      contradictions: [],
+    }));
+
+    const result = await generateRealEvidenceGraph({
+      ...baseOptions,
+      discoveredSources: [
+        { title: 'Preprint', url: 'https://arxiv.org/abs/1234.5678' },
+        { title: 'Repository', url: 'https://github.com/example/project' },
+        { title: 'Personal blog', url: 'https://example.net/post' },
+      ],
+    });
+
+    expect(result.researchMetrics.preferredDomainSourcesCount).toBe(2);
+    expect(result.researchMetrics).not.toHaveProperty('primarySourcesCount');
+  });
+
   it('instructs the extraction model to treat source text as untrusted data', async () => {
     vi.mocked(callAgentWithStream).mockResolvedValue(JSON.stringify({
       researchPlan: [],
