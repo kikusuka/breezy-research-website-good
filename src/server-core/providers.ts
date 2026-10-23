@@ -87,9 +87,14 @@ export async function streamGeminiREST(opts: {
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
+    if (done) {
+      // Flush any buffered UTF-8 bytes and process a final SSE line even when
+      // the provider closes the stream without a trailing newline.
+      buffer += decoder.decode();
+      if (buffer) buffer += '\n';
+    } else {
+      buffer += decoder.decode(value, { stream: true });
+    }
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
 
@@ -125,6 +130,7 @@ export async function streamGeminiREST(opts: {
         // Skip incomplete chunks
       }
     }
+    if (done) break;
   }
 
   return fullText;
@@ -184,9 +190,14 @@ export async function streamOpenAICompatible(opts: {
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
+    if (done) {
+      // Flush any buffered UTF-8 bytes and process a final SSE line even when
+      // the provider closes the stream without a trailing newline.
+      buffer += decoder.decode();
+      if (buffer) buffer += '\n';
+    } else {
+      buffer += decoder.decode(value, { stream: true });
+    }
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
 
@@ -217,6 +228,7 @@ export async function streamOpenAICompatible(opts: {
         }
       }
     }
+    if (done) break;
   }
 
   return fullContent;
@@ -272,9 +284,14 @@ export async function streamAnthropicREST(opts: {
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
+    if (done) {
+      // Flush any buffered UTF-8 bytes and process a final SSE line even when
+      // the provider closes the stream without a trailing newline.
+      buffer += decoder.decode();
+      if (buffer) buffer += '\n';
+    } else {
+      buffer += decoder.decode(value, { stream: true });
+    }
     const lines = buffer.split('\n');
     buffer = lines.pop() || '';
 
@@ -300,6 +317,7 @@ export async function streamAnthropicREST(opts: {
         // ignore incomplete json chunk in stream
       }
     }
+    if (done) break;
   }
 
   return fullContent;
