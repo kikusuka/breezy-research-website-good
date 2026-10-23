@@ -20,6 +20,21 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
     return { label: 'Unresolved', icon: 'help', tone: 'text-[#F59E0B]' };
   };
 
+  const evidenceBasisLabel = (claim: ResearchClaim) => {
+    switch (claim.evidenceBasis) {
+      case 'referenced_page_text_available':
+        return 'Cited page text retrieved · support remains model-assessed';
+      case 'search_snippets_only':
+        return 'Search snippets only · support unverified';
+      case 'unmatched_references':
+        return 'References not matched to discovered sources';
+      case 'no_references':
+        return 'No source references attached';
+      default:
+        return 'Evidence provenance unavailable for this saved run';
+    }
+  };
+
   if (!claims.length && !sources.length) {
     return (
       <section className="rounded-2xl border border-outline-variant/40 bg-surface-container-low p-space-xl text-center">
@@ -61,6 +76,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
                   <span className={`rounded-md bg-surface-container-low px-space-sm py-1 font-code-sm text-code-sm ${status.tone}`}>{status.label}</span>
                   <span className="font-code-sm text-code-sm text-outline">{evidenceCount} linked references</span>
                 </div>
+                <p className="mt-1 pl-[27px] font-label-sm text-label-sm text-on-surface-variant">{evidenceBasisLabel(claim)}</p>
                 </button>
                 {active && (
                   <div className="mt-space-md border-t border-outline-variant/40 pt-space-md pl-[27px] flex flex-col gap-space-sm">
