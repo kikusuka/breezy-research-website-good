@@ -152,3 +152,26 @@ export async function fetchReadableSource(
     };
   }
 }
+
+
+/**
+ * Attach bounded page-fetch outcomes to discovered search records. Failed or skipped
+ * page reads preserve the original search result and its snippet for fallback use.
+ */
+export function attachSourceFetchResults<T extends {
+  url: string;
+  retrievalStatus?: string;
+  pageText?: string;
+  retrievedUrl?: string;
+}>(sources: T[], pageResults: Array<SourceFetchResult | undefined>): T[] {
+  return sources.map((source, index) => {
+    const page = pageResults[index];
+    if (!page) return { ...source, retrievalStatus: 'not_attempted' };
+    return {
+      ...source,
+      retrievalStatus: page.status,
+      ...(page.status === 'retrieved' && page.text ? { pageText: page.text } : {}),
+      ...(page.status === 'retrieved' && page.finalUrl ? { retrievedUrl: page.finalUrl } : {}),
+    };
+  });
+}
