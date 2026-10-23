@@ -231,7 +231,7 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
       claims,
       contradictions,
       sourcesConsulted: discoveredSources,
-      auditStatus: claimsIdentified > 0 ? 'audited' : 'insufficient_evidence',
+      auditStatus: claimsIdentified > 0 ? 'model_assessed' : 'insufficient_evidence',
     };
 
     return { evidenceGraph, researchMetrics };
