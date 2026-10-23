@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { EvidenceGraph, ResearchClaim } from '../../types';
 import { Icon } from '../../shell/Icon';
-import { buildEvidenceMapSources, claimEvidenceUrls, normalizeEvidenceUrl, safeEvidenceHref } from '../../lib/evidenceMap';
+import { buildEvidenceMapSources, claimAssessmentPresentation, claimEvidenceUrls, normalizeEvidenceUrl, safeEvidenceHref } from '../../lib/evidenceMap';
 
 type EvidenceMapProps = { graph?: EvidenceGraph | null };
 
@@ -14,11 +14,7 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
   const selectedClaim = claims.find((claim) => claim.id === selectedClaimId) ?? null;
   const linkedUrls = claimEvidenceUrls(selectedClaim);
 
-  const claimStatus = (claim: ResearchClaim) => {
-    if (claim.status === 'supported') return { label: 'Model-assessed support', icon: 'check_circle', tone: 'text-tertiary' };
-    if (claim.status === 'contradicted') return { label: 'Model-assessed contradiction', icon: 'report', tone: 'text-error' };
-    return { label: 'Unresolved', icon: 'help', tone: 'text-[#F59E0B]' };
-  };
+  const claimStatus = (claim: ResearchClaim) => claimAssessmentPresentation(claim);
 
   const evidenceBasisLabel = (claim: ResearchClaim) => {
     switch (claim.evidenceBasis) {
