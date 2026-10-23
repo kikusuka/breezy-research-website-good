@@ -75,7 +75,7 @@ async function notifyDiscordOperationalAlert(env: BackendEnv, backendName: strin
       redirect: 'error',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        content: `**Breezy operational alert**\\n**Event:** ${category}\\n**Backend:** ${backendName}\\n**Time:** ${new Date().toISOString()}\\nCheck server logs for the associated error details.`,
+        content: `**Breezy operational alert**\n**Event:** ${category}\n**Backend:** ${backendName}\n**Time:** ${new Date().toISOString()}\nCheck server logs for the associated error details.`,
         allowed_mentions: { parse: [] },
       }),
       signal: controller.signal,
