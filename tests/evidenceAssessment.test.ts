@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assessClaimEvidenceBasis,
+  assessSourcePassageMatch,
   hasDiscoveredReference,
   normalizeClaimStatus,
   normalizeEvidenceUrl,
@@ -61,6 +62,38 @@ describe('honest evidence assessment', () => {
       [{ url: 'https://docs.example/new' }],
       [{ url: 'https://redirect.example/old', retrievedUrl: 'https://docs.example/new', retrievalStatus: 'retrieved', pageText: 'Page text' }],
     )).toBe('referenced_page_text_available');
+  });
+
+  it('matches an excerpt against retrieved text after whitespace and case normalization', () => {
+    expect(assessSourcePassageMatch(
+      { url: 'https://example.com/page', snippet: 'THE documented behavior\\nuses a stable key for each record.' },
+      [{ url: 'https://example.com/page', retrievalStatus: 'retrieved', pageText: 'The documented behavior uses a stable key for each record.' }],
+    )).toBe('matched_retrieved_text');
+  });
+
+  it('flags a model-listed excerpt that is absent from the retrieved page', () => {
+    expect(assessSourcePassageMatch(
+      { url: 'https://example.com/page', snippet: 'This invented sentence is not in the actual page content.' },
+      [{ url: 'https://example.com/page', retrievalStatus: 'retrieved', pageText: 'The actual page content discusses a different subject entirely.' }],
+    )).toBe('not_found_in_retrieved_text');
+  });
+
+  it('does not claim to check excerpts when page text is unavailable or the quote is too short', () => {
+    expect(assessSourcePassageMatch(
+      { url: 'https://example.com/page', snippet: 'A sufficiently long excerpt that cannot be checked.' },
+      [{ url: 'https://example.com/page', retrievalStatus: 'unavailable', pageText: '' }],
+    )).toBe('not_checked_no_page_text');
+    expect(assessSourcePassageMatch(
+      { url: 'https://example.com/page', snippet: 'the docs say yes' },
+      [{ url: 'https://example.com/page', retrievalStatus: 'retrieved', pageText: 'The docs say yes, and more information follows.' }],
+    )).toBe('quote_too_short');
+  });
+
+  it('matches excerpts against a validated final URL after redirects', () => {
+    expect(assessSourcePassageMatch(
+      { url: 'https://docs.example/new', snippet: 'A sufficiently long excerpt from the final destination.' },
+      [{ url: 'https://redirect.example/old', retrievedUrl: 'https://docs.example/new', retrievalStatus: 'retrieved', pageText: 'A sufficiently long excerpt from the final destination.' }],
+    )).toBe('matched_retrieved_text');
   });
 
   it('preserves valid model assessments and makes unknown statuses unresolved', () => {
