@@ -70,12 +70,20 @@ export interface DebateStep {
 
 export type DebateTone = 'diplomatic' | 'balanced' | 'rigorous' | 'aggressive';
 
+export type ClaimEvidenceBasis =
+  | 'referenced_page_text_available'
+  | 'search_snippets_only'
+  | 'unmatched_references'
+  | 'no_references';
+
 export interface ResearchClaim {
   id: string;
   claim: string;
   status: 'supported' | 'contradicted' | 'unresolved';
   /** Model-estimated confidence; not an independently measured probability. */
   confidence?: number; // 0 - 100%, omitted when the model did not provide a valid estimate
+  /** Retrieval provenance only; does not establish semantic support for this claim. */
+  evidenceBasis?: ClaimEvidenceBasis;
   supportingSources: Array<{ title: string; url: string; snippet?: string; domain?: string; referenceFound?: boolean }>;
   counterEvidence: Array<{ title: string; url: string; snippet?: string; domain?: string; referenceFound?: boolean }>;
   analystStance?: string;
