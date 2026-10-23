@@ -143,7 +143,7 @@ describe('provider SSE error events', () => {
   });
 
   it('surfaces Anthropic error events instead of returning a successful partial response', async () => {
-    stubSseResponse('event: error\\ndata: {"type":"error","error":{"type":"overloaded_error","message":"overloaded"}}\\n');
+    stubSseResponse('event: error\ndata: {"type":"error","error":{"type":"overloaded_error","message":"overloaded"}}\n');
 
     await expect(streamAnthropicREST({
       apiKey: 'test-key',
@@ -156,8 +156,8 @@ describe('provider SSE error events', () => {
 
   it('does not swallow an error that arrives after a visible Anthropic partial answer', async () => {
     stubSseResponse(
-      'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"partial answer"}}\\n' +
-      'event: error\\ndata: {"type":"error","error":{"message":"stream failed"}}\\n',
+      'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"partial answer"}}\n' +
+      'event: error\ndata: {"type":"error","error":{"message":"stream failed"}}\n',
     );
     const onChunk = vi.fn();
 
