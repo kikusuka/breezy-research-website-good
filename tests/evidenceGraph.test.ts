@@ -134,6 +134,45 @@ describe('evidence graph extraction failure paths', () => {
     expect(result.researchMetrics).toMatchObject({ claimsIdentified: 1, claimsSupported: 1 });
   });
 
+  it('preserves valid nested source references when malformed entries are mixed in', async () => {
+    vi.mocked(callAgentWithStream).mockResolvedValue(JSON.stringify({
+      researchPlan: [],
+      claims: [{
+        id: 'claim-1',
+        claim: 'A specific assertion',
+        status: 'supported',
+        supportingSources: [null, 'bad source', ['nested'], {
+          title: 'Example source',
+          url: 'https://example.com/page',
+          snippet: 'The documented behavior uses a stable key for each record.',
+        }],
+        counterEvidence: [null, 42],
+      }],
+      contradictions: [],
+    }));
+
+    const result = await generateRealEvidenceGraph({
+      ...baseOptions,
+      discoveredSources: [{
+        title: 'Example source',
+        url: 'https://example.com/page',
+        retrievalStatus: 'retrieved',
+        pageText: 'The documented behavior uses a stable key for each record.',
+      }],
+    });
+
+    expect(result.evidenceGraph.claims).toHaveLength(1);
+    expect(result.evidenceGraph.claims[0].supportingSources).toHaveLength(1);
+    expect(result.evidenceGraph.claims[0].supportingSources[0]).toMatchObject({
+      url: 'https://example.com/page',
+      referenceFound: true,
+      passageMatch: 'matched_retrieved_text',
+    });
+    expect(result.evidenceGraph.claims[0].counterEvidence).toEqual([]);
+    expect(result.evidenceGraph.claims[0].evidenceBasis).toBe('referenced_page_text_available');
+    expect(result.evidenceGraph.auditStatus).toBe('model_assessed');
+  });
+
   it('normalizes unknown contradiction statuses to unclear', async () => {
     vi.mocked(callAgentWithStream).mockResolvedValue(JSON.stringify({
       researchPlan: [],
