@@ -6,7 +6,7 @@
 
 import { callAgentWithStream } from './providers';
 import { BackendEnv } from './types';
-import { assessClaimEvidenceBasis, assessSourcePassageMatch, hasDiscoveredReference, normalizeClaimStatus, normalizeEvidenceUrl, normalizeModelConfidence } from './evidenceAssessment';
+import { assessClaimEvidenceBasis, assessSourcePassageMatch, filterEvidenceReferenceRecords, hasDiscoveredReference, normalizeClaimStatus, normalizeEvidenceUrl, normalizeModelConfidence } from './evidenceAssessment';
 
 function throwIfAborted(signal?: AbortSignal): void {
   if (!signal?.aborted) return;
@@ -208,12 +208,12 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
 
     claims = claims.map((claim: any) => {
       const confidence = normalizeModelConfidence(claim.confidence);
-      const supportingSources = (Array.isArray(claim.supportingSources) ? claim.supportingSources : []).map((source: any) => ({
+      const supportingSources = filterEvidenceReferenceRecords(claim.supportingSources).map((source) => ({
         ...source,
         referenceFound: hasDiscoveredReference(source?.url, discoveredUrls),
         passageMatch: assessSourcePassageMatch(source, discoveredSources),
       }));
-      const counterEvidence = (Array.isArray(claim.counterEvidence) ? claim.counterEvidence : []).map((source: any) => ({
+      const counterEvidence = filterEvidenceReferenceRecords(claim.counterEvidence).map((source) => ({
         ...source,
         referenceFound: hasDiscoveredReference(source?.url, discoveredUrls),
         passageMatch: assessSourcePassageMatch(source, discoveredSources),
