@@ -114,7 +114,8 @@ export interface EvidenceSource {
   title: string;
   url: string;
   domain: string;
-  isPrimary: boolean;
+  /** Omitted unless primary-source status can be established from reliable metadata. */
+  isPrimary?: boolean;
   snippet: string;
   /** Whether bounded page-text extraction succeeded; not a claim-verification signal. */
   retrievalStatus?: 'retrieved' | 'unavailable' | 'not_attempted';
