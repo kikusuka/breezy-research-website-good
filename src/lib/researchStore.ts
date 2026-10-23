@@ -56,7 +56,7 @@ export const researchStore = {
     state = {
       sessions: loadSessions(), activeId: loadActiveSessionId(), running: false, startedAt: null,
       explorationSeen: false, events: [], plan: null, warnings: [],
-      draft: { query: '', depth: 'standard' }, notice: null,
+      draft: { query: '', depth: 'solo' }, notice: null,
     };
     listeners.forEach((l) => l());
   },
