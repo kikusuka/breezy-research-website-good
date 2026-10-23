@@ -69,12 +69,12 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
       <div className="rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md py-space-sm font-body-sm text-on-surface-variant">
         <Icon name="info" className="mr-1 text-[16px] align-middle" />Claim labels are model-assisted and are not independent verification. Connections below reflect source references present in this run's data.
       </div>
-      {(graph?.contradictions?.length ?? 0) > 0 && (
+      {contradictions.length > 0 && (
         <section className="rounded-2xl border border-outline-variant/40 bg-surface-container p-space-md">
           <h4 className="font-headline-sm text-headline-sm">Potential contradictions</h4>
           <p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">Model-identified tensions are not independently verified. Any proposed resolution still needs source review.</p>
           <div className="mt-space-md flex flex-col gap-space-sm">
-            {graph?.contradictions.map((item, index) => (
+            {contradictions.map((item, index) => (
               <article key={item.id || `contradiction-${index}`} className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-space-md">
                 <div className="flex flex-wrap items-center justify-between gap-space-sm">
                   <span className="font-label-sm text-label-sm text-on-surface-variant">Tension {index + 1}</span>
