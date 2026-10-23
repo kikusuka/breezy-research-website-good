@@ -43,6 +43,25 @@ describe('research retrieval helpers', () => {
     expect(merged?.query).toBe('first | second');
   });
 
+  it('preserves meaningful query parameters while ignoring tracking parameters and fragments', () => {
+    const merged = mergeGroundingResults([
+      result('first', [
+        'https://example.com/manual?version=2&utm_source=one#intro',
+        'https://example.com/manual?version=3',
+      ]),
+      result('second', [
+        'https://example.com/manual?utm_source=two&version=2#details',
+        'https://example.com/manual?version=4&gclid=click-id',
+      ]),
+    ], ['first', 'second']);
+
+    expect(merged?.results.map((item) => item.url)).toEqual([
+      'https://example.com/manual?version=2&utm_source=one#intro',
+      'https://example.com/manual?version=3',
+      'https://example.com/manual?version=4&gclid=click-id',
+    ]);
+  });
+
   it('interleaves result ranks so one subquery cannot dominate the source list', () => {
     const merged = mergeGroundingResults([
       result('first', ['https://first.example/1', 'https://first.example/2', 'https://first.example/3']),
