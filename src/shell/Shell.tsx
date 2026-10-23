@@ -3,6 +3,7 @@ import { Icon } from './Icon';
 import { BreezyLogo } from '../components/BreezyLogo';
 import { ActiveTab, LAB_NAV, MAIN_NAV, PROFILE_NAV } from '../lib/nav';
 import { userProfileService, UserProfile } from '../services/userProfileService';
+import { FeedbackWidget } from '../components/FeedbackWidget';
 
 export const initialsOf = (name: string) => { const v = name.trim(); return v ? v.split(/\s+/).slice(0, 2).map((x) => x[0]?.toUpperCase() || '').join('') : 'B'; };
 
@@ -87,6 +88,7 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpande
         </div>
       </div>
       <div className={`relative flex flex-col ${isExpanded ? 'p-space-md gap-space-sm' : 'items-center pb-space-md gap-space-md'}`}>
+        <FeedbackWidget expanded={isExpanded} />
         {profileMenuOpen && <div role="menu" aria-label="Profile menu" className={`absolute z-[90] bottom-full mb-space-sm rounded-2xl border border-outline-variant/60 bg-surface-container-low p-space-xs shadow-2xl coat ${isExpanded ? 'left-space-md right-space-md' : 'left-full ml-space-sm w-52'}`}>
           {PROFILE_NAV.map(profileItem)}
         </div>}

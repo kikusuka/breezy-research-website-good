@@ -23,7 +23,7 @@ function safeText(value: unknown, max = 500) {
     .replace(/\b(?:sk-[A-Za-z0-9_-]{12,}|AIza[0-9A-Za-z_-]{20,})\b/g, '[redacted key]');
 }
 
-export function FeedbackWidget() {
+export function FeedbackWidget({ expanded = true }: { expanded?: boolean }) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<ReportKind>('bug');
   const [title, setTitle] = useState('');
@@ -91,8 +91,8 @@ export function FeedbackWidget() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100]">
-      {open && <section aria-label="Send feedback" className="mb-3 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-outline-variant/60 bg-surface-container-low p-4 shadow-2xl sm:p-5">
+    <div className="relative w-full">
+      {open && <section aria-label="Send feedback" className={`absolute z-[100] ${expanded ? "bottom-full left-0 mb-3" : "left-full bottom-0 ml-3"} w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-outline-variant/60 bg-surface-container-low p-4 shadow-2xl sm:p-5`}>
         <div className="mb-3 flex items-start justify-between gap-3">
           <div><h2 className="font-headline-sm text-headline-sm text-on-surface">Help improve Breezy</h2><p className="mt-1 font-body-sm text-body-sm text-on-surface-variant">Reports go to the Breezy team. Don’t include API keys or private research.</p></div>
           <button type="button" onClick={() => setOpen(false)} aria-label="Close feedback" className="rounded-lg px-2 py-1 text-on-surface-variant hover:bg-surface-container-high">×</button>
@@ -113,8 +113,8 @@ export function FeedbackWidget() {
           <button type="submit" disabled={sending || !description.trim()} className="w-full rounded-xl bg-primary px-4 py-2.5 font-label-md text-label-md text-on-primary disabled:cursor-not-allowed disabled:opacity-50">{sending ? 'Sending…' : kind === 'bug' ? 'Send bug report' : 'Send suggestion'}</button>
         </form>
       </section>}
-      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label="Report a bug or suggest an idea" className="flex items-center gap-2 rounded-full border border-outline-variant/50 bg-surface-container-high px-4 py-3 font-label-md text-label-md text-on-surface shadow-xl transition hover:bg-surface-container-highest focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary">
-        <span aria-hidden="true" className="material-symbols-rounded text-[20px]">feedback</span><span>Feedback</span>
+      <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label="Report a bug or suggest an idea" className={`flex items-center gap-2 border border-outline-variant/50 bg-surface-container-high font-label-md text-label-md text-on-surface transition hover:bg-surface-container-highest focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${expanded ? "w-full rounded-xl px-3 py-2.5 justify-start" : "mx-auto h-11 w-11 justify-center rounded-full px-0 py-0"}`}>
+        <span aria-hidden="true" className="material-symbols-rounded text-[20px]">feedback</span>{expanded && <span>Send feedback</span>}
       </button>
     </div>
   );
