@@ -806,7 +806,7 @@ Analyze this deliberation and output the JSON object.`;
     const body = await req.json().catch(() => ({}));
     const {
       prompt,
-      protocol = 'trio',
+      protocol = 'solo',
       tone = 'balanced',
       searchEngine = 'duckduckgo',
       keys = {},
@@ -814,13 +814,14 @@ Analyze this deliberation and output the JSON object.`;
       enableSearchGrounding = false,
       agreementThreshold = 78,
       autoResolve = true,
-      selectedRound = 2,
+      selectedRound = 1,
       researchMethod = 'adaptive',
       heartbeatEnabled = true,
       heartbeatIntervalSec = 60,
     } = body;
 
-    const effectiveProtocol = (selectedRound === 1) ? 'solo' : (selectedRound === 4) ? 'quad' : (selectedRound === 2 && (protocol === 'quad' || protocol === 'deep')) ? 'trio' : protocol;
+    // Enforce the product's single-model research contract server-side too; clients cannot re-enable debate rounds via a crafted request.
+    const effectiveProtocol = 'solo';
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return createJsonResponse({ error: 'Prompt is required' }, 400, req, env);
