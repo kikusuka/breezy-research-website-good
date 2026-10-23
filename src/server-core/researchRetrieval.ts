@@ -21,6 +21,29 @@ export function selectResearchQueries(plannedQueries: string[], originalPrompt: 
   return selected;
 }
 
+const TRACKING_QUERY_PARAMS = new Set([
+  'gclid', 'dclid', 'fbclid', 'msclkid', 'mc_cid', 'mc_eid',
+  'igshid', 'ref_src', 'yclid', '_hsenc', '_hsmi', 'vero_id',
+  'oly_anon_id', 'oly_enc_id', 'mkt_tok',
+]);
+
+/** Remove fragments and known tracking parameters without merging distinct query-string resources. */
+function normalizeSearchResultUrl(value: string): string {
+  try {
+    const parsed = new URL(value);
+    parsed.hash = '';
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (/^utm_/i.test(key) || TRACKING_QUERY_PARAMS.has(key.toLowerCase())) {
+        parsed.searchParams.delete(key);
+      }
+    }
+    parsed.searchParams.sort();
+    return parsed.toString();
+  } catch {
+    return value;
+  }
+}
+
 /** Merge results round-robin across queries, remove duplicate URLs, and cap context volume. */
 export function mergeGroundingResults(
   results: Array<SearchGroundingResult | null | undefined>,
@@ -40,11 +63,7 @@ export function mergeGroundingResults(
     for (const result of available) {
       const item = result.results[rank];
       if (!item?.url) continue;
-      let normalizedUrl = item.url;
-      try {
-        const parsed = new URL(item.url);
-        normalizedUrl = parsed.origin + parsed.pathname;
-      } catch {}
+      const normalizedUrl = normalizeSearchResultUrl(item.url);
       if (seen.has(normalizedUrl)) continue;
       seen.add(normalizedUrl);
       merged.push(item);
