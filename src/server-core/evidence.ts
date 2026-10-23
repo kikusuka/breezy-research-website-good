@@ -6,7 +6,7 @@
 
 import { callAgentWithStream } from './providers';
 import { BackendEnv } from './types';
-import { hasDiscoveredReference, normalizeClaimStatus, normalizeEvidenceUrl, normalizeModelConfidence } from './evidenceAssessment';
+import { assessClaimEvidenceBasis, hasDiscoveredReference, normalizeClaimStatus, normalizeEvidenceUrl, normalizeModelConfidence } from './evidenceAssessment';
 
 export async function summarizeStage(
   content: string,
@@ -185,11 +185,16 @@ CONFIDENCE RULE: confidence is a model estimate from 0 to 100 only when there is
         ...source,
         referenceFound: hasDiscoveredReference(source?.url, discoveredUrls),
       }));
+      const evidenceBasis = assessClaimEvidenceBasis(
+        [...supportingSources, ...counterEvidence],
+        discoveredSources,
+      );
 
       return {
         ...claim,
         status: normalizeClaimStatus(claim.status),
         confidence,
+        evidenceBasis,
         supportingSources,
         counterEvidence,
       };
