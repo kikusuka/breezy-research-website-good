@@ -131,7 +131,9 @@ export interface ResearchMetrics {
   claimsContradicted: number;
   claimsUnresolved: number;
   sourcesConsulted: number;
+  /** @deprecated Not populated: domain reputation alone cannot establish primary-source status. */
   primarySourcesCount?: number;
+  /** Count of sources matching a coarse preferred-domain heuristic; not a primary-source count. */
   preferredDomainSourcesCount?: number;
 }
 
