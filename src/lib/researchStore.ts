@@ -106,7 +106,6 @@ export const researchStore = {
     const mapping = DEPTH_PROTOCOL[depth];
     const session = createNewSession(prompt, mapping.protocol, makeInitialSteps(cfg, depth), 'balanced');
     session.status = 'running'; session.searchEngine = (cfg.searchEngine || 'duckduckgo') as SearchEngineProvider; session.enableSearchGrounding = true;
-    session.researchMethod = cfg.researchMethod || 'adaptive'; session.heartbeatEnabled = cfg.heartbeatEnabled !== false; session.heartbeatIntervalSec = cfg.heartbeatIntervalSec || 60;
     const startedAt = Date.now();
     set((s) => ({ sessions: [session, ...s.sessions], activeId: session.id, draft: { query: prompt, depth }, running: true, startedAt, explorationSeen: false, plan: null, warnings: [], events: [{ at: startedAt, kind: 'info', message: 'Run started.' }] }));
     persist(true);
@@ -115,8 +114,7 @@ export const researchStore = {
     try {
       await apiClient.streamDebate({
         prompt: prompt + attachmentsToPromptContext(attachments), protocol: mapping.protocol, tone: 'balanced' as DebateTone, searchEngine: session.searchEngine,
-        keys: providerConfigService.getKeys(), seats: providerConfigService.getSeatsPayload(cfg), enableSearchGrounding: true, autoResolve: cfg.autoResolve ?? true,
-        selectedRound: mapping.selectedRound, researchMethod: cfg.researchMethod || 'adaptive', heartbeatEnabled: cfg.heartbeatEnabled !== false, heartbeatIntervalSec: cfg.heartbeatIntervalSec || 60,
+        keys: providerConfigService.getKeys(), seats: providerConfigService.getSeatsPayload(cfg), enableSearchGrounding: true,
       }, {
         signal: c.signal, onNotice: (m) => { if (generation === accountGeneration) log('warn', m); },
         onEvent: (d) => {
