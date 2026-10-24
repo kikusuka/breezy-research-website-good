@@ -15,7 +15,7 @@ export default defineConfig(() => {
           id: '/',
           name: 'Breezy Research',
           short_name: 'Breezy Research',
-          description: 'High-fidelity multi-model research workspace and conversational AI platform.',
+          description: 'Conversational AI and grounded research powered by your configured model.',
           theme_color: '#0c0a09',
           background_color: '#0c0a09',
           display: 'standalone',
