@@ -14,7 +14,7 @@
  */
 
 import { authService } from './authService';
-import { readSseJsonEvents } from './sseJsonStream';
+import { assertResearchStreamTerminated, readSseJsonEvents } from './sseJsonStream';
 
 export interface BackendEndpoint {
   id: 'cloudflare' | 'deno' | 'render' | 'local';
@@ -352,9 +352,7 @@ class ApiClient {
       }
     }
 
-    if (!options.signal?.aborted && !receivedTerminalEvent) {
-      throw new Error('Research stream ended before a completion event. The run may be incomplete; please retry.');
-    }
+    assertResearchStreamTerminated(receivedTerminalEvent, Boolean(options.signal?.aborted));
   }
 
   /**
