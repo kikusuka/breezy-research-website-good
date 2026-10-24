@@ -13,6 +13,7 @@ import { providerConfigService } from '../services/providerConfigService';
 import { exportSynthexisAsMarkdown } from '../utils/exportTranscript';
 import { EvidenceMap } from './research/EvidenceMap';
 import { safeEvidenceHref } from '../lib/evidenceMap';
+import { getResearchModelReadiness } from '../lib/researchModelStatus';
 
 const CANVAS_KEY = 'breezy_canvas_cards_v1';
 
@@ -259,21 +260,29 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
   const { query, depth } = r.draft;
   const s = r.active;
   const cfg = model.config;
-  const researchProvider = cfg.roles?.architect?.provider || cfg.defaultProvider;
-  const researchModel = cfg.roles?.architect?.model || cfg.defaultModel;
-  const researchModelLabel = researchProvider && researchModel ? `${researchProvider} · ${researchModel}` : 'No model configured';
+  const researchProvider = cfg.roles?.architect?.provider || '';
+  const researchModel = cfg.roles?.architect?.model || '';
+  const researchModelLabel = researchProvider && researchModel ? `${researchProvider} · ${researchModel}` : 'No research model selected';
+  const modelReadiness = getResearchModelReadiness(
+    researchProvider,
+    researchModel,
+    providerConfigService.getConfiguredProviders(),
+    model.serverGemini,
+  );
 
   useEffect(() => { researchStore.refreshSessions(); }, []);
   useEffect(() => { if (initialPrompt) researchStore.setDraft({ query: initialPrompt }); }, [initialPrompt]);
   useEffect(() => { setPanel('findings'); }, [s?.id]);
 
-  const canRun = model.routable || model.serverGemini || providerConfigService.getConfiguredProviders().length > 0;
+  const canRun = modelReadiness === 'ready';
   const submit = async () => {
     if (r.running) return researchStore.stop();
     const result = await researchStore.start(query, depth, files);
     setFiles([]);
     if (result === 'no-model') {
-      researchStore.notify('No model connected. Add a provider in Models first.');
+      researchStore.notify(modelReadiness === 'unconfigured'
+        ? 'Select a research model in Models first.'
+        : 'The selected research provider is not configured. Add its API key or connection in Models.');
       window.location.hash = '#models';
     }
   };
@@ -297,9 +306,11 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
         ? 'Run failed'
         : s?.status === 'idle'
           ? 'Stopped'
-          : canRun
+          : modelReadiness === 'ready'
             ? 'Ready to investigate'
-            : 'No model configured';
+            : modelReadiness === 'unconfigured'
+              ? 'No research model selected'
+              : 'Research provider unavailable';
   const statusTone = r.running ? 'bg-primary' : s?.status === 'error' ? 'bg-error' : s?.status === 'completed' ? 'bg-tertiary' : canRun ? 'bg-secondary' : 'bg-outline';
   const recent = r.sessions.filter((session) => session.id !== s?.id).slice(0, 3);
 
@@ -359,6 +370,7 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
                 </div>
                 <p className="mt-0.5 break-words font-body-md text-body-md text-on-surface">{researchModelLabel}</p>
                 <p className="mt-1 max-w-2xl font-body-sm text-body-sm text-on-surface-variant">This model analyzes the question and retrieved context in one call. Breezy searches for sources separately; it does not run separate critic, verifier, or synthesizer calls.</p>
+                {modelReadiness !== 'ready' && <p role="status" className="mt-space-xs font-body-sm text-body-sm text-[#F59E0B]">{modelReadiness === 'unconfigured' ? 'Choose a research model in Models before starting an investigation.' : 'This research model is selected, but its provider connection is not configured yet.'}</p>}
                 <button type="button" onClick={() => { window.location.hash = '#models'; }} className="mt-space-xs min-h-[32px] font-label-md text-label-md text-primary">Configure model <Icon name="arrow_forward" className="text-[16px] align-middle" /></button>
               </div>
             </div>
