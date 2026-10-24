@@ -3,7 +3,7 @@ import { ActiveTab, TITLES } from '../lib/nav';
 import { Icon } from '../shell/Icon';
 
 const DESCRIPTIONS: Record<ActiveTab, string> = {
-  research: 'Run structured research with source grounding and model-led analysis.',
+  research: 'Investigate a question using web search, bounded source retrieval, and one configured research model.',
   chat: 'A focused workspace for conversations with your chosen model.',
   build: 'Edit and preview projects. Connecting GitHub is optional and only needed for GitHub-specific actions.',
   canvas: 'Organize ideas, findings and code into a visual board.',
@@ -52,7 +52,7 @@ export const GuestWorkspacePreview: React.FC<{ tab: ActiveTab }> = ({ tab }) => 
     </div>}
 
     {tab === 'research' && <div className="grid lg:grid-cols-[1.5fr_1fr] gap-4">
-      <Section title="Research question"><div className="min-h-28 rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-body-md text-body-md text-outline">Enter a question to investigate…</div><div className="flex flex-wrap gap-2 mt-4">{['Solo', 'Trio', 'Deep'].map((x) => <span key={x} className="rounded-xl border border-outline-variant/35 px-3 py-2 font-label-sm text-label-sm text-on-surface-variant">{x}</span>)}</div></Section>
+      <Section title="Research question"><div className="min-h-28 rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 font-body-md text-body-md text-outline">Enter a question to investigate…</div><div className="mt-4 rounded-xl border border-outline-variant/30 bg-surface-container p-4"><div className="flex items-center gap-2 font-label-md text-label-md text-on-surface"><Icon name="psychology" className="text-[18px] text-primary" /> One configured research model</div><p className="font-body-sm text-body-sm text-on-surface-variant mt-2">Breezy creates a local research plan, gathers web results, retrieves a small number of readable pages, then makes one answer-generation call with the available evidence. Search and page retrieval are grounding steps, not extra model calls.</p></div></Section>
       <Section title="Research workflow"><DisabledLine label="Source discovery" /><DisabledLine label="Evidence review" /><DisabledLine label="Synthesis" /><p className="font-body-sm text-body-sm text-outline mt-3">No research is running in preview mode.</p></Section>
     </div>}
 
