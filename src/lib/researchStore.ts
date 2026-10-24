@@ -13,7 +13,7 @@ import { attachmentsToPromptContext } from './files';
 export interface RunEvent { at: number; kind: 'info' | 'warn' | 'error' | 'done'; message: string; }
 export interface ResearchState {
   sessions: DebateSession[]; activeId: string | null; running: boolean; startedAt: number | null; explorationSeen: boolean;
-  events: RunEvent[]; plan: { method?: string; plan: string[]; searchQueries: string[] } | null; warnings: string[];
+  events: RunEvent[]; plan: { plan: string[]; searchQueries: string[] } | null; warnings: string[];
   draft: { query: string; depth: Depth }; notice: string | null;
 }
 
@@ -106,7 +106,6 @@ export const researchStore = {
     const mapping = DEPTH_PROTOCOL[depth];
     const session = createNewSession(prompt, mapping.protocol, makeInitialSteps(cfg, depth), 'balanced');
     session.status = 'running'; session.searchEngine = (cfg.searchEngine || 'duckduckgo') as SearchEngineProvider; session.enableSearchGrounding = true;
-    session.researchMethod = cfg.researchMethod || 'adaptive'; session.heartbeatEnabled = cfg.heartbeatEnabled !== false; session.heartbeatIntervalSec = cfg.heartbeatIntervalSec || 60;
     const startedAt = Date.now();
     set((s) => ({ sessions: [session, ...s.sessions], activeId: session.id, draft: { query: prompt, depth }, running: true, startedAt, explorationSeen: false, plan: null, warnings: [], events: [{ at: startedAt, kind: 'info', message: 'Run started.' }] }));
     persist(true);
@@ -115,15 +114,14 @@ export const researchStore = {
     try {
       await apiClient.streamDebate({
         prompt: prompt + attachmentsToPromptContext(attachments), protocol: mapping.protocol, tone: 'balanced' as DebateTone, searchEngine: session.searchEngine,
-        keys: providerConfigService.getKeys(), seats: providerConfigService.getSeatsPayload(cfg), enableSearchGrounding: true, autoResolve: cfg.autoResolve ?? true,
-        selectedRound: mapping.selectedRound, researchMethod: cfg.researchMethod || 'adaptive', heartbeatEnabled: cfg.heartbeatEnabled !== false, heartbeatIntervalSec: cfg.heartbeatIntervalSec || 60,
+        keys: providerConfigService.getKeys(), seats: providerConfigService.getSeatsPayload(cfg), enableSearchGrounding: true,
       }, {
         signal: c.signal, onNotice: (m) => { if (generation === accountGeneration) log('warn', m); },
         onEvent: (d) => {
           if (generation !== accountGeneration) return;
           switch (d.type) {
             case 'status': case 'notice': if (d.message) log(d.type === 'notice' ? 'warn' : 'info', d.message); break;
-            case 'research_plan': set({ explorationSeen: true, plan: { method: d.method, plan: d.plan || [], searchQueries: d.searchQueries || [] } }); log('info', 'Research plan ready.'); break;
+            case 'research_plan': set({ explorationSeen: true, plan: { plan: d.plan || [], searchQueries: d.searchQueries || [] } }); log('info', 'Research plan ready.'); break;
             case 'search_grounding': set({ explorationSeen: true }); if (d.sources) { patchSession(session.id, (s) => ({ ...s, evidenceGraph: { ...(s.evidenceGraph || { researchPlan: [], claims: [], contradictions: [], sourcesConsulted: [] }), sourcesConsulted: d.sources } })); log('info', `${d.sources.length} sources retrieved.`); } break;
             case 'round_start': stepPatch(d, (st) => ({ ...st, status: 'running', agentName: d.agentName || st.agentName, provider: d.provider || st.provider, model: d.model || st.model })); log('info', `${d.agentName || d.role || 'Step'} started${d.model ? ` on ${d.model}` : ''}.`); break;
             case 'token': stepPatch(d, (st) => ({ ...st, status: 'running', content: (st.content || '') + (d.token || '') })); break;
