@@ -418,6 +418,8 @@ export async function handleBackendRequest(
 
       const resp = await fetch(webhookUrl, {
         method: 'POST',
+        // Do not follow redirects: a public URL could redirect to a private or metadata address.
+        redirect: 'error',
         headers: {
           'Content-Type': 'application/json',
           'User-Agent': 'BreezyResearch-WebhookVerifier/1.0',
