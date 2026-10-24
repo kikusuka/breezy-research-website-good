@@ -8,57 +8,56 @@ const config = {
   defaultModel: 'gemini-2.5-flash',
   preset: 'balanced',
   roles: {
-    architect: { provider: 'anthropic', model: 'unused-analyst-model' },
-    skeptic: { provider: 'groq', model: 'unused-critic-model' },
-    verifier: { provider: 'sambanova', model: 'unused-verifier-model' },
-    arbiter: { provider: 'openrouter', model: 'unused-synthesizer-model' },
+    architect: { provider: 'anthropic', model: 'analyst-model' },
+    skeptic: { provider: 'groq', model: 'critic-model' },
+    verifier: { provider: 'sambanova', model: 'verifier-model' },
+    arbiter: { provider: 'openrouter', model: 'synth-model' },
   },
   fallback: { enabled: false, provider: '', model: '' },
   keys: {},
 } as unknown as CanonicalWorkspaceConfig;
 
-describe('single-model research workflow', () => {
-  it('exposes only the single-model depth', () => {
-    expect(Object.keys(DEPTH_PROTOCOL)).toEqual(['solo']);
+describe('selectable research workflows', () => {
+  it('exposes Solo, Trio and Deep with explicit model-call budgets', () => {
+    expect(Object.keys(DEPTH_PROTOCOL)).toEqual(['solo', 'trio', 'deep']);
     expect(DEPTH_PROTOCOL.solo.selectedRound).toBe(1);
+    expect(DEPTH_PROTOCOL.trio.selectedRound).toBe(3);
+    expect(DEPTH_PROTOCOL.deep.selectedRound).toBe(4);
   });
 
-  it('normalizes legacy saved protocols to the single-model workflow', () => {
-    expect(protocolToDepth('trio')).toBe('solo');
-    expect(protocolToDepth('quad')).toBe('solo');
+  it('restores legacy saved protocols to their corresponding depth', () => {
+    expect(protocolToDepth('solo')).toBe('solo');
+    expect(protocolToDepth('trio')).toBe('trio');
+    expect(protocolToDepth('quad')).toBe('deep');
     expect(protocolToDepth('duel')).toBe('solo');
   });
 
-  it('creates exactly one step using the selected research model', () => {
+  it('Solo needs one seat and creates one researcher step', () => {
     const steps = makeInitialSteps(config, 'solo');
     expect(steps).toHaveLength(1);
-    expect(steps[0]).toMatchObject({
-      role: 'solo',
-      agentName: 'Researcher',
-      provider: 'anthropic',
-      model: 'unused-analyst-model',
-      status: 'pending',
-    });
+    expect(steps[0]).toMatchObject({ role: 'solo', agentName: 'Researcher', provider: 'anthropic', model: 'analyst-model', status: 'pending' });
   });
 
-  it('shows the single-model investigation stages without critic or verifier stages', () => {
+  it('Trio maps analyst, critic and synthesizer to their own configured seats', () => {
+    const steps = makeInitialSteps(config, 'trio');
+    expect(steps.map((step) => step.role)).toEqual(['architect', 'skeptic', 'arbiter']);
+    expect(steps.map((step) => step.model)).toEqual(['analyst-model', 'critic-model', 'synth-model']);
+  });
+
+  it('Deep adds a verifier before synthesis', () => {
+    const steps = makeInitialSteps(config, 'deep');
+    expect(steps.map((step) => step.role)).toEqual(['architect', 'skeptic', 'verifier', 'arbiter']);
+    expect(steps.map((step) => step.model)).toEqual(['analyst-model', 'critic-model', 'verifier-model', 'synth-model']);
+  });
+
+  it('shows the actual workflow stages and skips unused stages honestly', () => {
     const session = {
-      id: 'test',
-      prompt: 'Test question',
-      protocol: 'solo',
-      createdAt: 1,
-      updatedAt: 1,
-      status: 'running',
-      steps: makeInitialSteps(config, 'solo'),
+      id: 'test', prompt: 'Test question', protocol: 'trio', createdAt: 1, updatedAt: 1,
+      status: 'running', steps: makeInitialSteps(config, 'trio'),
     } as DebateSession;
     const stages = deriveStages(session, true, false);
-    expect(stages.map((stage) => stage.label)).toEqual([
-      'Question',
-      'Explore',
-      'Analysis',
-      'Evidence',
-      'Answer',
-    ]);
-    expect(stages.some((stage) => /critic|verifier|synthesizer/i.test(stage.label))).toBe(false);
+    expect(stages.find((stage) => stage.id === 'critic')?.state).toBe('pending');
+    expect(stages.find((stage) => stage.id === 'verifier')?.state).toBe('skipped');
+    expect(stages.find((stage) => stage.id === 'synthesizer')?.state).toBe('pending');
   });
 });
