@@ -13,7 +13,7 @@ import { attachmentsToPromptContext } from './files';
 export interface RunEvent { at: number; kind: 'info' | 'warn' | 'error' | 'done'; message: string; }
 export interface ResearchState {
   sessions: DebateSession[]; activeId: string | null; running: boolean; startedAt: number | null; explorationSeen: boolean;
-  events: RunEvent[]; plan: { method?: string; plan: string[]; searchQueries: string[] } | null; warnings: string[];
+  events: RunEvent[]; plan: { plan: string[]; searchQueries: string[] } | null; warnings: string[];
   draft: { query: string; depth: Depth }; notice: string | null;
 }
 
@@ -121,7 +121,7 @@ export const researchStore = {
           if (generation !== accountGeneration) return;
           switch (d.type) {
             case 'status': case 'notice': if (d.message) log(d.type === 'notice' ? 'warn' : 'info', d.message); break;
-            case 'research_plan': set({ explorationSeen: true, plan: { method: d.method, plan: d.plan || [], searchQueries: d.searchQueries || [] } }); log('info', 'Research plan ready.'); break;
+            case 'research_plan': set({ explorationSeen: true, plan: { plan: d.plan || [], searchQueries: d.searchQueries || [] } }); log('info', 'Research plan ready.'); break;
             case 'search_grounding': set({ explorationSeen: true }); if (d.sources) { patchSession(session.id, (s) => ({ ...s, evidenceGraph: { ...(s.evidenceGraph || { researchPlan: [], claims: [], contradictions: [], sourcesConsulted: [] }), sourcesConsulted: d.sources } })); log('info', `${d.sources.length} sources retrieved.`); } break;
             case 'round_start': stepPatch(d, (st) => ({ ...st, status: 'running', agentName: d.agentName || st.agentName, provider: d.provider || st.provider, model: d.model || st.model })); log('info', `${d.agentName || d.role || 'Step'} started${d.model ? ` on ${d.model}` : ''}.`); break;
             case 'token': stepPatch(d, (st) => ({ ...st, status: 'running', content: (st.content || '') + (d.token || '') })); break;
