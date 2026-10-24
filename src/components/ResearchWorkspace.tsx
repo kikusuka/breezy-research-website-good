@@ -6,10 +6,9 @@ import { Markdown } from '../ui/Markdown';
 import { researchStore, useResearch } from '../lib/researchStore';
 import { Stage, deriveStages, formatDuration } from '../lib/research';
 import { RESEARCH_STARTERS } from '../lib/starters';
-import { RESEARCH_METHODS } from '../lib/providers';
 import { readAttachment } from '../lib/files';
 import { useElapsed } from '../lib/useElapsed';
-import { useModelState, announceConfigChange } from '../lib/useModelState';
+import { useModelState } from '../lib/useModelState';
 import { providerConfigService } from '../services/providerConfigService';
 import { exportSynthexisAsMarkdown } from '../utils/exportTranscript';
 import { EvidenceMap } from './research/EvidenceMap';
@@ -260,6 +259,9 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
   const { query, depth } = r.draft;
   const s = r.active;
   const cfg = model.config;
+  const researchProvider = cfg.roles?.architect?.provider || cfg.defaultProvider;
+  const researchModel = cfg.roles?.architect?.model || cfg.defaultModel;
+  const researchModelLabel = researchProvider && researchModel ? `${researchProvider} · ${researchModel}` : 'No model configured';
 
   useEffect(() => { researchStore.refreshSessions(); }, []);
   useEffect(() => { if (initialPrompt) researchStore.setDraft({ query: initialPrompt }); }, [initialPrompt]);
@@ -285,11 +287,6 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
       }
     }
   };
-  const setMethod = (method: string) => {
-    providerConfigService.saveConfig({ ...providerConfigService.getConfig(), researchMethod: method as any });
-    announceConfigChange();
-  };
-
   const statusLabel = r.running
     ? 'Investigation running'
     : s?.status === 'running'
@@ -352,31 +349,22 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
         ))}</div>}
 
         <div className="mt-space-md flex flex-col gap-space-md lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-space-sm">
-            <span className="inline-flex min-h-[44px] items-center gap-space-xs rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md font-label-md text-label-md text-on-surface-variant" title="Research uses one configured model call; source search and retrieval remain enabled.">
-              <Icon name="person" className="text-[17px]" />Single-model research
-            </span>
-            <button type="button" disabled={r.running} onClick={() => fileRef.current?.click()} className="inline-flex min-h-[44px] items-center gap-space-xs rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md font-label-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface disabled:opacity-50">
+          <div className="flex min-w-0 flex-1 flex-col gap-space-sm sm:flex-row sm:items-stretch">
+            <div className="flex min-w-0 flex-1 items-start gap-space-sm rounded-2xl border border-outline-variant/40 bg-surface-container-low px-space-md py-space-sm">
+              <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon name="person" className="text-[19px]" /></span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-space-xs">
+                  <p className="font-label-sm text-label-sm text-on-surface-variant">Research model</p>
+                  <span className="rounded-full bg-primary/10 px-space-sm py-0.5 font-code-sm text-code-sm text-primary">One model call</span>
+                </div>
+                <p className="mt-0.5 break-words font-body-md text-body-md text-on-surface">{researchModelLabel}</p>
+                <p className="mt-1 max-w-2xl font-body-sm text-body-sm text-on-surface-variant">This model analyzes the question and retrieved context in one call. Breezy searches for sources separately; it does not run separate critic, verifier, or synthesizer calls.</p>
+                <button type="button" onClick={() => { window.location.hash = '#models'; }} className="mt-space-xs min-h-[32px] font-label-md text-label-md text-primary">Configure model <Icon name="arrow_forward" className="text-[16px] align-middle" /></button>
+              </div>
+            </div>
+            <button type="button" disabled={r.running} onClick={() => fileRef.current?.click()} className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-space-xs rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md font-label-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface disabled:opacity-50">
               <Icon name="attach_file" className="text-[17px]" />Attach files
             </button>
-            <details className="relative">
-              <summary className="flex min-h-[44px] cursor-pointer list-none items-center gap-space-xs rounded-xl px-space-md font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-low">
-                <Icon name="tune" className="text-[17px]" />Advanced options <Icon name="expand_more" className="text-[16px]" />
-              </summary>
-              <div className="mt-space-xs w-full rounded-2xl border border-outline-variant/50 bg-surface-container-low p-space-md sm:absolute sm:right-0 sm:z-20 sm:w-80 sm:shadow-xl">
-                <label className="block font-label-sm text-label-sm text-on-surface-variant" htmlFor="research-method">Research method</label>
-                <select id="research-method" aria-label="Research method" value={cfg.researchMethod || 'adaptive'} disabled={r.running} onChange={(event) => setMethod(event.target.value)}
-                  className="mt-1 min-h-[42px] w-full rounded-lg border border-outline-variant/40 bg-surface-container px-space-sm font-body-sm text-body-sm capitalize">
-                  {RESEARCH_METHODS.map((method) => <option key={method} value={method} className="capitalize">{method}</option>)}
-                </select>
-                <p className="mt-space-sm font-body-sm text-body-sm text-on-surface-variant">One configured model call handles the analysis. Breezy still searches for sources and retrieves bounded page text, but it does not run separate critic, verifier, or synthesizer model calls.</p>
-                <div className="mt-space-md border-t border-outline-variant/30 pt-space-md">
-                  <p className="font-label-sm text-label-sm text-on-surface-variant">Research model</p>
-                  <p className="mt-1 font-body-sm text-body-sm text-on-surface">{(cfg.roles?.architect?.provider || cfg.defaultProvider) && (cfg.roles?.architect?.model || cfg.defaultModel) ? `${cfg.roles.architect.provider || cfg.defaultProvider} · ${cfg.roles.architect.model || cfg.defaultModel}` : "No model configured"}</p>
-                  <button type="button" onClick={() => { window.location.hash = '#models'; }} className="mt-space-sm min-h-[36px] font-label-md text-label-md text-primary">Configure model <Icon name="arrow_forward" className="text-[16px] align-middle" /></button>
-                </div>
-              </div>
-            </details>
           </div>
           <button type="button" onClick={() => void submit()} disabled={!r.running && !query.trim()}
             className={`inline-flex min-h-[48px] shrink-0 items-center justify-center gap-space-sm rounded-2xl px-space-lg font-headline-sm text-headline-sm transition-all disabled:cursor-not-allowed disabled:opacity-40 ${r.running ? 'border border-error/30 bg-error-container/30 text-error hover:bg-error-container/50' : 'bg-primary text-on-primary shadow-md shadow-primary/10 hover:brightness-110'}`}>
