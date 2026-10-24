@@ -42,3 +42,10 @@ export async function* readSseJsonEvents(stream: ReadableStream<Uint8Array>): As
     reader.releaseLock();
   }
 }
+
+/** Fail visibly if a research stream ends normally without a terminal event. */
+export function assertResearchStreamTerminated(receivedTerminalEvent: boolean, aborted: boolean): void {
+  if (!aborted && !receivedTerminalEvent) {
+    throw new Error('Research stream ended before a completion event. The run may be incomplete; please retry.');
+  }
+}
