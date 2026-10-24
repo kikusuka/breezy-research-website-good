@@ -41,99 +41,37 @@ Breezy should use a **single edge entry point** for normal traffic, with a Node 
 
 ## 1. Deploy the Static Frontend
 
-The frontend is a pure static React 19 / Vite application with client-side routing.
+The frontend is a static React/Vite app. Build output is `dist/`.
 
-### Build the Static Bundle
-```bash
-npm install
-npm run build
-```
-The output is written to the `dist/` folder.
+1. Connect the repository to Cloudflare Pages.
+2. Set the build command to `npm install --legacy-peer-deps && npm run build`.
+3. Set the build output directory to `dist`.
+4. Set `VITE_PRIMARY_API_URL` to the deployed Worker URL, for example `https://breezy-api.<your-subdomain>.workers.dev`.
+5. Leave `VITE_SECONDARY_API_URL` and `VITE_FALLBACK_API_URL` empty unless those backup services have actually been deployed and tested. Configuring a URL does not create a backend.
 
-### Deploy to Cloudflare Pages
-1. Connect your repository to **Cloudflare Pages**.
-2. Set Build Command: `npm run build`
-3. Set Build Output Directory: `dist`
-4. Set Environment Variables:
-   - `VITE_PRIMARY_API_URL`: `https://breezy-api.<your-subdomain>.workers.dev`
-   - `VITE_SECONDARY_API_URL`: `https://breezy-api.deno.dev`
-   - `VITE_FALLBACK_API_URL`: `https://breezy-api.onrender.com` (optional)
+Vite variables are embedded at build time. Rebuild and redeploy Pages after changing them.
 
-### Deploy to Vercel / Netlify
-1. Point root to repository.
-2. Build Command: `npm run build`
-3. Output Directory: `dist`
-4. For single-page app (SPA) routing, ensure all paths route to `index.html`.
+## 2. Deploy the Cloudflare Worker API
 
----
+The primary API entry point is `workers/index.ts`, configured by `wrangler.jsonc`.
 
-## 2. Deploy Cloudflare Worker (Primary API)
+1. Confirm `FIREBASE_PROJECT_ID` matches the Firebase project used by the frontend.
+2. **Before deploying, replace the localhost-only `ALLOWED_ORIGINS` value in `wrangler.jsonc` with the exact frontend origin(s)**, e.g. your Pages `.pages.dev` URL and custom domain, comma-separated with no paths or trailing slashes. Do not use `*` for production. The current committed localhost values are for local development; leaving them in place will block browser requests from the production frontend.
+3. Authenticate Wrangler with `npx wrangler login`.
+4. Deploy with `npx wrangler deploy`.
+5. Set the resulting Worker URL as `VITE_PRIMARY_API_URL` in Cloudflare Pages and trigger a new frontend build.
 
-The primary API runs on Cloudflare Workers using the lightweight handler in `workers/index.ts`.
+Breezy supports users configuring their own provider keys in the app. A server-side provider key is only needed if you intentionally want to offer a server-managed provider; if so, add it as a Worker secret (never as a `VITE_*` variable), for example `npx wrangler secret put GEMINI_API_KEY`.
 
-### Steps:
-1. Install Wrangler CLI (if not installed):
-   ```bash
-   npm install -g wrangler
-   ```
-2. Authenticate:
-   ```bash
-   wrangler login
-   ```
-3. Confirm `FIREBASE_PROJECT_ID` in `wrangler.jsonc` matches the Firebase project used by the frontend. This is a public project identifier, not a secret. If you use a different Firebase project, update the variable before deploying.
-4. Set your server-side Gemini API key (encrypted secret):
-   ```bash
-   wrangler secret put GEMINI_API_KEY
-   ```
-5. Deploy the worker:
-   ```bash
-   wrangler deploy
-   ```
-5. Note your Worker URL (e.g. `https://breezy-api.<subdomain>.workers.dev`) and set it as `VITE_PRIMARY_API_URL` in your frontend environment.
+## 3. Firebase and production smoke test
 
----
+- Add the deployed Pages domain (and any custom domain) to Firebase Authentication's authorized domains.
+- Confirm `GET https://<worker-url>/api/health` returns a healthy response.
+- Test sign-in, configure a research model, send one chat message, and run a short research question with search grounding both enabled and disabled.
+- Confirm a failed provider request displays a real error rather than silently switching models.
+- Test page refresh and mobile layout on the deployed site.
+- Check Worker logs for unexpected 4xx/5xx responses. Do not expose provider keys in browser variables or logs.
 
-## 3. Deploy Deno Deploy (Secondary API)
+Do not advertise Deno or Render as failover until those services are deployed, configured with the same Firebase project and allowed origins, and tested end to end.
 
-The secondary fallback runs on Deno Deploy using `deno/main.ts`.
-
-### Steps:
-1. Go to [Deno Deploy Dashboard](https://dash.deno.com/).
-2. Click **New Project** and link your GitHub repository.
-3. Set **Entrypoint**: `deno/main.ts`
-4. Set Environment Variables in Deno Deploy Settings:
-   - `GEMINI_API_KEY`: your server Gemini key
-   - `FIREBASE_PROJECT_ID`: the Firebase project ID used by the frontend
-   - `ALLOWED_ORIGINS`: `*` (or your frontend domain)
-5. Deploy project. Copy the resulting `https://<project-name>.deno.dev` URL and set it as `VITE_SECONDARY_API_URL` in your frontend.
-
----
-
-## 4. Run / Deploy Render (Emergency Fallback & Local Dev)
-
-The `server.ts` Express server handles local full-stack development and can be deployed directly to Render as a Web Service.
-
-### Local Development:
-```bash
-npm run dev
-```
-
-### Deploy to Render:
-1. Create a **Web Service** on Render.
-2. Build Command: `npm run build`
-3. Start Command: `npm start`
-4. Set `GEMINI_API_KEY` in Render Environment Variables.
-
----
-
-Deno can still run the shared `deno/main.ts` handler as an additional deployment target, but it should be treated as optional. Do not hard-code a quota assumption into product behavior.
-
-## 🔄 How Failover Operates
-
-1. **Primary:** Cloudflare Worker.
-2. **Fallback:** Render Node API when the Worker is unavailable or a request requires Node-specific behavior.
-3. **No blind retry:** if an AI request has already started streaming, do not automatically replay it on another backend; that can duplicate LLM calls.
-4. **Truthful UI:** expose which backend is actually serving the request when fallback occurs.
-5. **Future async path:** long-running research can move to Cloudflare Workflows once the product needs durable background jobs.
-
-The deployment layer should never decide which AI model to use. Provider/model routing belongs to Synthexis' model-control layer.
+The deployment layer should never decide which AI model to use. Provider/model routing belongs to Breezy's model-control layer.
