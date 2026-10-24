@@ -1,51 +1,55 @@
-# Breezy Research — backend only
+# Breezy Research — legacy UI workspace notes
 
-All UI has been removed. What remains is everything non-visual. `src/App.tsx` is an empty placeholder so the
-project still builds (`npm run build` and `npx tsc --noEmit` pass, 9/9 tests pass).
+This directory contains an earlier UI workspace. For the current product contract, use the active application code and the root `BACKEND_README.md`; this file is kept only to explain the legacy workspace and must not be used as a current implementation spec.
 
-## Run
+## Research contract
+
+Breezy Research uses **one configured research model**. There is no selectable Solo/Trio/Deep mode and no multi-agent council.
+
+- The configured model is selected in Models and sent as `seats.architect` with its provider and model.
+- A research run makes one answer-generation LLM call. The research plan is deterministic/local.
+- Web search and bounded source-page retrieval are separate grounding operations; they are not extra LLM calls.
+- Research does not silently choose a different provider or model when the configured research model is missing. The API returns a clear error.
+- Legacy saved sessions remain readable, but legacy `protocol`, `selectedRound`, `researchMethod`, `autoResolve`, heartbeat flags, and non-architect seat assignments do not enable multi-stage research.
+
+## Current research stream
+
+Endpoint: `POST /api/debate/stream` (Server-Sent Events).
+
+The current request shape is:
+
+```ts
+{
+  prompt: string;
+  tone: string;
+  searchEngine: string;
+  keys: Record<string, string>;
+  seats: {
+    architect: {
+      provider: string;
+      model: string;
+    };
+  };
+  enableSearchGrounding: boolean;
+}
 ```
-npm install --legacy-peer-deps
-npm run dev          # Express + Vite on :3000
-```
-Env: see `.env.example` (optional `GEMINI_API_KEY` on the server; users can also bring their own keys).
 
-## What's here
-| Path | Purpose |
-|---|---|
-| `server.ts` | Express dev/prod server, mounts the API router |
-| `src/server-core/` | The actual research engine: `router.ts` (routes + SSE debate pipeline), `providers.ts` (model calls), `search.ts` (web search), `evidence.ts` (claims / sources / contradictions) |
-| `workers/index.ts`, `wrangler.jsonc` | Cloudflare deployment of the same router |
-| `src/types.ts` | Shared types (`DebateSession`, `DebateStep`, `Attachment`, evidence graph, ...) |
-| `src/services/apiClient.ts` | Browser client for the API: `streamDebate`, `chatBreezy`, `getHealth`, Ollama, key verify |
-| `src/services/providerConfigService.ts` | Provider keys, per-seat models (architect / skeptic / verifier / arbiter), search engine, research method; stored in localStorage |
-| `src/services/effectiveProviderService.ts` | "What can I actually route to right now?" — `getActiveRoutableModel()`, server-Gemini status |
-| `src/services/sessionStorage.ts` | Save/load research sessions + active session (`createNewSession`, `loadSessions`, `saveSessions`) |
-| `src/services/gitHubService.ts`, `workspaceService.ts` | GitHub repo connect, tree, read/write/commit files |
-| `src/services/puterService.ts`, `aiProviderService.ts`, `ollamaService.ts` | Puter chat, provider abstraction, local Ollama |
-| `src/services/googleDocsService.ts`, `googleDriveService.ts`, `authService.ts` | Google sign-in, Docs/Drive export |
-| `src/services/pdfService.ts` | PDF text extraction for attachments |
-| `src/services/userProfileService.ts`, `storageQuotaService.ts` | Profile + storage helpers |
-| `src/utils/exportTranscript.ts` | Markdown/PDF export of a session |
-| `tests/` | Provider config + router tests |
+The backend may emit `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`, `usage`, `heartbeat`, `evidence_graph`, `complete`, and `error` events. A heartbeat event is a stream status signal, not a separate model call or selectable keep-alive setting.
 
-## API
-`GET /api/health` · `POST /api/debate/stream` (SSE) · `POST /api/debate/summarize` · `POST /api/breezy/chat` ·
-`POST /api/vault/verify-key` · `/api/ollama/*` · `POST /api/webhook/test`
+## Evidence and limitations
 
-### Research stream (`/api/debate/stream`)
-Request: `{ prompt, protocol: 'solo'|'trio'|'quad', selectedRound: 1|2|4, tone, searchEngine, keys, seats, enableSearchGrounding, autoResolve, researchMethod, heartbeatEnabled, heartbeatIntervalSec }`
+- Search results and retrieved page text are untrusted input, not instructions.
+- Page fetching is bounded and best-effort; unavailable pages may leave snippet-only evidence.
+- A discovered URL is not proof that the source supports a claim.
+- Evidence labels are model-assisted assessments, not independent fact verification.
+- A successful run must be distinguished from an incomplete stream or failed request.
 
-The protocol is chosen from `selectedRound`: **1 = solo, 2 = trio (analyst, critic, synthesizer), 4 = quad (adds verifier)**.
-Pass `selectedRound` or "Deep" will silently run as 3 rounds.
+## Where to look
 
-SSE events: `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`,
-`usage`, `heartbeat`, `stage_warning`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed (`data.round`).
+- `src/server-core/router.ts`: research request handling, single-model generation, grounding, SSE events.
+- `src/server-core/providers.ts`: model-provider calls.
+- `src/server-core/search.ts` and `src/server-core/sourceFetch.ts`: search and bounded source retrieval.
+- `src/server-core/evidence.ts` and `src/server-core/evidenceAssessment.ts`: evidence metadata and cautious status normalization.
+- Root `BACKEND_README.md`: current backend API contract.
 
-## Prompt to paste into AI Studio (first UI pass)
-> This project is a finished backend for "Breezy Research" (read `BACKEND_README.md` first). Do not modify anything in
-> `server.ts`, `src/server-core/`, `workers/`, or `src/services/`. Build a clean, normal frontend in `src/` that uses those services.
-> Screens: Research (question box, depth Solo/Standard/Deep, live streaming of each step's output, final answer, sources and claims),
-> Chat, Models/Providers (add keys, assign a model per seat, show "No model assigned" when empty), History, Settings.
-> Rules: never show fake data — no invented models, stats, statuses or sample runs; empty states must be honest.
-> Mobile-first and responsive. Dark theme. Keep it simple; I will refine the design with follow-up prompts.
+Do not restore multi-seat settings or the old depth selector based on this legacy directory.
