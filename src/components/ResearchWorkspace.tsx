@@ -4,7 +4,7 @@ import type { Attachment, DebateSession } from '../types';
 import { Icon } from '../shell/Icon';
 import { Markdown } from '../ui/Markdown';
 import { researchStore, useResearch } from '../lib/researchStore';
-import { Stage, deriveStages, formatDuration } from '../lib/research';
+import { Stage, deriveStages, formatDuration, DEPTH_PROTOCOL, type Depth } from '../lib/research';
 import { RESEARCH_STARTERS } from '../lib/starters';
 import { RESEARCH_METHODS } from '../lib/providers';
 import { readAttachment } from '../lib/files';
@@ -353,9 +353,15 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
 
         <div className="mt-space-md flex flex-col gap-space-md lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-space-sm">
-            <span className="inline-flex min-h-[44px] items-center gap-space-xs rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md font-label-md text-label-md text-on-surface-variant" title="Research uses one configured model call; source search and retrieval remain enabled.">
-              <Icon name="person" className="text-[17px]" />Single-model research
-            </span>
+            <label className="inline-flex min-h-[44px] items-center gap-space-xs rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md font-label-md text-label-md text-on-surface-variant">
+              <Icon name="account_tree" className="text-[17px]" />
+              <span className="sr-only">Research mode</span>
+              <select aria-label="Research mode" value={r.draft.depth} disabled={r.running}
+                onChange={(event) => researchStore.setDraft({ depth: event.target.value as Depth })}
+                className="max-w-[140px] bg-transparent font-label-md text-label-md text-on-surface outline-none">
+                {Object.entries(DEPTH_PROTOCOL).map(([depth, option]) => <option key={depth} value={depth} className="bg-surface-container">{option.label}</option>)}
+              </select>
+            </label>
             <button type="button" disabled={r.running} onClick={() => fileRef.current?.click()} className="inline-flex min-h-[44px] items-center gap-space-xs rounded-xl border border-outline-variant/40 bg-surface-container-low px-space-md font-label-md text-label-md text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-on-surface disabled:opacity-50">
               <Icon name="attach_file" className="text-[17px]" />Attach files
             </button>
@@ -369,10 +375,10 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
                   className="mt-1 min-h-[42px] w-full rounded-lg border border-outline-variant/40 bg-surface-container px-space-sm font-body-sm text-body-sm capitalize">
                   {RESEARCH_METHODS.map((method) => <option key={method} value={method} className="capitalize">{method}</option>)}
                 </select>
-                <p className="mt-space-sm font-body-sm text-body-sm text-on-surface-variant">One configured model call handles the analysis. Breezy still searches for sources and retrieves bounded page text, but it does not run separate critic, verifier, or synthesizer model calls.</p>
+                <p className="mt-space-sm font-body-sm text-body-sm text-on-surface-variant">{DEPTH_PROTOCOL[r.draft.depth].blurb}. Solo uses one model call; Trio runs analyst → critic → synthesizer; Deep adds a verifier before synthesis. Multi-stage modes make more provider calls and may use more tokens. Each stage uses the model assigned to its seat.</p>
                 <div className="mt-space-md border-t border-outline-variant/30 pt-space-md">
-                  <p className="font-label-sm text-label-sm text-on-surface-variant">Research model</p>
-                  <p className="mt-1 font-body-sm text-body-sm text-on-surface">{(cfg.roles?.architect?.provider || cfg.defaultProvider) && (cfg.roles?.architect?.model || cfg.defaultModel) ? `${cfg.roles.architect.provider || cfg.defaultProvider} · ${cfg.roles.architect.model || cfg.defaultModel}` : "No model configured"}</p>
+                  <p className="font-label-sm text-label-sm text-on-surface-variant">Configured research seats</p>
+                  <p className="mt-1 font-body-sm text-body-sm text-on-surface">{(['architect', ...(r.draft.depth === 'solo' ? [] : ['skeptic']), ...(r.draft.depth === 'deep' ? ['verifier'] : []), ...(r.draft.depth === 'solo' ? [] : ['arbiter'])] as const).map((role) => { const seat = cfg.roles?.[role]; const name = role === 'architect' ? 'Analyst' : role === 'skeptic' ? 'Critic' : role === 'verifier' ? 'Verifier' : 'Synthesizer'; return `${name}: ${seat?.provider && seat?.model ? `${seat.provider} · ${seat.model}` : 'not configured'}`; }).join('  |  ')}</p>
                   <button type="button" onClick={() => { window.location.hash = '#models'; }} className="mt-space-sm min-h-[36px] font-label-md text-label-md text-primary">Configure model <Icon name="arrow_forward" className="text-[16px] align-middle" /></button>
                 </div>
               </div>
