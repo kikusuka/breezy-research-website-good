@@ -133,7 +133,7 @@ export const researchStore = {
             case 'stage_warning': set((s) => ({ warnings: [...s.warnings, d.message] })); log('warn', d.message); break;
             case 'evidence_graph': patchSession(session.id, (s) => ({ ...s, evidenceGraph: d.evidenceGraph || s.evidenceGraph, researchMetrics: d.researchMetrics || s.researchMetrics })); break;
             case 'complete': patchSession(session.id, (s) => ({ ...s, status: 'completed', finalOutput: d.finalOutput || s.finalOutput, evidenceGraph: d.evidenceGraph || s.evidenceGraph, researchMetrics: d.researchMetrics || s.researchMetrics, usage: d.usage || s.usage, metrics: d.metrics || s.metrics, updatedAt: Date.now(), steps: s.steps.map((st) => (st.status === 'running' ? { ...st, status: 'completed' as const } : st)) })); log('done', 'Research complete.'); break;
-            case 'error': patchSession(session.id, (s) => ({ ...s, status: 'error', error: d.message || d.error || 'Research failed' })); log('error', d.message || d.error || 'Research failed'); break;
+            case 'error': patchSession(session.id, (s) => ({ ...s, status: 'error', error: d.message || d.error || 'Research failed', steps: s.steps.map((step) => step.status === 'running' ? { ...step, status: 'error' as const } : step) })); log('error', d.message || d.error || 'Research failed'); break;
           }
         },
       });
