@@ -14,6 +14,7 @@
  */
 
 import { authService } from './authService';
+import { assertResearchStreamTerminated, readSseJsonEvents } from './sseJsonStream';
 
 export interface BackendEndpoint {
   id: 'cloudflare' | 'deno' | 'render' | 'local';
@@ -302,7 +303,7 @@ class ApiClient {
   }
 
   /**
-   * Debate & Multi-Model Research SSE Stream
+   * Single-model Research SSE Stream
    */
   public async streamDebate(
     payload: any,
@@ -342,30 +343,16 @@ class ApiClient {
       throw new Error('No response body stream received from backend.');
     }
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let buffer = '';
+    let receivedTerminalEvent = false;
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith('data: ')) continue;
-
-        try {
-          const json = JSON.parse(trimmed.slice(6));
-          options.onEvent(json);
-        } catch {
-          // Skip incomplete json chunk
-        }
+    for await (const event of readSseJsonEvents(res.body)) {
+      options.onEvent(event);
+      if (event?.type === 'complete' || event?.type === 'error') {
+        receivedTerminalEvent = true;
       }
     }
+
+    assertResearchStreamTerminated(receivedTerminalEvent, Boolean(options.signal?.aborted));
   }
 
   /**
