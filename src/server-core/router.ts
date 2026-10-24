@@ -12,6 +12,7 @@ import { performSearchGrounding } from './search';
 import { mergeGroundingResults, selectResearchQueries } from './researchRetrieval';
 import { attachSourceFetchResults, fetchReadableSource } from './sourceFetch';
 import { generateRealEvidenceGraph } from './evidence';
+import { findMissingResearchSeats, resolveResearchMode } from './researchModes';
 
 // In-memory rate limiting map for server-provided key usage (resets per instance/isolate)
 const requestRateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -818,17 +819,13 @@ Analyze this deliberation and output the JSON object.`;
 
     // Mode is explicit and bounded. Solo stays a true one-call path; Trio uses three stages;
     // Deep adds the verifier stage. Never silently substitute a missing seat.
-    const requestedRounds = Number(selectedRound) || (protocol === 'quad' ? 4 : protocol === 'trio' ? 3 : 1);
-    const effectiveProtocol: 'solo' | 'trio' | 'quad' =
-      requestedRounds <= 1 ? 'solo' : requestedRounds >= 4 || protocol === 'quad' ? 'quad' : 'trio';
+    const modePlan = resolveResearchMode(protocol, selectedRound);
+    const effectiveProtocol = modePlan.protocol;
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
       return createJsonResponse({ error: 'Prompt is required' }, 400, req, env);
     }
-    const requiredSeats = effectiveProtocol === 'solo'
-      ? ['architect']
-      : effectiveProtocol === 'trio' ? ['architect', 'skeptic', 'arbiter'] : ['architect', 'skeptic', 'verifier', 'arbiter'];
-    const missingSeats = requiredSeats.filter((seat) => !seats?.[seat]?.provider || !seats?.[seat]?.model);
+    const missingSeats = findMissingResearchSeats(seats, modePlan.requiredSeats);
     if (missingSeats.length) {
       return createJsonResponse({
         error: `Assign a provider and model to these research seats in Models: ${missingSeats.join(', ')}.`,
