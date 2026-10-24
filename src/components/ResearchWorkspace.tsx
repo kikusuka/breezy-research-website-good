@@ -370,6 +370,7 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
                 </div>
                 <p className="mt-0.5 break-words font-body-md text-body-md text-on-surface">{researchModelLabel}</p>
                 <p className="mt-1 max-w-2xl font-body-sm text-body-sm text-on-surface-variant">This model analyzes the question and retrieved context in one call. Breezy searches for sources separately; it does not run separate critic, verifier, or synthesizer calls.</p>
+                {modelReadiness !== 'ready' && <p role="status" className="mt-space-xs font-body-sm text-body-sm text-[#F59E0B]">{modelReadiness === 'unconfigured' ? 'Choose a research model in Models before starting an investigation.' : 'This research model is selected, but its provider connection is not configured yet.'}</p>}
                 <button type="button" onClick={() => { window.location.hash = '#models'; }} className="mt-space-xs min-h-[32px] font-label-md text-label-md text-primary">Configure model <Icon name="arrow_forward" className="text-[16px] align-middle" /></button>
               </div>
             </div>
