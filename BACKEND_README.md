@@ -45,8 +45,6 @@ The backend does not silently substitute missing seat assignments. Each stage st
 SSE events: `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`, `usage`, `heartbeat`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed; Deep uses rounds 1–4.
 
 
-SSE events: `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`,
-`usage`, `heartbeat`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed (`data.round`).
 
 ## Prompt to paste into AI Studio (first UI pass)
 > This project is a finished backend for "Breezy Research" (read `BACKEND_README.md` first). Do not modify anything in
