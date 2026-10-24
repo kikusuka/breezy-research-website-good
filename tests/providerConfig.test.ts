@@ -28,6 +28,21 @@ describe('providerConfigService', () => {
     expect(updated.roles.skeptic.provider).toBe('groq');
     expect(updated.roles.verifier.provider).toBe('sambanova');
   });
+  it('uses the explicitly selected default model for the Analyst seat only', () => {
+    const config = providerConfigService.getConfig();
+    config.defaultProvider = 'gemini';
+    config.defaultModel = 'gemini-2.5-flash';
+    config.roles.architect = { provider: '', model: '' };
+    config.roles.skeptic = { provider: '', model: '' };
+    config.roles.verifier = { provider: '', model: '' };
+    config.roles.arbiter = { provider: '', model: '' };
+    const seats = providerConfigService.getSeatsPayload(config);
+    expect(seats.architect).toEqual({ provider: 'gemini', model: 'gemini-2.5-flash' });
+    expect(seats.skeptic).toEqual({ provider: '', model: '' });
+    expect(seats.verifier).toEqual({ provider: '', model: '' });
+    expect(seats.arbiter).toEqual({ provider: '', model: '' });
+  });
+
   it('does not infer a default chat model from saved provider keys', () => {
     localStorage.setItem('breezy_canonical_provider_config', JSON.stringify({
       defaultProvider: '',
