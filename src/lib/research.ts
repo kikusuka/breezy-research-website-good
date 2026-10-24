@@ -8,7 +8,7 @@ export const DEPTH_PROTOCOL: Record<Depth, { protocol: 'solo' | 'trio' | 'quad';
   deep: { protocol: 'quad', selectedRound: 4, label: 'Deep', blurb: 'Analyst, critic, verifier, synthesizer' },
 };
 export const protocolToDepth = (p?: DebateSession['protocol']): Depth =>
-  p === 'quad' || p === 'deep' ? 'deep' : p === 'trio' ? 'trio' : 'solo';
+  p === 'quad' ? 'deep' : p === 'trio' ? 'trio' : 'solo';
 
 const ROLE_STEPS: Record<Exclude<Depth, 'solo'>, Array<{ role: DebateStep['role']; seat: 'architect' | 'skeptic' | 'verifier' | 'arbiter'; name: string }>> = {
   trio: [
