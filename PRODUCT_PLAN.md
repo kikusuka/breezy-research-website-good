@@ -42,7 +42,7 @@ The evidence-oriented workflow powered by Synthexis. The production sequence is:
 
 **Question → Search → Retrieve → Analyze → Answer**
 
-Research should make the process and evidence inspectable without overwhelming the user. The production workflow uses **one configured model call per investigation**; it does not run separate Analyst, Critic, Verifier, or Synthesizer model calls. Search planning, search requests, and bounded source-page retrieval remain available, and retrieved evidence is not treated as proof by itself.
+Research should make the process and evidence inspectable without overwhelming the user. Research offers three explicit budgets: **Solo** uses one answer-generation call; **Trio** runs Analyst, Critic and Synthesizer; **Deep** adds a Verifier before synthesis. Each stage uses its configured seat model; missing assignments are surfaced rather than silently substituted. Search and bounded source-page retrieval are separate from model calls, and retrieved evidence is not treated as proof by itself.
 
 Show progress only from real execution events. Surface sources and citations honestly; distinguish retrieval from verification. A run should remain coherent if the user navigates elsewhere, and stopped or failed runs should be represented truthfully.
 
