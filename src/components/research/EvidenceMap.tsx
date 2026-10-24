@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { EvidenceGraph, ResearchClaim } from '../../types';
 import { Icon } from '../../shell/Icon';
-import { buildEvidenceMapSources, claimAssessmentPresentation, claimEvidenceUrls, contradictionResolutionLabel, normalizeEvidenceUrl, safeEvidenceHref } from '../../lib/evidenceMap';
+import { buildEvidenceMapSources, claimAssessmentPresentation, claimEvidenceUrls, contradictionResolutionLabel, evidenceMapEmptyState, normalizeEvidenceUrl, safeEvidenceHref } from '../../lib/evidenceMap';
 
 type EvidenceMapProps = { graph?: EvidenceGraph | null };
 
@@ -48,11 +48,12 @@ export function EvidenceMap({ graph }: EvidenceMapProps) {
   };
 
   if (!claims.length && !sources.length && !contradictions.length) {
+    const emptyState = evidenceMapEmptyState(graph?.auditStatus);
     return (
       <section className="rounded-2xl border border-outline-variant/40 bg-surface-container-low p-space-xl text-center">
         <span className="mx-auto mb-space-md flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-container-high text-outline"><Icon name="account_tree" className="text-[24px]" /></span>
-        <h3 className="font-headline-sm text-headline-sm">No evidence map for this run</h3>
-        <p className="mx-auto mt-space-xs max-w-lg font-body-sm text-body-sm text-on-surface-variant">This investigation did not return structured claims or source records. Breezy won't invent nodes to fill the map. You can still review the answer and activity.</p>
+        <h3 className="font-headline-sm text-headline-sm">{emptyState.title}</h3>
+        <p className="mx-auto mt-space-xs max-w-lg font-body-sm text-body-sm text-on-surface-variant">{emptyState.description}</p>
       </section>
     );
   }
