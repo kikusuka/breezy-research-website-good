@@ -228,6 +228,11 @@ export const providerConfigService = {
       if (assigned && assigned.provider && assigned.model) {
         return { provider: assigned.provider, model: assigned.model };
       }
+      // The explicit default model is a valid Solo fallback for the Analyst seat only.
+      // Other seats must be assigned separately for Trio/Deep; never clone the default into them.
+      if (roleKey === 'architect' && current.defaultProvider && current.defaultModel) {
+        return { provider: current.defaultProvider, model: current.defaultModel };
+      }
       return { provider: '' as any, model: '' };
     };
 
