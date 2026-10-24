@@ -6,7 +6,7 @@ import { Icon } from '../shell/Icon';
 import { announceConfigChange } from '../lib/useModelState';
 import { PROVIDER_LABELS, providerLabel } from '../lib/providers';
 
-type Role = 'architect';
+type Role = 'architect' | 'skeptic' | 'verifier' | 'arbiter';
 const PROVIDERS = [
   { id: 'gemini', placeholder: 'AIza…' }, { id: 'anthropic', placeholder: 'sk-ant-…' },
   { id: 'groq', placeholder: 'gsk_…' }, { id: 'sambanova', placeholder: 'Key' }, { id: 'openrouter', placeholder: 'sk-or-v1-…' },
@@ -185,36 +185,45 @@ export const VaultWorkspace: React.FC = () => {
 
       <section aria-labelledby="research-model-h">
         <div className="mb-space-md">
-          <h2 id="research-model-h" className="font-headline-md text-headline-md">Research model</h2>
-          <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-2xl">Every investigation uses this one model for answer generation. Breezy does not run separate critic, verifier, or synthesizer calls. Source search and page retrieval still run when enabled.</p>
+          <h2 id="research-model-h" className="font-headline-md text-headline-md">Research model assignments</h2>
+          <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-2xl">Assign a provider and exact model to each stage. Solo needs only the Analyst seat. Trio needs Analyst, Critic and Synthesizer. Deep also requires a Verifier. Missing seats are reported instead of silently substituted.</p>
         </div>
-        <div className="bg-surface-container rounded-3xl p-space-lg coat">
-          <label htmlFor="research-model-select" className="block font-label-md text-label-md text-on-surface-variant mb-space-xs">Provider and model</label>
-          {(() => {
-            const cur = config.roles?.architect || { provider: '', model: '' };
-            const inCatalog = Boolean(cur?.provider && (AVAILABLE_MODELS[cur.provider] || []).some((m) => m.id === cur.model));
-            const isCustom = Boolean(cur?.model) && !inCatalog;
-            const sel = customOpen.architect || isCustom ? CUSTOM : !cur?.model ? '' : `${cur.provider}::${cur.model}`;
-            return <>
-              <select id="research-model-select" aria-label="Research model" value={sel} onChange={(e) => {
-                const v = e.target.value;
-                if (!v) { setCustomOpen((state) => ({ ...state, architect: false })); setSeat('architect', '', ''); }
-                else if (v === CUSTOM) { setCustomOpen((state) => ({ ...state, architect: true })); if (inCatalog) setSeat('architect', cur.provider, ''); }
-                else { setCustomOpen((state) => ({ ...state, architect: false })); const [provider, ...modelParts] = v.split('::'); setSeat('architect', provider, modelParts.join('::')); }
-              }} className="w-full bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[44px] font-body-sm text-body-sm focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]">
+        <div className="grid gap-space-md lg:grid-cols-2">
+          {([
+            { role: 'architect', title: 'Analyst', description: 'Builds the initial evidence-based proposal.' },
+            { role: 'skeptic', title: 'Critic', description: 'Challenges assumptions and identifies gaps.' },
+            { role: 'verifier', title: 'Verifier', description: 'Deep mode only; checks claims against retrieved material.' },
+            { role: 'arbiter', title: 'Synthesizer', description: 'Combines the analysis and criticism into the final answer.' },
+          ] as const).map(({ role, title, description }) => {
+            const cur = config.roles?.[role] || { provider: '', model: '' };
+            const inCatalog = Boolean(cur.provider && (AVAILABLE_MODELS[cur.provider] || []).some((model) => model.id === cur.model));
+            const isCustom = Boolean(cur.model) && !inCatalog;
+            const sel = customOpen[role] || isCustom ? CUSTOM : !cur.model ? '' : `${cur.provider}::${cur.model}`;
+            return <div key={role} className="bg-surface-container rounded-3xl p-space-lg coat">
+              <div className="mb-space-sm">
+                <h3 className="font-headline-sm text-headline-sm">{title}</h3>
+                <p className="font-body-sm text-body-sm text-on-surface-variant mt-1">{description}</p>
+              </div>
+              <label htmlFor={`research-seat-${role}`} className="block font-label-md text-label-md text-on-surface-variant mb-space-xs">Provider and model</label>
+              <select id={`research-seat-${role}`} aria-label={`${title} provider and model`} value={sel} onChange={(e) => {
+                const value = e.target.value;
+                if (!value) { setCustomOpen((state) => ({ ...state, [role]: false })); setSeat(role, '', ''); }
+                else if (value === CUSTOM) { setCustomOpen((state) => ({ ...state, [role]: true })); if (inCatalog) setSeat(role, cur.provider, ''); }
+                else { setCustomOpen((state) => ({ ...state, [role]: false })); const [provider, ...modelParts] = value.split('::'); setSeat(role, provider, modelParts.join('::')); }
+              }} className="w-full bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[44px] font-body-sm text-body-sm focus:outline-none">
                 <option value="">No model assigned</option>
                 {Object.entries(AVAILABLE_MODELS).map(([provider, models]) => <optgroup key={provider} label={providerLabel(provider)}>{models.map((model) => <option key={model.id} value={`${provider}::${model.id}`}>{model.name}</option>)}</optgroup>)}
                 <option value={CUSTOM}>Custom model ID…</option>
               </select>
-              {(customOpen.architect || isCustom) && <div className="grid grid-cols-5 gap-space-xs mt-space-xs">
-                <select aria-label="Research provider" value={cur?.provider || 'openrouter'} onChange={(e) => setSeat('architect', e.target.value, cur?.model || '')} className="col-span-2 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-body-sm text-body-sm focus:outline-none">{ALL_PROVIDERS.map((provider) => <option key={provider} value={provider}>{providerLabel(provider)}</option>)}</select>
-                <input aria-label="Research model ID" value={cur?.model || ''} onChange={(e) => setSeat('architect', cur?.provider || 'openrouter', e.target.value)} placeholder="exact model id" className="col-span-3 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-code-md text-code-md focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]" />
+              {(customOpen[role] || isCustom) && <div className="grid grid-cols-5 gap-space-xs mt-space-xs">
+                <select aria-label={`${title} provider`} value={cur.provider || 'openrouter'} onChange={(e) => setSeat(role, e.target.value, cur.model || '')} className="col-span-2 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-body-sm text-body-sm">{ALL_PROVIDERS.map((provider) => <option key={provider} value={provider}>{providerLabel(provider)}</option>)}</select>
+                <input aria-label={`${title} model ID`} value={cur.model || ''} onChange={(e) => setSeat(role, cur.provider || 'openrouter', e.target.value)} placeholder="exact model id" className="col-span-3 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-code-md text-code-md focus:outline-none" />
               </div>}
-              <p className="font-body-sm text-body-sm text-outline mt-space-sm">{cur?.provider && cur?.model ? `Selected: ${providerLabel(cur.provider)} · ${cur.model}` : 'No research model selected. Choose a model and connect its provider above.'}</p>
-            </>;
-          })()}
+              <p className="font-body-sm text-body-sm text-outline mt-space-sm">{cur.provider && cur.model ? `Selected: ${providerLabel(cur.provider)} · ${cur.model}` : 'No model assigned.'}</p>
+            </div>;
+          })}
         </div>
-        <p className="font-body-sm text-body-sm text-outline mt-space-sm">The model catalog can go out of date. Use “Custom model ID” for newer models. Previous critic, verifier, and synthesizer assignments are no longer used by research.</p>
+        <p className="font-body-sm text-body-sm text-outline mt-space-sm">Use a custom model ID if the catalog is out of date. Provider credentials remain in this browser and are sent only to the provider you assign.</p>
       </section>
 
       <section aria-labelledby="search-h" className="pb-space-xl"><div className="flex items-center justify-between mb-space-md"><h2 id="search-h" className="font-headline-md text-headline-md">Search keys <span className="font-body-sm text-body-sm text-outline">(optional)</span></h2></div>
