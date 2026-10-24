@@ -32,6 +32,7 @@ describe('Single-model research contract', () => {
         prompt: 'Explain a simple test topic.',
         protocol: 'quad',
         selectedRound: 4,
+        researchMethod: 'comparative',
         heartbeatEnabled: true,
         enableSearchGrounding: false,
         keys: { gemini: 'test-key' },
@@ -59,5 +60,10 @@ describe('Single-model research contract', () => {
     });
     await drainPromise;
     expect(callAgentWithStream).toHaveBeenCalledTimes(1);
+    const modelCall = callAgentWithStream.mock.calls[0][0];
+    expect(modelCall.userPrompt).not.toContain('RESEARCH METHOD: COMPARATIVE');
+    expect(modelCall.userPrompt).not.toContain('Method: comparative');
+    expect(modelCall.systemInstruction).toContain('Answer first; key evidence; important caveats; practical conclusion.');
+    expect(modelCall.systemInstruction).not.toContain('comparative');
   });
 });
