@@ -1,47 +1,60 @@
 import type { DebateSession, DebateStep } from '../types';
 import type { CanonicalWorkspaceConfig } from '../services/providerConfigService';
 
-export type Depth = 'solo' | 'standard' | 'deep';
-/** Depth -> real backend protocol (matches effectiveProtocol in server-core/router.ts: 1=solo, 2=trio, 4=quad). */
-export const DEPTH_PROTOCOL: Record<Depth, { protocol: 'solo' | 'trio' | 'quad'; selectedRound: 1 | 2 | 4; label: string; blurb: string }> = {
-  solo: { protocol: 'solo', selectedRound: 1, label: 'Solo', blurb: 'One model, one pass' },
-  standard: { protocol: 'trio', selectedRound: 2, label: 'Standard', blurb: 'Proposal, challenge, synthesis' },
-  deep: { protocol: 'quad', selectedRound: 4, label: 'Deep', blurb: 'Adds an independent verification round' },
+export type Depth = 'solo';
+/** Research deliberately uses one configured model call. Evidence retrieval remains separate and does not invoke a debate chain. */
+export const DEPTH_PROTOCOL: Record<Depth, { protocol: 'solo'; selectedRound: 1; label: string; blurb: string }> = {
+  solo: { protocol: 'solo', selectedRound: 1, label: 'Single model', blurb: 'One model call with source grounding' },
 };
-export const protocolToDepth = (p?: DebateSession['protocol']): Depth => (p === 'solo' ? 'solo' : p === 'quad' ? 'deep' : 'standard');
+export const protocolToDepth = (_p?: DebateSession['protocol']): Depth => 'solo';
 
-export function makeInitialSteps(config: CanonicalWorkspaceConfig, depth: Depth): DebateStep[] {
-  const seat = (id: 'architect' | 'skeptic' | 'verifier' | 'arbiter', name: string) => ({ id, name, provider: config.roles[id].provider || config.defaultProvider, model: config.roles[id].model || config.defaultModel });
-  const roles = depth === 'solo' ? [{ id: 'solo', name: 'Solo Researcher', provider: config.defaultProvider, model: config.defaultModel }]
-    : depth === 'standard' ? [seat('architect', 'Analyst'), seat('skeptic', 'Critic'), seat('arbiter', 'Synthesizer')]
-    : [seat('architect', 'Analyst'), seat('skeptic', 'Critic'), seat('verifier', 'Verifier'), seat('arbiter', 'Synthesizer')];
+export function makeInitialSteps(config: CanonicalWorkspaceConfig, _depth: Depth): DebateStep[] {
   const now = Date.now();
-  return roles.map((r, i) => ({ stepId: `step_${i}_${now}`, role: r.id as DebateStep['role'], agentName: r.name, provider: (r.provider || '') as DebateStep['provider'], model: r.model || '', status: 'pending', content: '', timestamp: now }));
+  return [{
+    stepId: `step_0_${now}`,
+    role: 'solo',
+    agentName: 'Researcher',
+    provider: (config.roles?.architect?.provider || config.defaultProvider || '') as DebateStep['provider'],
+    model: config.roles?.architect?.model || config.defaultModel || '',
+    status: 'pending',
+    content: '',
+    timestamp: now,
+  }];
 }
 
 export type StageState = 'done' | 'active' | 'pending' | 'skipped' | 'error';
 export interface Stage { id: string; label: string; icon: string; description: string; state: StageState; }
 export const STAGE_DEFS = [
   { id: 'question', label: 'Question', icon: 'help_outline', description: 'Your inquiry and settings' },
-  { id: 'exploration', label: 'Exploration', icon: 'manage_search', description: 'Research plan and source search' },
-  { id: 'proposals', label: 'Proposals', icon: 'schema', description: 'First-pass analysis by the analyst' },
-  { id: 'challenge', label: 'Challenge', icon: 'gavel', description: 'The critic stress-tests the proposal' },
-  { id: 'evidence', label: 'Evidence', icon: 'verified', description: 'An independent verifier checks claims' },
-  { id: 'synthesis', label: 'Synthesis', icon: 'auto_stories', description: 'The final answer is assembled' },
+  { id: 'exploration', label: 'Explore', icon: 'manage_search', description: 'Plan and search for relevant sources' },
+  { id: 'analysis', label: 'Analysis', icon: 'auto_awesome', description: 'One model analyzes the question and retrieved context' },
+  { id: 'evidence', label: 'Evidence', icon: 'account_tree', description: 'Show retrieved sources and available evidence provenance' },
+  { id: 'answer', label: 'Answer', icon: 'article', description: 'Present the completed research response' },
 ] as const;
 
-/** Pipeline state derived only from real step statuses, received events and session status. */
+/** Pipeline state reflects actual search, model, evidence, and completion events. */
 export function deriveStages(session: DebateSession | null, running: boolean, explorationSeen: boolean): Stage[] {
   const mk = (i: number, state: StageState): Stage => ({ ...STAGE_DEFS[i], state });
   if (!session) return STAGE_DEFS.map((_, i) => mk(i, i === 0 ? 'active' : 'pending'));
-  const steps = session.steps || []; const completed = session.status === 'completed'; const errored = session.status === 'error';
-  const st = (s?: DebateStep): StageState => (!s ? 'skipped' : s.status === 'completed' ? 'done' : s.status === 'running' ? 'active' : s.status === 'error' ? 'error' : 'pending');
-  const by = (r: string) => steps.find((s) => s.role === r);
-  const first = by('architect') || by('solo'); const started = steps.some((s) => s.status !== 'pending');
-  const out: Stage[] = [mk(0, 'done'), mk(1, started || completed ? 'done' : errored ? 'error' : running || explorationSeen ? 'active' : 'pending'), mk(2, st(first)),
-    mk(3, session.protocol === 'solo' ? 'skipped' : st(by('skeptic'))), mk(4, session.protocol === 'solo' || session.protocol === 'trio' ? 'skipped' : st(by('verifier'))),
-    mk(5, session.protocol === 'solo' ? (completed ? 'done' : first && first.status === 'running' ? 'active' : 'pending') : st(by('arbiter')))];
-  return completed ? out.map((s) => (s.state === 'pending' || s.state === 'active' ? { ...s, state: 'done' as StageState } : s)) : out;
+  const step = session.steps?.find((item) => item.role === 'solo') || session.steps?.[0];
+  const completed = session.status === 'completed';
+  const errored = session.status === 'error';
+  const analysisState: StageState = step?.status === 'completed' ? 'done'
+    : step?.status === 'running' ? 'active'
+    : step?.status === 'error' || errored ? 'error'
+    : running ? 'active' : 'pending';
+  const explorationState: StageState = explorationSeen || Boolean(session.evidenceGraph?.researchPlan?.length)
+    ? 'done' : running ? 'active' : errored ? 'error' : 'pending';
+  const evidenceState: StageState = session.evidenceGraph
+    ? 'done' : completed ? 'done' : errored ? 'error' : step?.status === 'completed' ? 'active' : 'pending';
+  const answerState: StageState = completed ? 'done' : errored ? 'error' : step?.status === 'completed' ? 'active' : 'pending';
+  return [
+    mk(0, 'done'),
+    mk(1, explorationState),
+    mk(2, analysisState),
+    mk(3, evidenceState),
+    mk(4, answerState),
+  ];
 }
 export function formatDuration(ms?: number) {
   if (!ms || ms < 0) return null; const sec = Math.round(ms / 1000);

@@ -19,8 +19,8 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('Solo research cancellation wiring', () => {
-  it('passes the incoming request signal to the primary Solo model call', async () => {
+describe('Single-model research contract', () => {
+  it('ignores legacy multi-round requests and makes only one model call', async () => {
     callAgentWithStream.mockResolvedValue('A short Solo answer.');
 
     const controller = new AbortController();
@@ -30,12 +30,17 @@ describe('Solo research cancellation wiring', () => {
       signal: controller.signal,
       body: JSON.stringify({
         prompt: 'Explain a simple test topic.',
-        protocol: 'solo',
-        selectedRound: 1,
-        heartbeatEnabled: false,
+        protocol: 'quad',
+        selectedRound: 4,
+        heartbeatEnabled: true,
         enableSearchGrounding: false,
         keys: { gemini: 'test-key' },
-        seats: { architect: { provider: 'gemini', model: 'gemini-2.5-flash' } },
+        seats: {
+          architect: { provider: 'gemini', model: 'gemini-2.5-flash' },
+          skeptic: { provider: 'groq', model: 'llama-3.3-70b-versatile' },
+          verifier: { provider: 'sambanova', model: 'Qwen2.5-72B-Instruct' },
+          arbiter: { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
+        },
       }),
     });
 
@@ -53,5 +58,6 @@ describe('Solo research cancellation wiring', () => {
       );
     });
     await drainPromise;
+    expect(callAgentWithStream).toHaveBeenCalledTimes(1);
   });
 });

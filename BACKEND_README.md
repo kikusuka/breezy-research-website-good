@@ -34,13 +34,12 @@ Env: see `.env.example` (optional `GEMINI_API_KEY` on the server; users can also
 `POST /api/vault/verify-key` · `/api/ollama/*` · `POST /api/webhook/test`
 
 ### Research stream (`/api/debate/stream`)
-Request: `{ prompt, protocol: 'solo'|'trio'|'quad', selectedRound: 1|2|4, tone, searchEngine, keys, seats, enableSearchGrounding, autoResolve, researchMethod, heartbeatEnabled, heartbeatIntervalSec }`
+Request: `{ prompt, tone, searchEngine, keys, seats: { architect: { provider, model } }, enableSearchGrounding, researchMethod }`. Legacy `protocol`, `selectedRound`, `autoResolve`, heartbeat flags, and non-architect seat assignments are ignored for compatibility.
 
-The protocol is chosen from `selectedRound`: **1 = solo, 2 = trio (analyst, critic, synthesizer), 4 = quad (adds verifier)**.
-Pass `selectedRound` or "Deep" will silently run as 3 rounds.
+The backend enforces **single-model research** regardless of legacy `protocol` or `selectedRound` values. Only `seats.architect` selects the model; Critic, Verifier, and Synthesizer seats are no longer used. Each research run makes exactly one LLM call for answer generation. Planning is deterministic/local, and the solo evidence graph uses retrieved sources directly without a separate model-based planning, heartbeat, summarization, or evidence-extraction call.
 
 SSE events: `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`,
-`usage`, `heartbeat`, `stage_warning`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed (`data.round`).
+`usage`, `heartbeat`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed (`data.round`).
 
 ## Prompt to paste into AI Studio (first UI pass)
 > This project is a finished backend for "Breezy Research" (read `BACKEND_README.md` first). Do not modify anything in

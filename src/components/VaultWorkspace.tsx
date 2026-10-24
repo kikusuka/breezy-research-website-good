@@ -6,18 +6,12 @@ import { Icon } from '../shell/Icon';
 import { announceConfigChange } from '../lib/useModelState';
 import { PROVIDER_LABELS, providerLabel } from '../lib/providers';
 
-type Role = 'architect' | 'skeptic' | 'verifier' | 'arbiter';
+type Role = 'architect';
 const PROVIDERS = [
   { id: 'gemini', placeholder: 'AIza…' }, { id: 'anthropic', placeholder: 'sk-ant-…' },
   { id: 'groq', placeholder: 'gsk_…' }, { id: 'sambanova', placeholder: 'Key' }, { id: 'openrouter', placeholder: 'sk-or-v1-…' },
 ];
 const SEARCH_KEYS = [{ id: 'tavily', label: 'Tavily', placeholder: 'tvly-…' }, { id: 'serper', label: 'Serper', placeholder: 'Key' }];
-const SEATS: Array<{ role: Role; label: string; seat: string; description: string }> = [
-  { role: 'architect', label: 'Analyst', seat: 'Seat 1', description: 'Frames the question and drafts the first proposal.' },
-  { role: 'skeptic', label: 'Critic', seat: 'Seat 2', description: 'Attacks assumptions and looks for counterexamples.' },
-  { role: 'verifier', label: 'Verifier', seat: 'Seat 3 · Deep mode', description: 'Checks the claims against the retrieved sources.' },
-  { role: 'arbiter', label: 'Synthesizer', seat: 'Final seat', description: 'Writes the answer-first brief from the debate.' },
-];
 const ALL_PROVIDERS = ['gemini', 'anthropic', 'groq', 'sambanova', 'openrouter', 'ollama', 'openai-compatible'];
 const CUSTOM = '__custom__';
 
@@ -82,7 +76,7 @@ export const VaultWorkspace: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-space-md">
         <div><div className="hidden lg:block font-code-sm text-code-sm uppercase tracking-wider text-outline">Workspace / Models</div>
           <h1 className="font-headline-xl-mobile lg:font-headline-xl text-headline-xl-mobile lg:text-headline-xl tracking-tight mt-1">Models &amp; keys</h1>
-          <p className="font-body-md text-body-md text-on-surface-variant mt-1 max-w-xl">Connect your own providers and decide which model sits in each seat. Nothing is assumed: an empty seat stays empty.</p></div>
+          <p className="font-body-md text-body-md text-on-surface-variant mt-1 max-w-xl">Connect your own providers and choose one research model. Chat has its own separate model selection.</p></div>
         <div className="flex items-center gap-space-sm self-start md:self-auto">
           <span aria-live="polite" className={`flex min-w-0 max-w-[min(65vw,24rem)] items-center gap-space-sm px-space-md py-space-xs rounded-full bg-surface-container-high font-label-md text-label-md ${active ? 'text-tertiary' : 'text-on-surface-variant'}`}><span className="min-w-0 truncate">{activeStatusLabel}</span></span>
           <span className={`font-code-sm text-code-sm text-tertiary transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`} aria-live="polite">Saved</span>
@@ -91,7 +85,7 @@ export const VaultWorkspace: React.FC = () => {
 
       <section aria-label="First-time setup" className="rounded-3xl border border-outline-variant/50 bg-surface-container-low p-space-lg">
         <div className="flex flex-col gap-space-xs sm:flex-row sm:items-start sm:justify-between">
-          <div><h2 className="font-headline-md text-headline-md">Set up your first model</h2><p className="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-2xl">A saved key is not the same as a working connection. Follow these steps once; research seats are optional until you use Synthexis.</p></div>
+          <div><h2 className="font-headline-md text-headline-md">Set up your first model</h2><p className="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-2xl">A saved key is not the same as a working connection. Follow these steps once to configure the model you want to use.</p></div>
           <span className="shrink-0 rounded-full bg-surface-container-high px-space-sm py-1 font-code-sm text-code-sm text-on-surface-variant">{active ? 'Chat model ready' : 'Setup needed'}</span>
         </div>
         <ol className="grid sm:grid-cols-3 gap-space-sm mt-space-md">
@@ -184,34 +178,43 @@ export const VaultWorkspace: React.FC = () => {
             <div className="flex items-center gap-space-xs mt-space-xs"><button type="button" onClick={() => commit({ ...config, ollamaBaseUrl: ollamaUrl.trim() })} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md transition-colors">Save URL</button>
               <button type="button" onClick={() => void verify('ollama')} disabled={test?.busy} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40 transition-colors">{test?.id === 'ollama' && test.busy ? 'Testing…' : 'Test connection'}</button></div>
             <Result id="ollama" />
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Pick an Ollama model per seat below using “Custom model”. Your browser must be able to reach the URL.</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Choose your research model below using “Custom model”. Your browser must be able to reach the URL.</p>
           </div>
         </div>
       </section>
 
-      <section aria-labelledby="seat-h"><div className="flex flex-wrap items-center justify-between gap-space-sm mb-space-md"><div><h2 id="seat-h" className="font-headline-md text-headline-md">Council seats</h2><p className="font-body-sm text-body-sm text-on-surface-variant">Each stage of a research run calls the model in its seat.</p></div>
-        <div className="flex items-center gap-space-xs" role="group" aria-label="Presets"><span className="font-label-sm text-label-sm text-outline uppercase tracking-wider mr-1">Presets</span>
-          {(['fast', 'balanced', 'deep'] as const).map((p) => <button key={p} type="button" onClick={() => { setConfig({ ...providerConfigService.applyPreset(p) }); announceConfigChange(); }} aria-pressed={config.preset === p} className={`px-space-md min-h-[36px] rounded-xl font-label-md text-label-md capitalize transition-colors ${config.preset === p ? 'bg-surface-container-high text-primary' : 'bg-surface-container text-on-surface-variant hover:text-on-surface'}`}>{p}</button>)}</div></div>
-        <div className="grid md:grid-cols-2 gap-space-md">{SEATS.map((s) => {
-          const cur = config.roles[s.role]; const inCatalog = Boolean(cur?.provider && (AVAILABLE_MODELS[cur.provider] || []).some((m) => m.id === cur.model));
-          const isCustom = Boolean(cur?.model) && !inCatalog; const sel = customOpen[s.role] || isCustom ? CUSTOM : !cur?.model ? '' : `${cur.provider}::${cur.model}`;
-          return (
-            <div key={s.role} className="bg-surface-container rounded-3xl p-space-lg coat">
-              <div className="flex items-start justify-between gap-space-sm"><div><div className="font-code-sm text-code-sm text-outline">{s.seat}</div><div className="font-headline-sm text-headline-sm">{s.label}</div></div><span className={`w-2 h-2 rounded-circle mt-2 ${cur?.model?.trim() ? 'bg-tertiary' : 'bg-outline'}`} /></div>
-              <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 mb-space-md">{s.description}</p>
-              <select aria-label={`${s.label} model`} value={sel} onChange={(e) => { const v = e.target.value; if (!v) { setCustomOpen((c) => ({ ...c, [s.role]: false })); setSeat(s.role, '', ''); } else if (v === CUSTOM) { setCustomOpen((c) => ({ ...c, [s.role]: true })); if (inCatalog) setSeat(s.role, cur.provider, ''); } else { setCustomOpen((c) => ({ ...c, [s.role]: false })); const [p, ...m] = v.split('::'); setSeat(s.role, p, m.join('::')); } }}
-                className="w-full bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[44px] font-body-sm text-body-sm focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]">
+      <section aria-labelledby="research-model-h">
+        <div className="mb-space-md">
+          <h2 id="research-model-h" className="font-headline-md text-headline-md">Research model</h2>
+          <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-2xl">Every investigation uses this one model for answer generation. Breezy does not run separate critic, verifier, or synthesizer calls. Source search and page retrieval still run when enabled.</p>
+        </div>
+        <div className="bg-surface-container rounded-3xl p-space-lg coat">
+          <label htmlFor="research-model-select" className="block font-label-md text-label-md text-on-surface-variant mb-space-xs">Provider and model</label>
+          {(() => {
+            const cur = config.roles?.architect || { provider: '', model: '' };
+            const inCatalog = Boolean(cur?.provider && (AVAILABLE_MODELS[cur.provider] || []).some((m) => m.id === cur.model));
+            const isCustom = Boolean(cur?.model) && !inCatalog;
+            const sel = customOpen.architect || isCustom ? CUSTOM : !cur?.model ? '' : `${cur.provider}::${cur.model}`;
+            return <>
+              <select id="research-model-select" aria-label="Research model" value={sel} onChange={(e) => {
+                const v = e.target.value;
+                if (!v) { setCustomOpen((state) => ({ ...state, architect: false })); setSeat('architect', '', ''); }
+                else if (v === CUSTOM) { setCustomOpen((state) => ({ ...state, architect: true })); if (inCatalog) setSeat('architect', cur.provider, ''); }
+                else { setCustomOpen((state) => ({ ...state, architect: false })); const [provider, ...modelParts] = v.split('::'); setSeat('architect', provider, modelParts.join('::')); }
+              }} className="w-full bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[44px] font-body-sm text-body-sm focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]">
                 <option value="">No model assigned</option>
-                {Object.entries(AVAILABLE_MODELS).map(([prov, models]) => <optgroup key={prov} label={providerLabel(prov)}>{models.map((m) => <option key={m.id} value={`${prov}::${m.id}`}>{m.name}</option>)}</optgroup>)}
+                {Object.entries(AVAILABLE_MODELS).map(([provider, models]) => <optgroup key={provider} label={providerLabel(provider)}>{models.map((model) => <option key={model.id} value={`${provider}::${model.id}`}>{model.name}</option>)}</optgroup>)}
                 <option value={CUSTOM}>Custom model ID…</option>
               </select>
-              {sel === CUSTOM && (
-                <div className="grid grid-cols-5 gap-space-xs mt-space-xs">
-                  <select aria-label="Provider" value={cur?.provider || 'openrouter'} onChange={(e) => setSeat(s.role, e.target.value, cur?.model || '')} className="col-span-2 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-body-sm text-body-sm focus:outline-none">{ALL_PROVIDERS.map((p) => <option key={p} value={p}>{providerLabel(p)}</option>)}</select>
-                  <input aria-label="Model ID" value={cur?.model || ''} onChange={(e) => setSeat(s.role, cur?.provider || 'openrouter', e.target.value)} placeholder="exact model id" className="col-span-3 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-code-md text-code-md focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]" />
-                </div>)}
-            </div>); })}</div>
-        <p className="font-body-sm text-body-sm text-outline mt-space-sm">The model list is a built-in catalog and can go out of date. Use “Custom model ID” for anything newer.</p>
+              {(customOpen.architect || isCustom) && <div className="grid grid-cols-5 gap-space-xs mt-space-xs">
+                <select aria-label="Research provider" value={cur?.provider || 'openrouter'} onChange={(e) => setSeat('architect', e.target.value, cur?.model || '')} className="col-span-2 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-body-sm text-body-sm focus:outline-none">{ALL_PROVIDERS.map((provider) => <option key={provider} value={provider}>{providerLabel(provider)}</option>)}</select>
+                <input aria-label="Research model ID" value={cur?.model || ''} onChange={(e) => setSeat('architect', cur?.provider || 'openrouter', e.target.value)} placeholder="exact model id" className="col-span-3 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-code-md text-code-md focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]" />
+              </div>}
+              <p className="font-body-sm text-body-sm text-outline mt-space-sm">{cur?.provider && cur?.model ? `Selected: ${providerLabel(cur.provider)} · ${cur.model}` : 'No research model selected. Choose a model and connect its provider above.'}</p>
+            </>;
+          })()}
+        </div>
+        <p className="font-body-sm text-body-sm text-outline mt-space-sm">The model catalog can go out of date. Use “Custom model ID” for newer models. Previous critic, verifier, and synthesizer assignments are no longer used by research.</p>
       </section>
 
       <section aria-labelledby="search-h" className="pb-space-xl"><div className="flex items-center justify-between mb-space-md"><h2 id="search-h" className="font-headline-md text-headline-md">Search keys <span className="font-body-sm text-body-sm text-outline">(optional)</span></h2></div>
