@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readSseJsonEvents } from '../src/services/sseJsonStream';
+import { assertResearchStreamTerminated, readSseJsonEvents } from '../src/services/sseJsonStream';
 
 function streamFrom(chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -43,5 +43,21 @@ describe('research SSE JSON stream parser', () => {
       'data: {bad json}\n\ndata: {"type":"complete"}\n\n',
     ]))) events.push(event);
     expect(events).toEqual([{ type: 'complete' }]);
+  });
+});
+
+describe('research SSE terminal state', () => {
+  it('accepts a stream with a completion or error terminal event', () => {
+    expect(() => assertResearchStreamTerminated(true, false)).not.toThrow();
+  });
+
+  it('rejects a normally closed stream without a terminal event', () => {
+    expect(() => assertResearchStreamTerminated(false, false)).toThrow(
+      'Research stream ended before a completion event.',
+    );
+  });
+
+  it('does not turn an intentional abort into an incomplete-run error', () => {
+    expect(() => assertResearchStreamTerminated(false, true)).not.toThrow();
   });
 });
