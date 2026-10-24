@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EvidenceSource, ResearchClaim } from '../src/types';
-import { buildEvidenceMapSources, claimAssessmentPresentation, claimEvidenceUrls, contradictionResolutionLabel, normalizeEvidenceUrl } from '../src/lib/evidenceMap';
+import { buildEvidenceMapSources, claimAssessmentPresentation, claimEvidenceUrls, contradictionResolutionLabel, evidenceMapEmptyState, normalizeEvidenceUrl } from '../src/lib/evidenceMap';
 
 const source = (overrides: Partial<EvidenceSource> = {}): EvidenceSource => ({
   id: 'source-1',
@@ -23,6 +23,18 @@ const claim = (overrides: Partial<ResearchClaim> = {}): ResearchClaim => ({
 });
 
 describe('evidence map model', () => {
+  it('explains why single-model research has no claim nodes without implying research failed', () => {
+    expect(evidenceMapEmptyState('solo_inquiry')).toEqual({
+      title: 'Source records for this investigation',
+      description: 'Breezy used one configured research-model call for the answer and did not make a second model call to extract claim nodes. Source records appear here when search returned them; no claim relationships are generated for this run.',
+    });
+  });
+
+  it('distinguishes incomplete evidence extraction from an intentional single-model run', () => {
+    expect(evidenceMapEmptyState('incomplete').title).toBe('Evidence map unavailable');
+    expect(evidenceMapEmptyState('insufficient_evidence').title).toBe('No structured claims identified');
+    expect(evidenceMapEmptyState(undefined).title).toBe('No evidence map for this run');
+  });
   it('uses discovered source records without inventing extra nodes', () => {
     const result = buildEvidenceMapSources([source()], []);
     expect(result).toHaveLength(1);
