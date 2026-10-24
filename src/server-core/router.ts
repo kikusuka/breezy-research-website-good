@@ -856,7 +856,7 @@ Analyze this deliberation and output the JSON object.`;
         await sendEvent('status', { message: 'Preparing single-model research...' });
 
         let toneInstruction = '';
-        const outputInstruction = '\\nOUTPUT SHAPE: Answer first; key evidence; important caveats; practical conclusion.';
+        const outputInstruction = '\nOUTPUT SHAPE: Answer first; key evidence; important caveats; practical conclusion.';
 
         const architectConfig = { provider: seats.architect.provider, model: seats.architect.model };
 
