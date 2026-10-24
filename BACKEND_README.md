@@ -34,9 +34,16 @@ Env: see `.env.example` (optional `GEMINI_API_KEY` on the server; users can also
 `POST /api/vault/verify-key` · `/api/ollama/*` · `POST /api/webhook/test`
 
 ### Research stream (`/api/debate/stream`)
-Request: `{ prompt, tone, searchEngine, keys, seats: { architect: { provider, model } }, enableSearchGrounding, researchMethod }`. Legacy `protocol`, `selectedRound`, `autoResolve`, heartbeat flags, and non-architect seat assignments are ignored for compatibility.
+Request: `{ prompt, protocol, selectedRound, tone, searchEngine, keys, seats, enableSearchGrounding, researchMethod }`. Seat assignments are explicit and validated for the selected mode.
 
-The backend enforces **single-model research** regardless of legacy `protocol` or `selectedRound` values. Only `seats.architect` selects the model; Critic, Verifier, and Synthesizer seats are no longer used. Each research run makes exactly one LLM call for answer generation. Planning is deterministic/local, and the solo evidence graph uses retrieved sources directly without a separate model-based planning, heartbeat, summarization, or evidence-extraction call.
+- **Solo** (`selectedRound: 1`): one answer-generation model call; only the Analyst seat is required. This is the lower-usage option.
+- **Trio** (`selectedRound: 3`, legacy value `2` accepted): Analyst → Critic → Synthesizer.
+- **Deep** (`selectedRound: 4`): Analyst → Critic → Verifier → Synthesizer.
+
+The backend does not silently substitute missing seat assignments. Each stage streams real progress and uses the provider/model assigned to that seat. Source search and bounded page retrieval are separate from model calls. Multi-stage runs also invoke the configured synthesis model for evidence-graph extraction; token usage from reported provider usage events is included in the run total. Provider cancellation is best-effort and depends on provider support.
+
+SSE events: `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`, `usage`, `heartbeat`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed; Deep uses rounds 1–4.
+
 
 SSE events: `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`,
 `usage`, `heartbeat`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed (`data.round`).
