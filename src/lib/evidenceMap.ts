@@ -1,5 +1,33 @@
 import type { EvidenceSource, ResearchClaim } from '../types';
 
+export type EvidenceMapEmptyState = { title: string; description: string };
+
+/** Explain an intentionally skipped claim-extraction pass without implying research failed. */
+export function evidenceMapEmptyState(status?: 'solo_inquiry' | 'model_assessed' | 'insufficient_evidence' | 'incomplete'): EvidenceMapEmptyState {
+  if (status === 'solo_inquiry') {
+    return {
+      title: 'Source records for this investigation',
+      description: 'Breezy used one configured research-model call for the answer and did not make a second model call to extract claim nodes. Source records appear here when search returned them; no claim relationships are generated for this run.',
+    };
+  }
+  if (status === 'incomplete') {
+    return {
+      title: 'Evidence map unavailable',
+      description: 'Structured evidence extraction did not complete. Review the answer and source records, and treat claim-level assessments as unavailable for this run.',
+    };
+  }
+  if (status === 'insufficient_evidence') {
+    return {
+      title: 'No structured claims identified',
+      description: 'The evidence assessment completed but did not return structured claims. Breezy will not invent claim nodes to fill the map.',
+    };
+  }
+  return {
+    title: 'No evidence map for this run',
+    description: 'This investigation did not return structured claims or source records. Breezy will not invent nodes to fill the map. You can still review the answer and activity.',
+  };
+}
+
 export type EvidenceMapSourceNode = {
   id: string;
   title: string;
