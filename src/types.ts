@@ -143,6 +143,8 @@ export interface EvidenceGraph {
   claims: ResearchClaim[];
   contradictions: EvidenceContradiction[];
   sourcesConsulted: EvidenceSource[];
+  /** Execution outcome; solo_inquiry means no second LLM pass was used to extract structured claims. */
+  auditStatus?: 'solo_inquiry' | 'model_assessed' | 'insufficient_evidence' | 'incomplete';
 }
 
 export interface DebateSession {
