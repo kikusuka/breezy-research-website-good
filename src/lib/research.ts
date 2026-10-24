@@ -62,7 +62,7 @@ export function deriveStages(session: DebateSession | null, running: boolean, ex
     return { ...def, state };
   };
   if (!session) return [mk('question', 'active'), mk('exploration', 'pending'), mk('analyst', 'pending'), mk('critic', 'skipped'), mk('verifier', 'skipped'), mk('synthesizer', 'skipped'), mk('evidence', 'pending'), mk('answer', 'pending')];
-  const stepByRole = new Map((session.steps || []).map((step) => [step.role, step]));
+  const stepByRole = new Map((session.steps || []).map((step) => [step.role, step] as const));
   const stateForRole = (role: 'analyst' | 'critic' | 'verifier' | 'synthesizer'): StageState => {
     if (!used.has(role)) return 'skipped';
     const stepRole = role === 'analyst' ? (depth === 'solo' ? 'solo' : 'architect') : role === 'critic' ? 'skeptic' : role === 'verifier' ? 'verifier' : 'arbiter';
