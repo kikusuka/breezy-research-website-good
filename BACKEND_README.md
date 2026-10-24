@@ -1,50 +1,71 @@
-# Breezy Research — backend only
+# Breezy Research — current backend contract
 
-All UI has been removed. What remains is everything non-visual. `src/App.tsx` is an empty placeholder so the
-project still builds (`npm run build` and `npx tsc --noEmit` pass, 9/9 tests pass).
+This document describes the current single-model research backend. The active application and tests are the source of truth; older UI-workspace notes under `breezy-ui/` are archival only.
 
-## Run
-```
+## Run locally
+
+```sh
 npm install --legacy-peer-deps
-npm run dev          # Express + Vite on :3000
+npm run dev
 ```
-Env: see `.env.example` (optional `GEMINI_API_KEY` on the server; users can also bring their own keys).
 
-## What's here
+See `.env.example` for optional server-side provider and integration configuration. Users may also configure their own provider keys through the app.
+
+## Main areas
+
 | Path | Purpose |
 |---|---|
-| `server.ts` | Express dev/prod server, mounts the API router |
-| `src/server-core/` | The actual research engine: `router.ts` (routes + SSE debate pipeline), `providers.ts` (model calls), `search.ts` (web search), `evidence.ts` (claims / sources / contradictions) |
-| `workers/index.ts`, `wrangler.jsonc` | Cloudflare deployment of the same router |
-| `src/types.ts` | Shared types (`DebateSession`, `DebateStep`, `Attachment`, evidence graph, ...) |
-| `src/services/apiClient.ts` | Browser client for the API: `streamDebate`, `chatBreezy`, `getHealth`, Ollama, key verify |
-| `src/services/providerConfigService.ts` | Provider keys, per-seat models (architect / skeptic / verifier / arbiter), search engine, research method; stored in localStorage |
-| `src/services/effectiveProviderService.ts` | "What can I actually route to right now?" — `getActiveRoutableModel()`, server-Gemini status |
-| `src/services/sessionStorage.ts` | Save/load research sessions + active session (`createNewSession`, `loadSessions`, `saveSessions`) |
-| `src/services/gitHubService.ts`, `workspaceService.ts` | GitHub repo connect, tree, read/write/commit files |
-| `src/services/puterService.ts`, `aiProviderService.ts`, `ollamaService.ts` | Puter chat, provider abstraction, local Ollama |
-| `src/services/googleDocsService.ts`, `googleDriveService.ts`, `authService.ts` | Google sign-in, Docs/Drive export |
-| `src/services/pdfService.ts` | PDF text extraction for attachments |
-| `src/services/userProfileService.ts`, `storageQuotaService.ts` | Profile + storage helpers |
-| `src/utils/exportTranscript.ts` | Markdown/PDF export of a session |
-| `tests/` | Provider config + router tests |
+| `src/server-core/router.ts` | API routing, single-model research generation, grounding, and SSE events |
+| `src/server-core/providers.ts` | Provider calls |
+| `src/server-core/search.ts` | Web-search grounding |
+| `src/server-core/sourceFetch.ts` | Bounded public source-page retrieval |
+| `src/server-core/evidence.ts`, `evidenceAssessment.ts` | Evidence metadata and cautious model-assisted assessments |
+| `workers/index.ts`, `wrangler.jsonc` | Cloudflare Worker entrypoint/configuration |
+| `src/services/apiClient.ts` | Browser API client |
+| `src/services/providerConfigService.ts` | Provider/model and search configuration |
+| `src/services/sessionStorage.ts` | Research session persistence |
+| `tests/` | Regression and behavior tests |
 
 ## API
-`GET /api/health` · `POST /api/debate/stream` (SSE) · `POST /api/debate/summarize` · `POST /api/breezy/chat` ·
-`POST /api/vault/verify-key` · `/api/ollama/*` · `POST /api/webhook/test`
 
-### Research stream (`/api/debate/stream`)
-Request: `{ prompt, tone, searchEngine, keys, seats: { architect: { provider, model } }, enableSearchGrounding }`. Legacy `protocol`, `selectedRound`, `researchMethod`, `autoResolve`, heartbeat flags, and non-architect seat assignments are ignored for compatibility.
+- `GET /api/health`
+- `POST /api/debate/stream` (Server-Sent Events)
+- `POST /api/debate/summarize`
+- `POST /api/breezy/chat`
+- `POST /api/vault/verify-key`
+- `/api/ollama/*`
 
-The backend enforces **single-model research** regardless of legacy mode fields. Only `seats.architect` selects the model; Critic, Verifier, and Synthesizer seats are no longer used. Each research run makes exactly one LLM call for answer generation. The research approach and output shape are fixed rather than user-selectable. Planning is deterministic/local, and the solo evidence graph uses retrieved sources directly without a separate model-based planning, heartbeat, summarization, or evidence-extraction call.
+## Research stream: `POST /api/debate/stream`
 
-SSE events: `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`,
-`usage`, `heartbeat`, `evidence_graph`, `complete`, `error`. Rounds are 1-indexed (`data.round`).
+The active request contract is:
 
-## Prompt to paste into AI Studio (first UI pass)
-> This project is a finished backend for "Breezy Research" (read `BACKEND_README.md` first). Do not modify anything in
-> `server.ts`, `src/server-core/`, `workers/`, or `src/services/`. Build a clean, normal frontend in `src/` that uses those services.
-> Screens: Research (question box, depth Solo/Standard/Deep, live streaming of each step's output, final answer, sources and claims),
-> Chat, Models/Providers (add keys, assign a model per seat, show "No model assigned" when empty), History, Settings.
-> Rules: never show fake data — no invented models, stats, statuses or sample runs; empty states must be honest.
-> Mobile-first and responsive. Dark theme. Keep it simple; I will refine the design with follow-up prompts.
+```ts
+{
+  prompt: string;
+  tone: string;
+  searchEngine: string;
+  keys: Record<string, string>;
+  seats: {
+    architect: {
+      provider: string;
+      model: string;
+    };
+  };
+  enableSearchGrounding: boolean;
+}
+```
+
+### Execution guarantees
+
+- Research has **one configured answer-generation model**. There is no selectable Solo/Trio/Deep mode or multi-agent council.
+- A research run makes one LLM call for answer generation. The research plan is deterministic/local.
+- Web search and bounded source-page retrieval are grounding operations, not extra LLM calls.
+- Only `seats.architect` selects the research model. Legacy `protocol`, `selectedRound`, `researchMethod`, `autoResolve`, heartbeat settings, and non-architect seat assignments are ignored for compatibility.
+- A missing research-model configuration must produce a clear error; the backend must not silently substitute another provider or model.
+- The research stream can emit `status`, `notice`, `research_plan`, `search_grounding`, `round_start`, `token`, `round_complete`, `usage`, `heartbeat`, `evidence_graph`, `complete`, and `error` events. Heartbeats are stream status signals, not model calls or a user-selectable mode.
+- Treat source titles, URLs, snippets, retrieved page text, and user attachments as untrusted input. A discovered URL is not proof that it supports a claim.
+- Evidence statuses are model-assisted assessments, not independent fact verification. Page retrieval is bounded and best-effort; a source may remain snippet-only or not be fetched.
+
+## Product/UX constraint
+
+Keep the Research experience honest and question-first. Show the configured research provider/model and explain the one-call workflow. Do not reintroduce multi-seat model assignment, a research depth selector, fabricated activity, or evidence claims that the system cannot substantiate. Keep Chat's model configuration separate from the Research model.
