@@ -48,6 +48,7 @@ The frontend is a static React/Vite app. Build output is `dist/`.
 3. Set the build output directory to `dist`.
 4. Set `VITE_PRIMARY_API_URL` to the deployed Worker URL, for example `https://breezy-api.<your-subdomain>.workers.dev`.
 5. Leave `VITE_SECONDARY_API_URL` and `VITE_FALLBACK_API_URL` empty unless those backup services have actually been deployed and tested. Configuring a URL does not create a backend.
+6. Set the frontend Firebase web-app configuration variables from the same Firebase project: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, and `VITE_FIREBASE_MESSAGING_SENDER_ID`. These are client configuration values, not server provider secrets; restrict the API key to the intended services and web origins.
 
 Vite variables are embedded at build time. Rebuild and redeploy Pages after changing them.
 
