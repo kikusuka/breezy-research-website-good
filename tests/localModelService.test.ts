@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildLocalChatEndpoint, chatWithLocalModel, listLocalModels, testLocalModelEndpoint } from '../src/services/localModelService';
+import { buildLocalChatEndpoint, chatWithLocalModel, listLocalModels, testLocalModelEndpoint, testLocalModelGeneration } from '../src/services/localModelService';
 
 describe('local model endpoint handling', () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -46,6 +46,19 @@ describe('local model endpoint handling', () => {
     expect(result.text).toBe('Hello from local.');
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:1234/v1/chat/completions', expect.objectContaining({ method: 'POST', credentials: 'omit', headers: expect.objectContaining({ Authorization: 'Bearer local-token' }) }));
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ model: 'qwen-local', stream: false });
+  });
+  it('tests generation with one small request to the selected local model', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: 'Hi from local.' } }] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(testLocalModelGeneration({ provider: 'ollama', baseUrl: 'http://localhost:11434', model: 'qwen2.5:7b' })).resolves.toBe('Hi from local.');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      model: 'qwen2.5:7b', stream: false, messages: [{ role: 'user', content: 'Reply with a short greeting.' }],
+    });
+  });
+  it('surfaces generation failures instead of reporting a local model as working', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: 'model not loaded' } }), { status: 404 })));
+    await expect(testLocalModelGeneration({ provider: 'ollama', baseUrl: 'http://localhost:11434', model: 'missing-model' })).rejects.toThrow(/HTTP 404/i);
   });
   it('reports empty model output instead of pretending the request succeeded', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '' } }] }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
