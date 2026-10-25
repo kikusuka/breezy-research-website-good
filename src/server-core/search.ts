@@ -5,6 +5,13 @@
 
 import type { SearchResultItem, SearchGroundingResult, SearchEngineProvider, BackendEnv } from './types.ts';
 
+function throwIfSearchAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  const error = new Error('The search request was aborted');
+  error.name = 'AbortError';
+  throw error;
+}
+
 export async function searchDuckDuckGoKeyless(query: string, signal?: AbortSignal): Promise<SearchResultItem[]> {
   const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
   try {
@@ -238,6 +245,7 @@ export async function performSearchGrounding(
   env: BackendEnv = {},
   signal?: AbortSignal
 ): Promise<SearchGroundingResult | null> {
+  throwIfSearchAborted(signal);
   const trimmedQuery = query.slice(0, 300);
 
   if (engine === 'google') {
@@ -272,6 +280,7 @@ export async function performSearchGrounding(
   let usedEngineName = engine === 'searxng' ? 'SearXNG Self-Hosted' : engine.toUpperCase();
 
   if (rawResults.length === 0 && engine !== 'duckduckgo') {
+    throwIfSearchAborted(signal);
     // Fallback to DuckDuckGo keyless
     rawResults = await searchDuckDuckGoKeyless(trimmedQuery, signal);
     usedEngine = 'duckduckgo';
