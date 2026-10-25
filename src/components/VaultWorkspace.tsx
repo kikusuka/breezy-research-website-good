@@ -5,6 +5,7 @@ import { apiClient } from '../services/apiClient';
 import { Icon } from '../shell/Icon';
 import { announceConfigChange } from '../lib/useModelState';
 import { PROVIDER_LABELS, providerLabel } from '../lib/providers';
+import { testLocalModelEndpoint } from '../services/localModelService';
 
 type Role = 'architect';
 const PROVIDERS = [
@@ -23,13 +24,15 @@ export const VaultWorkspace: React.FC = () => {
   });
   const [show, setShow] = useState<Record<string, boolean>>({});
   const [test, setTest] = useState<{ id: string; busy?: boolean; valid?: boolean; message?: string } | null>(null);
-  const [saved, setSaved] = useState(false); const [ollamaUrl, setOllamaUrl] = useState(config.ollamaBaseUrl || 'http://localhost:11434');
+  const [saved, setSaved] = useState(false); const [ollamaUrl, setOllamaUrl] = useState(config.ollamaBaseUrl || 'http://localhost:11434'); const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState(config.openaiCompatibleBaseUrl || '');
   const [customOpen, setCustomOpen] = useState<Partial<Record<Role, boolean>>>({});
   const timer = useRef<number | undefined>(undefined);
   const active = effectiveProviderService.getActiveRoutableModel();
   useEffect(() => {
     const current = providerConfigService.getConfig();
     setConfig(current);
+    setOllamaUrl(current.ollamaBaseUrl || 'http://localhost:11434');
+    setOpenaiCompatibleUrl(current.openaiCompatibleBaseUrl || '');
     setCustomDefaultModel(Boolean(current.defaultModel && !(AVAILABLE_MODELS[current.defaultProvider] || []).some((model) => model.id === current.defaultModel)));
     void effectiveProviderService.refreshServerHealth();
   }, []);
@@ -38,8 +41,19 @@ export const VaultWorkspace: React.FC = () => {
   const setKey = (id: string, v: string) => commit({ ...config, keys: { ...config.keys, [id]: v } });
   const setSeat = (role: Role, provider: any, model: string) => commit({ ...config, roles: { ...config.roles, [role]: { provider, model } }, preset: 'custom' });
   const verify = async (id: string) => {
+    if (id === 'ollama' || id === 'openai-compatible') {
+      const baseUrl = id === 'ollama' ? ollamaUrl : openaiCompatibleUrl;
+      setTest({ id, busy: true });
+      try {
+        const message = await testLocalModelEndpoint(id, baseUrl, (config.keys as any)[id] || '');
+        setTest({ id, valid: true, message });
+      } catch (e: any) {
+        setTest({ id, valid: false, message: e?.message || 'Could not reach the local endpoint.' });
+      }
+      return;
+    }
     const key = (config.keys as any)[id];
-    if (!key && id !== 'ollama') { setTest({ id, valid: false, message: 'Enter a key first.' }); return; }
+    if (!key) { setTest({ id, valid: false, message: 'Enter a key first.' }); return; }
     setTest({ id, busy: true });
     try { const r = await apiClient.verifyKey(id, key || ''); setTest({ id, valid: r.valid, message: r.message || (r.valid ? 'Key verified.' : 'Key rejected or network error.') }); }
     catch (e: any) { setTest({ id, valid: false, message: e?.message || 'Verification failed.' }); }
@@ -178,7 +192,20 @@ export const VaultWorkspace: React.FC = () => {
             <div className="flex items-center gap-space-xs mt-space-xs"><button type="button" onClick={() => commit({ ...config, ollamaBaseUrl: ollamaUrl.trim() })} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md transition-colors">Save URL</button>
               <button type="button" onClick={() => void verify('ollama')} disabled={test?.busy} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40 transition-colors">{test?.id === 'ollama' && test.busy ? 'Testing…' : 'Test connection'}</button></div>
             <Result id="ollama" />
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Choose your research model below using “Custom model”. Your browser must be able to reach the URL.</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat can call this URL directly from your browser. Choose Ollama and enter the exact model ID under Default chat model. The hosted Research backend cannot reach a device-local URL, so use a server-reachable model for Research for now.</p>
+          </div>
+          <div className="bg-surface-container rounded-3xl p-space-lg coat">
+            <div className="flex items-center justify-between mb-space-md gap-space-sm"><div className="font-headline-sm text-headline-sm">Custom OpenAI-compatible server</div><span className="font-code-sm text-code-sm text-outline">Local or self-hosted</span></div>
+            <label htmlFor="openai-compatible-url" className="block font-label-md text-label-md text-on-surface-variant mb-space-xs">Base URL (include /v1 when required)</label>
+            <input id="openai-compatible-url" type="url" value={openaiCompatibleUrl} onChange={(e) => setOpenaiCompatibleUrl(e.target.value)} aria-label="OpenAI-compatible server base URL" placeholder="http://127.0.0.1:1234/v1" className="w-full min-w-0 bg-surface-container-lowest rounded-xl hairline px-space-md py-2.5 font-code-md text-code-md focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]" />
+            <div className="flex flex-wrap gap-space-xs mt-space-xs">
+              <button type="button" onClick={() => commit({ ...config, openaiCompatibleBaseUrl: openaiCompatibleUrl.trim() })} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md transition-colors">Save URL</button>
+              <button type="button" onClick={() => void verify('openai-compatible')} disabled={test?.busy || !openaiCompatibleUrl.trim()} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40 transition-colors">{test?.id === 'openai-compatible' && test.busy ? 'Testing…' : 'Test connection'}</button>
+            </div>
+            {keyField('openai-compatible', 'Optional bearer token')}
+            <Result id="openai-compatible" />
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat sends requests from this browser directly to this endpoint; the hosted Breezy backend does not proxy local URLs. Research still runs through the hosted backend and cannot use this device-local endpoint yet. The server must allow browser CORS requests. Use a base URL such as http://127.0.0.1:1234/v1. For a phone-hosted server, use the phone’s LAN address and port when both devices are on the same network.</p>
+            <p className="font-body-sm text-body-sm text-outline mt-space-xs">HTTPS pages may be blocked from calling some HTTP endpoints by browser security rules. A successful connection test checks the models endpoint only; it does not guarantee generation works.</p>
           </div>
         </div>
       </section>

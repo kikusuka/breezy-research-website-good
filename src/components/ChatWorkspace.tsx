@@ -10,6 +10,7 @@ import { BreezyLogo } from './BreezyLogo';
 import { CHAT_STARTERS } from '../lib/starters';
 import { providerLabel } from '../lib/providers';
 import { puterService, PuterModel, PuterChatMessage } from '../services/puterService';
+import { chatWithLocalModel } from '../services/localModelService';
 
 const CHAT_STORAGE_KEY = 'breezy_chat_history_v1';
 
@@ -26,7 +27,7 @@ export const ChatWorkspace: React.FC = () => {
     const hasCredentials = Boolean(providerConfigService.getKey(provider)) ||
       (provider === 'gemini' && modelState.serverGemini) ||
       (provider === 'ollama' && Boolean(modelState.config.ollamaBaseUrl)) ||
-      (provider === 'openai-compatible' && Boolean(modelState.config.openaiCompatibleBaseUrl && modelState.config.keys.openaiCompatible));
+      (provider === 'openai-compatible' && Boolean(modelState.config.openaiCompatibleBaseUrl));
     return hasCredentials ? models.map((model) => ({ ...model, provider })) : [];
   });
   const activeModelValue = active ? `${active.provider}::${active.model}` : '';
@@ -191,7 +192,23 @@ export const ChatWorkspace: React.FC = () => {
       }
 
       const last = history[history.length - 1];
-      const res = await apiClient.chatBreezy({ prompt: last.content, history: history.map((m) => ({ role: m.role, content: m.content })), provider: active!.provider, model: active!.model, apiKey: providerConfigService.getKeys()[active!.provider] }, { signal: c.signal } as any);
+      const chatHistory = history.map((m) => ({ role: m.role, content: m.content }));
+      if (active!.provider === 'ollama' || active!.provider === 'openai-compatible') {
+        const baseUrl = active!.provider === 'ollama'
+          ? modelState.config.ollamaBaseUrl || 'http://localhost:11434'
+          : modelState.config.openaiCompatibleBaseUrl || '';
+        const res = await chatWithLocalModel({
+          provider: active!.provider,
+          baseUrl,
+          model: active!.model,
+          messages: chatHistory,
+          apiKey: providerConfigService.getKey(active!.provider),
+          signal: c.signal,
+        });
+        setMessages([...history, { role: 'assistant', content: res.text }]);
+        return;
+      }
+      const res = await apiClient.chatBreezy({ prompt: last.content, history: chatHistory, provider: active!.provider, model: active!.model, apiKey: providerConfigService.getKeys()[active!.provider] }, { signal: c.signal } as any);
       setMessages([...history, { role: 'assistant', content: res.text || 'The model returned an empty response.' }]);
     } catch (e: any) {
       if (chatMode === 'puter') {
