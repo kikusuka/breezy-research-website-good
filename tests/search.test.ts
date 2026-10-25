@@ -38,6 +38,19 @@ describe('search result deduplication', () => {
     expect(fetchMock.mock.calls[0][1].signal).toBe(controller.signal);
   });
 
+  it('does not start any search request when research is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      performSearchGrounding('test query', 'brave', {}, {}, controller.signal),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('sorts meaningful query parameters when comparing URLs', () => {
     const results = deduplicateAndRank([
       item('https://example.com/page?b=2&a=1'),
