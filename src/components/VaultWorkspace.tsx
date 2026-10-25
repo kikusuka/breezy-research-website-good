@@ -83,7 +83,7 @@ export const VaultWorkspace: React.FC = () => {
     setLocalModelTests((current) => ({ ...current, [key]: { busy: true } }));
     try {
       const reply = await testLocalModelGeneration({ provider, baseUrl, model, apiKey: (config.keys as any)[provider] || '' });
-      const compactReply = reply.replace(/\\s+/g, ' ').trim();
+      const compactReply = reply.replace(/\s+/g, ' ').trim();
       setLocalModelTests((current) => ({ ...current, [key]: { valid: true, message: 'Generation works. Reply: ' + compactReply.slice(0, 140) + (compactReply.length > 140 ? '…' : '') } }));
     } catch (error: any) {
       setLocalModelTests((current) => ({ ...current, [key]: { valid: false, message: error?.message || 'Generation test failed.' } }));
@@ -264,6 +264,7 @@ export const VaultWorkspace: React.FC = () => {
             <Result id="ollama" />
             <button type="button" onClick={() => void discoverModels('ollama')} disabled={Boolean(listingModels)} className="mt-space-xs px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40">{listingModels === 'ollama' ? 'Loading models…' : 'Discover installed models'}</button>
             <LocalModelList id="ollama" />
+            <p className="font-body-sm text-body-sm text-outline mt-space-sm">Test generation sends one short greeting directly to the selected model; it may load the model and use your device’s CPU, GPU, memory, or battery.</p>
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat can call this URL directly from your browser. Choose Ollama and enter the exact model ID under Default chat model. The hosted Research backend cannot reach a device-local URL, so use a server-reachable model for Research for now.</p>
           </div>
           <div className="bg-surface-container rounded-3xl p-space-lg coat">
