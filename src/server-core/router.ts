@@ -920,7 +920,7 @@ Analyze this deliberation and output the JSON object.`;
           try {
             const queries = selectResearchQueries(plannedSearchQueries, prompt);
             const queryResults = await Promise.all(
-              queries.map((query) => performSearchGrounding(query, searchEngine as SearchEngineProvider, keys, env)),
+              queries.map((query) => performSearchGrounding(query, searchEngine as SearchEngineProvider, keys, env, req.signal)),
             );
             const groundingResult = mergeGroundingResults(queryResults, queries, 10);
             if (groundingResult) {
