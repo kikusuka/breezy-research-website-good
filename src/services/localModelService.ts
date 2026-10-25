@@ -58,6 +58,29 @@ export async function chatWithLocalModel(options: {
 }
 
 /** Tests connectivity from this browser, not from Breezy's hosted backend. */
+export async function listLocalModels(provider: LocalModelProvider, baseUrl: string, apiKey?: string): Promise<string[]> {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (provider === 'openai-compatible' && apiKey?.trim()) headers.Authorization = 'Bearer ' + apiKey.trim();
+  let response: Response;
+  try {
+    response = await fetch(buildModelsEndpoint(provider, baseUrl), { method: 'GET', headers, credentials: 'omit' });
+  } catch (error: any) {
+    throw new Error('Could not list models from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
+  }
+  if (!response.ok) throw new Error(await responseError(response));
+  let data: any;
+  try { data = await response.json(); }
+  catch { throw new Error('The model server returned invalid JSON while listing models.'); }
+  const entries = provider === 'ollama' ? data?.models : data?.data;
+  if (!Array.isArray(entries)) throw new Error('The endpoint responded, but did not return a recognizable model list.');
+  const ids = entries
+    .map((entry: any) => provider === 'ollama' ? entry?.name || entry?.model : entry?.id)
+    .filter((id: unknown): id is string => typeof id === 'string' && id.trim().length > 0)
+    .map((id: string) => id.trim());
+  return [...new Set(ids)].slice(0, 100);
+}
+
+/** Tests connectivity from this browser, not from Breezy's hosted backend. */
 export async function testLocalModelEndpoint(provider: LocalModelProvider, baseUrl: string, apiKey?: string): Promise<string> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (provider === 'openai-compatible' && apiKey?.trim()) headers.Authorization = `Bearer ${apiKey.trim()}`;
