@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { deduplicateAndRank } from '../src/server-core/search';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { deduplicateAndRank, performSearchGrounding } from '../src/server-core/search';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('search result deduplication', () => {
   const item = (url: string) => ({ title: url, url, snippet: 'result' });
@@ -17,6 +21,21 @@ describe('search result deduplication', () => {
       'https://example.com/manual?version=3',
       'https://example.com/manual?version=4&gclid=click-id',
     ]);
+  });
+
+  it('forwards research cancellation to the provider and does not start fallback search', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const abortError = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
+    const fetchMock = vi.fn().mockRejectedValue(abortError);
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      performSearchGrounding('test query', 'brave', { brave: 'test-key' }, {}, controller.signal),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1].signal).toBe(controller.signal);
   });
 
   it('sorts meaningful query parameters when comparing URLs', () => {
