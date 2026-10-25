@@ -136,8 +136,24 @@ export function getCorsHeaders(req: Request, env: BackendEnv = {}): Record<strin
       }
     }
   } else if (requestOrigin) {
-    // In local dev without explicit ALLOWED_ORIGINS, allow request origin
-    resolvedOrigin = requestOrigin;
+    // If deployment configuration is missing, fail closed for public origins.
+    // Keep same-machine HTTP origins usable for local development only.
+    try {
+      const parsedOrigin = new URL(requestOrigin);
+      const isLocalDevelopmentOrigin =
+        parsedOrigin.protocol === 'http:' &&
+        ['localhost', '127.0.0.1', '[::1]'].includes(parsedOrigin.hostname);
+      if (isLocalDevelopmentOrigin) {
+        resolvedOrigin = requestOrigin;
+      } else {
+        allowOriginHeader = false;
+      }
+    } catch {
+      allowOriginHeader = false;
+    }
+  } else {
+    // Requests without an Origin header do not need a CORS grant.
+    allowOriginHeader = false;
   }
 
   return {
