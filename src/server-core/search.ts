@@ -5,7 +5,7 @@
 
 import type { SearchResultItem, SearchGroundingResult, SearchEngineProvider, BackendEnv } from './types.ts';
 
-export async function searchDuckDuckGoKeyless(query: string): Promise<SearchResultItem[]> {
+export async function searchDuckDuckGoKeyless(query: string, signal?: AbortSignal): Promise<SearchResultItem[]> {
   const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
   try {
     const response = await fetch(url, {
@@ -14,6 +14,7 @@ export async function searchDuckDuckGoKeyless(query: string): Promise<SearchResu
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
       },
+      signal,
     });
 
     if (!response.ok) {
@@ -66,13 +67,14 @@ export async function searchDuckDuckGoKeyless(query: string): Promise<SearchResu
     }
 
     return results;
-  } catch (err) {
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') throw err;
     console.warn('Error fetching keyless DuckDuckGo search:', err);
     return [];
   }
 }
 
-export async function searchTavily(query: string, apiKey: string): Promise<SearchResultItem[]> {
+export async function searchTavily(query: string, apiKey: string, signal?: AbortSignal): Promise<SearchResultItem[]> {
   try {
     const resp = await fetch('https://api.tavily.com/search', {
       method: 'POST',
@@ -84,6 +86,7 @@ export async function searchTavily(query: string, apiKey: string): Promise<Searc
         include_answer: true,
         max_results: 5,
       }),
+      signal,
     });
     if (resp.ok) {
       const data = await resp.json();
@@ -94,13 +97,14 @@ export async function searchTavily(query: string, apiKey: string): Promise<Searc
         source: 'Tavily AI Search',
       }));
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') throw err;
     console.warn('Tavily search failed:', err);
   }
   return [];
 }
 
-export async function searchSerper(query: string, apiKey: string): Promise<SearchResultItem[]> {
+export async function searchSerper(query: string, apiKey: string, signal?: AbortSignal): Promise<SearchResultItem[]> {
   try {
     const resp = await fetch('https://google.serper.dev/search', {
       method: 'POST',
@@ -109,6 +113,7 @@ export async function searchSerper(query: string, apiKey: string): Promise<Searc
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ q: query, num: 5 }),
+      signal,
     });
     if (resp.ok) {
       const data = await resp.json();
@@ -125,13 +130,14 @@ export async function searchSerper(query: string, apiKey: string): Promise<Searc
       }
       return results;
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') throw err;
     console.warn('Serper search failed:', err);
   }
   return [];
 }
 
-export async function searchBrave(query: string, apiKey: string): Promise<SearchResultItem[]> {
+export async function searchBrave(query: string, apiKey: string, signal?: AbortSignal): Promise<SearchResultItem[]> {
   try {
     const resp = await fetch(
       `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=5`,
@@ -141,6 +147,7 @@ export async function searchBrave(query: string, apiKey: string): Promise<Search
           'Accept-Encoding': 'gzip',
           'X-Subscription-Token': apiKey,
         },
+        signal,
       }
     );
     if (resp.ok) {
@@ -158,16 +165,18 @@ export async function searchBrave(query: string, apiKey: string): Promise<Search
       }
       return results;
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') throw err;
     console.warn('Brave search failed:', err);
   }
   return [];
 }
 
-export async function searchSearXNG(query: string, baseUrl: string): Promise<SearchResultItem[]> {
+export async function searchSearXNG(query: string, baseUrl: string, signal?: AbortSignal): Promise<SearchResultItem[]> {
   try {
     const resp = await fetch(`${baseUrl.replace(/\/$/, '')}/search?q=${encodeURIComponent(query)}&format=json`, {
       headers: { Accept: 'application/json' },
+      signal,
     });
     if (resp.ok) {
       const data = await resp.json();
@@ -178,7 +187,8 @@ export async function searchSearXNG(query: string, baseUrl: string): Promise<Sea
         source: 'SearXNG Self-Hosted',
       }));
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError') throw err;
     console.warn('SearXNG search failed:', err);
   }
   return [];
@@ -225,12 +235,13 @@ export async function performSearchGrounding(
   query: string,
   engine: SearchEngineProvider = 'google',
   keys: Record<string, string> = {},
-  env: BackendEnv = {}
+  env: BackendEnv = {},
+  signal?: AbortSignal
 ): Promise<SearchGroundingResult | null> {
   const trimmedQuery = query.slice(0, 300);
 
   if (engine === 'google') {
-    const fallbackResults = await searchDuckDuckGoKeyless(trimmedQuery);
+    const fallbackResults = await searchDuckDuckGoKeyless(trimmedQuery, signal);
     return {
       engine: 'duckduckgo',
       engineName: 'DuckDuckGo Keyless Index',
@@ -243,18 +254,18 @@ export async function performSearchGrounding(
 
   if (engine === 'tavily') {
     const tavilyKey = keys.tavily?.trim() || env.TAVILY_API_KEY || '';
-    if (tavilyKey) rawResults = await searchTavily(trimmedQuery, tavilyKey);
+    if (tavilyKey) rawResults = await searchTavily(trimmedQuery, tavilyKey, signal);
   } else if (engine === 'serper') {
     const serperKey = keys.serper?.trim() || env.SERPER_API_KEY || '';
-    if (serperKey) rawResults = await searchSerper(trimmedQuery, serperKey);
+    if (serperKey) rawResults = await searchSerper(trimmedQuery, serperKey, signal);
   } else if (engine === 'brave') {
     const braveKey = keys.brave?.trim() || env.BRAVE_API_KEY || '';
-    if (braveKey) rawResults = await searchBrave(trimmedQuery, braveKey);
+    if (braveKey) rawResults = await searchBrave(trimmedQuery, braveKey, signal);
   } else if (engine === 'searxng') {
     const searxngUrl = env.SEARXNG_URL || 'http://localhost:8080';
-    rawResults = await searchSearXNG(trimmedQuery, searxngUrl);
+    rawResults = await searchSearXNG(trimmedQuery, searxngUrl, signal);
   } else {
-    rawResults = await searchDuckDuckGoKeyless(trimmedQuery);
+    rawResults = await searchDuckDuckGoKeyless(trimmedQuery, signal);
   }
 
   let usedEngine = engine;
@@ -262,7 +273,7 @@ export async function performSearchGrounding(
 
   if (rawResults.length === 0 && engine !== 'duckduckgo') {
     // Fallback to DuckDuckGo keyless
-    rawResults = await searchDuckDuckGoKeyless(trimmedQuery);
+    rawResults = await searchDuckDuckGoKeyless(trimmedQuery, signal);
     usedEngine = 'duckduckgo';
     usedEngineName = 'DuckDuckGo Keyless Index (Fallback)';
   }
