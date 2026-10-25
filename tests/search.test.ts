@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deduplicateAndRank, performSearchGrounding } from '../src/server-core/search';
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+afterEach(() => vi.unstubAllGlobals());
 
 describe('search result deduplication', () => {
   const item = (url: string) => ({ title: url, url, snippet: 'result' });
@@ -15,7 +13,6 @@ describe('search result deduplication', () => {
       item('https://example.com/manual?version=3'),
       item('https://example.com/manual?version=4&gclid=click-id'),
     ]);
-
     expect(results.map((result) => result.url)).toEqual([
       'https://example.com/manual?version=2&utm_source=one#intro',
       'https://example.com/manual?version=3',
@@ -25,17 +22,16 @@ describe('search result deduplication', () => {
 
   it('forwards research cancellation to the provider and does not start fallback search', async () => {
     const controller = new AbortController();
-    controller.abort();
     const abortError = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
-    const fetchMock = vi.fn().mockRejectedValue(abortError);
+    const fetchMock = vi.fn((...args: any[]) => {
+      expect(args[1]?.signal).toBe(controller.signal);
+      controller.abort();
+      return Promise.reject(abortError);
+    });
     vi.stubGlobal('fetch', fetchMock);
-
-    await expect(
-      performSearchGrounding('test query', 'brave', { brave: 'test-key' }, {}, controller.signal),
-    ).rejects.toMatchObject({ name: 'AbortError' });
-
+    await expect(performSearchGrounding('test query', 'brave', { brave: 'test-key' }, {}, controller.signal))
+      .rejects.toMatchObject({ name: 'AbortError' });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][1].signal).toBe(controller.signal);
   });
 
   it('does not start any search request when research is already aborted', async () => {
@@ -43,11 +39,8 @@ describe('search result deduplication', () => {
     controller.abort();
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-
-    await expect(
-      performSearchGrounding('test query', 'brave', {}, {}, controller.signal),
-    ).rejects.toMatchObject({ name: 'AbortError' });
-
+    await expect(performSearchGrounding('test query', 'brave', {}, {}, controller.signal))
+      .rejects.toMatchObject({ name: 'AbortError' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -56,7 +49,6 @@ describe('search result deduplication', () => {
       item('https://example.com/page?b=2&a=1'),
       item('https://example.com/page?a=1&b=2'),
     ]);
-
     expect(results).toHaveLength(1);
     expect(results[0].url).toBe('https://example.com/page?b=2&a=1');
   });
@@ -67,7 +59,6 @@ describe('search result deduplication', () => {
       item('https://example.com/b'),
       { title: 'missing', url: '', snippet: '' },
     ]);
-
     expect(results.map((result) => result.url)).toEqual([
       'https://example.com/a',
       'https://example.com/b',
