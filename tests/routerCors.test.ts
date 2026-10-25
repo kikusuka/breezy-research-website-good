@@ -25,4 +25,28 @@ describe('backend CORS configuration', () => {
 
     expect(headers['Access-Control-Allow-Origin']).toBeUndefined();
   });
+  it('fails closed for public origins when the allowlist is missing', () => {
+    const request = {
+      headers: new Headers({ Origin: 'https://attacker.example.test' }),
+    } as Request;
+
+    const headers = getCorsHeaders(request, {});
+    expect(headers['Access-Control-Allow-Origin']).toBeUndefined();
+  });
+
+  it('still permits localhost origins for local development when the allowlist is missing', () => {
+    const request = {
+      headers: new Headers({ Origin: 'http://localhost:5173' }),
+    } as Request;
+
+    const headers = getCorsHeaders(request, {});
+    expect(headers['Access-Control-Allow-Origin']).toBe('http://localhost:5173');
+  });
+
+  it('does not emit a CORS grant for requests without an Origin header when the allowlist is missing', () => {
+    const request = { headers: new Headers() } as Request;
+    const headers = getCorsHeaders(request, {});
+    expect(headers['Access-Control-Allow-Origin']).toBeUndefined();
+  });
+
 });
