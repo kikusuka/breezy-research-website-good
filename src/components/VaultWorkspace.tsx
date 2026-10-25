@@ -192,7 +192,7 @@ export const VaultWorkspace: React.FC = () => {
             <div className="flex items-center gap-space-xs mt-space-xs"><button type="button" onClick={() => commit({ ...config, ollamaBaseUrl: ollamaUrl.trim() })} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md transition-colors">Save URL</button>
               <button type="button" onClick={() => void verify('ollama')} disabled={test?.busy} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40 transition-colors">{test?.id === 'ollama' && test.busy ? 'Testing…' : 'Test connection'}</button></div>
             <Result id="ollama" />
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Choose your research model below using “Custom model”. Your browser must be able to reach the URL.</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat can call this URL directly from your browser. Choose Ollama and enter the exact model ID under Default chat model. The hosted Research backend cannot reach a device-local URL, so use a server-reachable model for Research for now.</p>
           </div>
           <div className="bg-surface-container rounded-3xl p-space-lg coat">
             <div className="flex items-center justify-between mb-space-md gap-space-sm"><div className="font-headline-sm text-headline-sm">Custom OpenAI-compatible server</div><span className="font-code-sm text-code-sm text-outline">Local or self-hosted</span></div>
@@ -204,7 +204,7 @@ export const VaultWorkspace: React.FC = () => {
             </div>
             {keyField('openai-compatible', 'Optional bearer token')}
             <Result id="openai-compatible" />
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat sends requests from this browser directly to this endpoint; the hosted Breezy backend does not proxy local URLs. The server must allow browser CORS requests. Use a base URL such as http://127.0.0.1:1234/v1. For a phone-hosted server, use the phone’s LAN address and port when both devices are on the same network.</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat sends requests from this browser directly to this endpoint; the hosted Breezy backend does not proxy local URLs. Research still runs through the hosted backend and cannot use this device-local endpoint yet. The server must allow browser CORS requests. Use a base URL such as http://127.0.0.1:1234/v1. For a phone-hosted server, use the phone’s LAN address and port when both devices are on the same network.</p>
             <p className="font-body-sm text-body-sm text-outline mt-space-xs">HTTPS pages may be blocked from calling some HTTP endpoints by browser security rules. A successful connection test checks the models endpoint only; it does not guarantee generation works.</p>
           </div>
         </div>
