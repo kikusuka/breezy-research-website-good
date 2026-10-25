@@ -5,7 +5,7 @@ import { apiClient } from '../services/apiClient';
 import { Icon } from '../shell/Icon';
 import { announceConfigChange } from '../lib/useModelState';
 import { PROVIDER_LABELS, providerLabel } from '../lib/providers';
-import { listLocalModels, testLocalModelEndpoint } from '../services/localModelService';
+import { listLocalModels, testLocalModelEndpoint, testLocalModelGeneration } from '../services/localModelService';
 
 type Role = 'architect';
 const PROVIDERS = [
@@ -26,6 +26,7 @@ export const VaultWorkspace: React.FC = () => {
   const [test, setTest] = useState<{ id: string; busy?: boolean; valid?: boolean; message?: string } | null>(null);
   const [localModels, setLocalModels] = useState<Record<string, string[]>>({});
   const [listingModels, setListingModels] = useState<string | null>(null);
+  const [localModelTests, setLocalModelTests] = useState<Record<string, { busy?: boolean; valid?: boolean; message?: string }>>({});
   const [saved, setSaved] = useState(false); const [ollamaUrl, setOllamaUrl] = useState(config.ollamaBaseUrl || 'http://localhost:11434'); const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState(config.openaiCompatibleBaseUrl || '');
   const [customOpen, setCustomOpen] = useState<Partial<Record<Role, boolean>>>({});
   const timer = useRef<number | undefined>(undefined);
@@ -76,6 +77,19 @@ export const VaultWorkspace: React.FC = () => {
     }
   };
 
+  const testLocalModel = async (provider: 'ollama' | 'openai-compatible', model: string) => {
+    const key = provider + ':' + model;
+    const baseUrl = provider === 'ollama' ? ollamaUrl : openaiCompatibleUrl;
+    setLocalModelTests((current) => ({ ...current, [key]: { busy: true } }));
+    try {
+      const reply = await testLocalModelGeneration({ provider, baseUrl, model, apiKey: (config.keys as any)[provider] || '' });
+      const compactReply = reply.replace(/\\s+/g, ' ').trim();
+      setLocalModelTests((current) => ({ ...current, [key]: { valid: true, message: 'Generation works. Reply: ' + compactReply.slice(0, 140) + (compactReply.length > 140 ? '…' : '') } }));
+    } catch (error: any) {
+      setLocalModelTests((current) => ({ ...current, [key]: { valid: false, message: error?.message || 'Generation test failed.' } }));
+    }
+  };
+
   const useLocalModel = (provider: 'ollama' | 'openai-compatible', model: string) => {
     // Persist the exact endpoint used for discovery along with the selected model.
     // Otherwise an unsaved URL edit could discover a model but Chat would call the old URL.
@@ -97,10 +111,20 @@ export const VaultWorkspace: React.FC = () => {
     return <div className="mt-space-sm rounded-xl bg-surface-container-low p-space-sm">
       <p className="font-label-md text-label-md text-on-surface-variant mb-space-xs">Models reported by this server</p>
       <div className="flex flex-col gap-space-xs">
-        {models.map((model) => <div key={model} className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs rounded-lg bg-surface-container px-space-sm py-2">
-          <code className="min-w-0 break-all font-code-sm text-code-sm">{model}</code>
-          <button type="button" onClick={() => useLocalModel(id, model)} className="shrink-0 self-start sm:self-auto px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md">Use in Chat</button>
-        </div>)}
+        {models.map((model) => {
+          const key = id + ':' + model;
+          const result = localModelTests[key];
+          return <div key={model} className="rounded-lg bg-surface-container px-space-sm py-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs">
+              <code className="min-w-0 break-all font-code-sm text-code-sm">{model}</code>
+              <div className="flex flex-wrap gap-space-xs shrink-0">
+                <button type="button" onClick={() => void testLocalModel(id, model)} disabled={Boolean(result?.busy)} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40">{result?.busy ? 'Testing…' : 'Test generation'}</button>
+                <button type="button" onClick={() => useLocalModel(id, model)} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md">Use in Chat</button>
+              </div>
+            </div>
+            {result?.message && <p role="status" className={`mt-space-xs font-body-sm text-body-sm break-words ${result.valid ? 'text-tertiary' : 'text-error'}`}>{result.message}</p>}
+          </div>;
+        })}
       </div>
     </div>;
   };
