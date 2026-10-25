@@ -1,34 +1,72 @@
-# Browser-local AI roadmap
+# Local AI and model-provider roadmap
 
-## Decision
+## Product decision
 
-Breezy should explore browser-local AI through WebGPU, but add it incrementally as an optional capability. Do not introduce a second Research mode or change the existing single-model Research workflow. Local AI is a separate execution capability; Research continues to show its configured research model and its one-call analysis workflow.
+Breezy Research remains **single-model**: one configured Research model is used for each research run, with one answer-generation call. The app may support different ways to host that model, but those are provider connections—not Research modes, agent teams, or multi-round workflows.
 
-The initial goal is to make selected tasks work locally without requiring a paid inference API. This is not a promise that every device can run every model, that inference is always faster, or that every task can run offline from first launch.
+The Research screen should always show the actual configured provider/model and explain the one-call workflow. It must not show Solo/Trio/Deep selectors or imply that a local runtime silently replaces the configured model.
 
-## Why this fits Breezy
+Local AI should be introduced incrementally as an optional provider capability. This is not a promise that every device can run every model, that inference is always faster, or that every task can run offline from first launch.
 
-- **Cost control:** after a model is downloaded, supported tasks can run on the user's device without per-token inference charges. Model hosting/download bandwidth and development still have costs.
+## Provider options
+
+Treat these as separate adapters behind a small, explicit model-provider interface. Each adapter reports whether it is configured, reachable, supported, and ready. Only one provider/model is selected for a given Research run.
+
+### 1. In-browser WebGPU
+
+The model runs in the browser on the user's device. Model files are downloaded to browser-managed storage, and inference uses the browser's WebGPU implementation when available.
+
+- This is the closest fit for a website that can run AI without a separate installed inference app.
+- WebGPU requires a secure context and has limited browser/device availability. `navigator.gpu` existing is not enough: Breezy must request an adapter and device and test actual model initialization.
+- Browser support does not guarantee enough memory, a compatible model/runtime, or acceptable speed. Test representative low-memory Android phones as well as desktop devices.
+- Start with small local embeddings and document retrieval; evaluate local text generation only after a proof of concept.
+- Use a Web Worker where supported, lazy-load the runtime, and make downloads explicit, cancellable, measurable, and removable.
+
+### 2. Ollama on a user's computer
+
+Ollama runs as a separate local service; Breezy's browser connects to it over HTTP. This can support models that are impractical to run in the browser, but it is not inference inside the website.
+
+- Require the user to install and start Ollama and explicitly connect it. Show connection status and the selected model.
+- A hosted Breezy page cannot assume the local service is available. The user may need to allow Breezy's origin using Ollama's `OLLAMA_ORIGINS` configuration.
+- Keep Ollama bound to loopback by default; do not instruct users to expose the service publicly or across a network without a deliberate, secure setup.
+- Handle CORS, browser local-network restrictions, mixed-content behavior, timeouts, and connection refusal as normal failure states.
+- Test the exact hosted origin and supported browsers before claiming the integration works.
+- Never send prompts to a cloud provider automatically if the local service is offline.
+
+### 3. Mobile-hosted models (PocketPal or compatible app)
+
+A mobile app can run a model on the phone's CPU, GPU, or NPU independently of the browser. That does **not** automatically make the model callable from a webpage.
+
+- PocketPal's public project describes on-device GGUF inference, but this roadmap does not assume it exposes a stable HTTP/OpenAI-compatible API for other apps to call.
+- First verify whether a supported API or intentional integration mechanism exists. If not, do not fake a “Connect PocketPal” button or attempt undocumented private interfaces.
+- If a compatible API becomes available, build and test a dedicated adapter with explicit pairing/connection steps, permissions, timeouts, and clear local-network/privacy warnings.
+- Otherwise, treat PocketPal as a separate app/reference implementation, not a supported Breezy provider. A future native Breezy app could evaluate embedding an on-device runtime directly.
+- A phone's local model must not be exposed to the public internet merely to make a hosted webpage connect to it.
+
+## Why local AI fits Breezy
+
+- **Cost control:** after a model is downloaded or installed, supported inference can run without per-token API charges. Model hosting/download bandwidth and development still have costs.
 - **Privacy:** local inference can keep task inputs on-device. The UI must say precisely which operations stay local; web search, account sync, bug reports, and other server features may still send data elsewhere.
-- **Progressive enhancement:** Breezy remains usable when WebGPU is unavailable, memory is limited, or a model fails to load.
-- **User control:** never download multi-hundred-megabyte or multi-gigabyte model files without an explicit action. Show model size, storage use, download progress, cancellation, and a clear remove-model control.
-- **Honest behavior:** no silent switch to a cloud model. If local inference is unavailable or fails, explain why and let the user decide what to do next.
+- **Progressive enhancement:** Breezy remains usable when WebGPU is unavailable, local services are stopped, memory is limited, or a model fails to load.
+- **User control:** never download multi-hundred-megabyte or multi-gigabyte model files without an explicit action. Show model size, storage use, download progress, cancellation, and removal controls.
+- **Honest behavior:** no silent switch between local and cloud providers. If the selected provider is unavailable, explain why and let the user choose another provider or stop.
 
 ## Recommended implementation order
 
-### Phase 0 — capability and runtime spike
+### Phase 0 — provider contract and capability spike
 
-1. Verify WebGPU in a secure context and request an adapter; the existence of navigator.gpu alone is not enough to guarantee initialization.
-2. Probe worker support, adapter/device creation, browser storage availability, and a small known test operation.
-3. Test target browsers and representative low-memory Android devices. Do not infer capacity from browser name alone.
-4. Choose one runtime for each task only after a small proof of concept. Keep the runtime behind a narrow service boundary and lazy-load it so normal Breezy startup does not pay the bundle cost.
-5. Report unsupported, blocked, initializing, downloading, ready, failed, and removed states truthfully.
+1. Define a small provider contract for readiness, model identity, generation, cancellation, and errors. Keep provider selection outside the Research workflow logic.
+2. Verify WebGPU secure-context support, adapter/device initialization, worker support, and browser storage.
+3. Test a local Ollama connection from the actual Breezy deployment origin; verify CORS and browser restrictions without exposing the service publicly.
+4. Investigate PocketPal's supported integration surface. Do not implement an adapter until a documented, stable connection path is confirmed.
+5. Report unsupported, unconfigured, connecting, downloading, ready, failed, and disconnected states truthfully.
+6. Keep runtimes behind narrow adapters and lazy-load browser-local code so normal Breezy startup does not pay the bundle cost.
 
 ### Phase 1 — local embeddings and document retrieval
 
-Start here because it is useful for Breezy's document/research workflow and generally lighter than local text generation.
+Start here because it helps Breezy's document workflow and is generally lighter than local text generation.
 
-- Evaluate Transformers.js with a small, supported embedding model on WebGPU, with a CPU/WASM fallback only when practical.
+- Evaluate Transformers.js with a small supported embedding model on WebGPU, with CPU/WASM fallback only when practical.
 - Embed user-selected local documents in a Web Worker and keep vectors and source chunks in IndexedDB.
 - Search the local index for relevant passages; show the source filename and matching excerpt.
 - Make local indexing opt-in and provide per-document deletion plus clear-index controls.
@@ -38,14 +76,15 @@ Start here because it is useful for Breezy's document/research workflow and gene
 ### Phase 2 — optional local text generation
 
 - Prototype one small, permissively licensed instruct model with WebLLM/MLC-LLM or another runtime after testing device coverage.
-- Keep it in a separate Local AI/Chat capability; do not present it as an alternative Research workflow or silently replace the configured research provider.
-- Use a Web Worker, cancellable generation, bounded context, and a clear model download/removal lifecycle.
-- Clearly label output as locally generated and explain that the model may be less capable than configured cloud providers.
-- If unavailable, offer an explicit choice to use the existing configured provider or stop. Never auto-fallback.
+- Add Ollama only after the hosted-origin connection and security behavior have been tested.
+- Keep provider choice explicit. Research still performs one answer-generation call with the single configured Research model, regardless of whether that model is remote or local.
+- Use a Web Worker where applicable, cancellable generation, bounded context, and a clear model download/removal lifecycle.
+- Clearly label output as locally generated and explain that model capability and speed vary.
+- If the selected provider is unavailable, offer an explicit choice to retry, configure another provider, or stop. Never auto-fallback.
 
 ### Phase 3 — speech and other modalities
 
-Only after text/embeddings are stable, evaluate speech-to-text, text-to-speech, and image tasks independently. Each has different model sizes, browser support, performance, and privacy implications. Do not bundle every modality into the first release.
+Only after embeddings and text generation are stable, evaluate speech-to-text, text-to-speech, and image tasks independently. Each has different model sizes, runtime support, performance, and privacy implications. Do not bundle every modality into the first release.
 
 ## Non-goals for the first release
 
@@ -53,18 +92,22 @@ Only after text/embeddings are stable, evaluate speech-to-text, text-to-speech, 
 - No claim that 30–100 tokens/second or 1–4 second image generation is typical.
 - No assumption that Firefox, Safari, Android browsers, or embedded WebViews have equivalent WebGPU support.
 - No cloud fallback without a clear user choice.
-- No mixing local-model status into Research's one-call model indicator.
-- No uploading private local documents merely to make local RAG work.
+- No extra LLM calls or selectable multi-agent modes in Research.
+- No mixing local-runtime status into Research's configured-model indicator.
+- No uploading private local documents merely to make local retrieval work.
+- No public exposure of a user's local inference server to support a convenience integration.
 
 ## Acceptance criteria
 
-- Feature detection checks secure context and actually attempts adapter initialization.
+- Research shows the actual configured model/provider and clearly explains its one-call workflow.
+- Provider selection does not add extra model calls or imply multiple Research modes.
+- WebGPU checks secure context and actually attempts adapter/device initialization.
 - No model files download until the user explicitly starts a download.
-- Unsupported browsers receive a clear explanation and the rest of Breezy still works.
-- The user can cancel a download or generation and remove locally stored model/index data.
+- Unsupported browsers and disconnected local services receive clear explanations; the rest of Breezy still works.
+- The user can cancel downloads/generation and remove locally stored model/index data.
 - Model download size, local storage use, and current execution location are visible.
-- No silent local-to-cloud fallback; every network-backed action is distinguishable from local inference.
-- Tests cover unsupported WebGPU, adapter failure, download failure, cancellation, storage quota failure, and explicit removal.
+- Every network-backed action is distinguishable from local inference; no silent local-to-cloud fallback.
+- Tests cover unsupported WebGPU, adapter failure, download/connection failure, cancellation, storage quota failure, explicit removal, and exactly one Research generation call.
 - Performance is measured on real target devices before making speed or minimum-device claims.
 
 ## Technical references
@@ -73,5 +116,7 @@ Only after text/embeddings are stable, evaluate speech-to-text, text-to-speech, 
 - Hugging Face Transformers.js WebGPU guide: https://huggingface.co/docs/transformers.js/main/guides/webgpu
 - Transformers.js overview and task coverage: https://huggingface.co/docs/transformers.js/en/index
 - WebLLM documentation: https://webllm.io/docs/
+- Ollama FAQ (network binding and allowed origins): https://github.com/ollama/ollama/blob/main/docs/faq.mdx
+- PocketPal AI project: https://github.com/a-ghorbani/pocketpal-ai
 
-WebGPU is limited-availability and requires a secure context. Runtime support, available models, quantization formats, and device memory requirements must be validated for the exact versions we adopt.
+WebGPU is limited-availability and requires a secure context. Runtime support, available models, quantization formats, and device memory requirements must be validated for the exact versions we adopt. PocketPal is not a supported Breezy provider unless a documented integration surface is verified.
