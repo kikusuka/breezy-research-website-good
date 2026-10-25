@@ -77,7 +77,16 @@ export const VaultWorkspace: React.FC = () => {
   };
 
   const useLocalModel = (provider: 'ollama' | 'openai-compatible', model: string) => {
-    commit({ ...config, defaultProvider: provider, defaultModel: model });
+    // Persist the exact endpoint used for discovery along with the selected model.
+    // Otherwise an unsaved URL edit could discover a model but Chat would call the old URL.
+    const next = {
+      ...config,
+      defaultProvider: provider,
+      defaultModel: model,
+      ollamaBaseUrl: provider === 'ollama' ? ollamaUrl.trim() : config.ollamaBaseUrl,
+      openaiCompatibleBaseUrl: provider === 'openai-compatible' ? openaiCompatibleUrl.trim() : config.openaiCompatibleBaseUrl,
+    };
+    commit(next);
     setCustomDefaultModel(true);
     setTest({ id: provider, valid: true, message: 'Selected ' + model + ' as the default Chat model.' });
   };
