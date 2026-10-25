@@ -12,13 +12,12 @@ function normalizeBaseUrl(baseUrl: string): URL {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('Local model URLs must use http:// or https://.');
   if (parsed.username || parsed.password) throw new Error('Do not put credentials in the server URL. Use the optional API-key field instead.');
   if (parsed.search || parsed.hash) throw new Error('The server base URL must not contain a query string or fragment.');
-  parsed.pathname = parsed.pathname.replace(/\/+$/, '');
   return parsed;
 }
 
 export function buildLocalChatEndpoint(provider: LocalModelProvider, baseUrl: string): string {
   const parsed = normalizeBaseUrl(baseUrl);
-  let path = parsed.pathname;
+  let path = parsed.pathname.replace(/\/+$/, '');
   if (provider === 'ollama' && !/\/v1$/i.test(path) && !/\/chat\/completions$/i.test(path)) path += '/v1';
   if (!/\/chat\/completions$/i.test(path)) path += '/chat/completions';
   return parsed.origin + path;
@@ -26,7 +25,7 @@ export function buildLocalChatEndpoint(provider: LocalModelProvider, baseUrl: st
 
 function buildModelsEndpoint(provider: LocalModelProvider, baseUrl: string): string {
   const parsed = normalizeBaseUrl(baseUrl);
-  let path = parsed.pathname;
+  let path = parsed.pathname.replace(/\/+$/, '');
   if (provider === 'ollama') path = path.replace(/\/v1$/i, '') + '/api/tags';
   else if (!/\/models$/i.test(path)) path += '/models';
   return parsed.origin + path;
