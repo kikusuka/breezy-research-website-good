@@ -24,7 +24,7 @@ export const VaultWorkspace: React.FC = () => {
   });
   const [show, setShow] = useState<Record<string, boolean>>({});
   const [test, setTest] = useState<{ id: string; busy?: boolean; valid?: boolean; message?: string } | null>(null);
-  const [localModels, setLocalModels] = useState<Record<string, string[]>>({});
+  const [localModels, setLocalModels] = useState<Record<string, { baseUrl: string; models: string[] }>>({});
   const [listingModels, setListingModels] = useState<string | null>(null);
   const [localModelTests, setLocalModelTests] = useState<Record<string, { busy?: boolean; valid?: boolean; message?: string }>>({});
   const [saved, setSaved] = useState(false); const [ollamaUrl, setOllamaUrl] = useState(config.ollamaBaseUrl || 'http://localhost:11434'); const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState(config.openaiCompatibleBaseUrl || '');
@@ -68,7 +68,7 @@ export const VaultWorkspace: React.FC = () => {
     setTest({ id, busy: true });
     try {
       const models = await listLocalModels(id, baseUrl, (config.keys as any)[id] || '');
-      setLocalModels((current) => ({ ...current, [id]: models }));
+      setLocalModels((current) => ({ ...current, [id]: { baseUrl: baseUrl.trim(), models } }));
       setTest({ id, valid: true, message: models.length ? 'Found ' + models.length + ' model ID(s) from this browser.' : 'The endpoint is reachable, but it reports no installed models.' });
     } catch (e: any) {
       setTest({ id, valid: false, message: e?.message || 'Could not list models from this endpoint.' });
@@ -106,8 +106,12 @@ export const VaultWorkspace: React.FC = () => {
   };
 
   const LocalModelList = ({ id }: { id: 'ollama' | 'openai-compatible' }) => {
-    const models = localModels[id] || [];
-    if (!models.length) return null;
+    const baseUrl = (id === 'ollama' ? ollamaUrl : openaiCompatibleUrl).trim();
+    const catalog = localModels[id];
+    // A model list belongs to the exact endpoint that returned it. URL edits or
+    // an older in-flight request must never make stale model IDs selectable.
+    if (!catalog || catalog.baseUrl !== baseUrl || !catalog.models.length) return null;
+    const models = catalog.models;
     return <div className="mt-space-sm rounded-xl bg-surface-container-low p-space-sm">
       <p className="font-label-md text-label-md text-on-surface-variant mb-space-xs">Models reported by this server</p>
       <div className="flex flex-col gap-space-xs">
