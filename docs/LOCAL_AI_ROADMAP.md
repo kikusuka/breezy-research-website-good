@@ -43,6 +43,14 @@ A mobile app can run a model on the phone's CPU, GPU, or NPU independently of th
 - Otherwise, treat PocketPal as a separate app/reference implementation, not a supported Breezy provider. A future native Breezy app could evaluate embedding an on-device runtime directly.
 - A phone's local model must not be exposed to the public internet merely to make a hosted webpage connect to it.
 
+## Important current architecture boundary
+
+The current Research pipeline performs search, source retrieval, and model generation through the backend route. The existing server-side Ollama configuration points to an Ollama service reachable **from the backend**, not automatically to Ollama installed on each user's computer. A hosted backend cannot reach a user's `localhost`.
+
+Likewise, WebGPU inference cannot be enabled by merely adding a provider name to the server-side provider list. To support a browser-local Research model while keeping the one-call contract, Breezy would need a deliberate client-side generation path: the backend performs the existing search/retrieval work, then the browser receives the bounded research context and makes exactly one call to its selected local model. The UI must be explicit that the research question is still sent to Breezy's backend for search/retrieval; this design must not be advertised as fully offline or fully private.
+
+Before claiming that Ollama or PocketPal is a working user-local Research provider, verify the complete request path from the deployed website through generation and prove where inference actually executes. The existing provider label/configuration alone is not proof.
+
 ## Why local AI fits Breezy
 
 - **Cost control:** after a model is downloaded or installed, supported inference can run without per-token API charges. Model hosting/download bandwidth and development still have costs.
@@ -57,10 +65,11 @@ A mobile app can run a model on the phone's CPU, GPU, or NPU independently of th
 
 1. Define a small provider contract for readiness, model identity, generation, cancellation, and errors. Keep provider selection outside the Research workflow logic.
 2. Verify WebGPU secure-context support, adapter/device initialization, worker support, and browser storage.
-3. Test a local Ollama connection from the actual Breezy deployment origin; verify CORS and browser restrictions without exposing the service publicly.
-4. Investigate PocketPal's supported integration surface. Do not implement an adapter until a documented, stable connection path is confirmed.
-5. Report unsupported, unconfigured, connecting, downloading, ready, failed, and disconnected states truthfully.
-6. Keep runtimes behind narrow adapters and lazy-load browser-local code so normal Breezy startup does not pay the bundle cost.
+3. Trace and test the current Ollama request path; separate backend-hosted Ollama from an explicitly user-local browser connection.
+4. Design the client-side generation handoff so search/retrieval stays intact and exactly one answer-generation call is made.
+5. Investigate PocketPal's supported integration surface. Do not implement an adapter until a documented, stable connection path is confirmed.
+6. Report unsupported, unconfigured, connecting, downloading, ready, failed, and disconnected states truthfully.
+7. Keep runtimes behind narrow adapters and lazy-load browser-local code so normal Breezy startup does not pay the bundle cost.
 
 ### Phase 1 — local embeddings and document retrieval
 
@@ -76,7 +85,7 @@ Start here because it helps Breezy's document workflow and is generally lighter 
 ### Phase 2 — optional local text generation
 
 - Prototype one small, permissively licensed instruct model with WebLLM/MLC-LLM or another runtime after testing device coverage.
-- Add Ollama only after the hosted-origin connection and security behavior have been tested.
+- Add user-local Ollama only after the browser-to-local-service connection and security behavior have been tested.
 - Keep provider choice explicit. Research still performs one answer-generation call with the single configured Research model, regardless of whether that model is remote or local.
 - Use a Web Worker where applicable, cancellable generation, bounded context, and a clear model download/removal lifecycle.
 - Clearly label output as locally generated and explain that model capability and speed vary.
