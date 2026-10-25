@@ -57,6 +57,20 @@ export async function chatWithLocalModel(options: {
   return { text };
 }
 
+/**
+ * Makes one small, explicit generation request directly from the browser.
+ * This is opt-in because local inference can be slow and use device resources.
+ */
+export async function testLocalModelGeneration(options: {
+  provider: LocalModelProvider; baseUrl: string; model: string; apiKey?: string;
+}): Promise<string> {
+  const result = await chatWithLocalModel({
+    ...options,
+    messages: [{ role: 'user', content: 'Reply with a short greeting.' }],
+  });
+  return result.text;
+}
+
 /** Tests connectivity from this browser, not from Breezy's hosted backend. */
 export async function listLocalModels(provider: LocalModelProvider, baseUrl: string, apiKey?: string): Promise<string[]> {
   const headers: Record<string, string> = { Accept: 'application/json' };
