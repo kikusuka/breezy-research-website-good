@@ -16,20 +16,35 @@ function normalizeBaseUrl(baseUrl: string): URL {
   return parsed;
 }
 
-export function buildLocalChatEndpoint(provider: LocalModelProvider, baseUrl: string): string {
+export function buildLocalChatEndpoint(provider: LocalModelProvider, baseUrl: string, apiFormat: LocalApiFormat = 'openai'): string {
   const parsed = normalizeBaseUrl(baseUrl);
-  let path = parsed.pathname.replace(/\/+$/, '');
-  if (provider === 'ollama' && !/\/v1$/i.test(path) && !/\/chat\/completions$/i.test(path)) path += '/v1';
-  if (!/\/chat\/completions$/i.test(path)) path += '/chat/completions';
+  let path = parsed.pathname.replace(/\\/+$/, '');
+  if (provider === 'ollama' || apiFormat === 'openai') {
+    if (provider === 'ollama' && !/\\/v1$/i.test(path) && !/\\/chat\\/completions$/i.test(path)) path += '/v1';
+    if (!/\\/chat\\/completions$/i.test(path)) path += '/chat/completions';
+  } else {
+    if (!/\\/v1$/i.test(path) && !/\\/messages$/i.test(path)) path += '/v1';
+    if (!/\\/messages$/i.test(path)) path += '/messages';
+  }
   return parsed.origin + path;
 }
 
 function buildModelsEndpoint(provider: LocalModelProvider, baseUrl: string): string {
   const parsed = normalizeBaseUrl(baseUrl);
-  let path = parsed.pathname.replace(/\/+$/, '');
-  if (provider === 'ollama') path = path.replace(/\/v1$/i, '') + '/api/tags';
-  else if (!/\/models$/i.test(path)) path += '/models';
+  let path = parsed.pathname.replace(/\\/+$/, '');
+  if (provider === 'ollama') path = path.replace(/\\/v1$/i, '') + '/api/tags';
+  else if (!/\\/models$/i.test(path)) path += '/models';
   return parsed.origin + path;
+}
+
+function localAuthHeaders(provider: LocalModelProvider, apiKey: string | undefined, apiFormat: LocalApiFormat): Record<string, string> {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (apiKey?.trim()) {
+    if (provider === 'openai-compatible' && apiFormat === 'anthropic') headers['x-api-key'] = apiKey.trim();
+    else headers.Authorization = 'Bearer ' + apiKey.trim();
+  }
+  if (provider === 'openai-compatible' && apiFormat === 'anthropic') headers['anthropic-version'] = '2023-06-01';
+  return headers;
 }
 
 async function responseError(response: Response): Promise<string> {
@@ -45,24 +60,17 @@ export async function chatWithLocalModel(options: {
   const { provider, baseUrl, model, messages, apiKey, signal, apiFormat = 'openai' } = options;
   if (!model.trim()) throw new Error('Choose the exact model ID exposed by your local server.');
   const useAnthropic = provider === 'openai-compatible' && apiFormat === 'anthropic';
-  const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json' };
-  if (apiKey?.trim()) {
-    if (useAnthropic) headers['x-api-key'] = apiKey.trim();
-    else headers.Authorization = `Bearer ${apiKey.trim()}`;
-  }
-  if (useAnthropic) headers['anthropic-version'] = '2023-06-01';
+  const headers = { ...localAuthHeaders(provider, apiKey, apiFormat), 'Content-Type': 'application/json' };
   const requestBody = useAnthropic
     ? {
         model: model.trim(),
         max_tokens: 1024,
         system: messages.filter((message) => message.role === 'system').map((message) => message.content).join('\\n\\n') || undefined,
         messages: messages.filter((message) => message.role !== 'system'),
-        stream: false,
       }
     : { model: model.trim(), messages, stream: false };
   const response = await fetch(buildLocalChatEndpoint(provider, baseUrl, apiFormat), {
-    method: 'POST', headers, body: JSON.stringify(requestBody),
-    signal, credentials: 'omit',
+    method: 'POST', headers, body: JSON.stringify(requestBody), signal, credentials: 'omit',
   });
   if (!response.ok) throw new Error(await responseError(response));
   const data = await response.json();
@@ -87,16 +95,12 @@ export async function testLocalModelGeneration(options: {
 }
 
 /** Tests connectivity from this browser, not from Breezy's hosted backend. */
-export async function listLocalModels(provider: LocalModelProvider, baseUrl: string, apiKey?: string): Promise<string[]> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (provider === 'openai-compatible' && apiKey?.trim()) {
-    if (apiFormat === 'anthropic') headers['x-api-key'] = apiKey.trim();
-    else headers.Authorization = 'Bearer ' + apiKey.trim();
-  }
-  if (provider === 'openai-compatible' && apiFormat === 'anthropic') headers['anthropic-version'] = '2023-06-01';
+export async function listLocalModels(provider: LocalModelProvider, baseUrl: string, apiKey?: string, apiFormat: LocalApiFormat = 'openai'): Promise<string[]> {
   let response: Response;
   try {
-    response = await fetch(buildModelsEndpoint(provider, baseUrl), { method: 'GET', headers, credentials: 'omit' });
+    response = await fetch(buildModelsEndpoint(provider, baseUrl), {
+      method: 'GET', headers: localAuthHeaders(provider, apiKey, apiFormat), credentials: 'omit',
+    });
   } catch (error: any) {
     throw new Error('Could not list models from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
   }
@@ -115,16 +119,17 @@ export async function listLocalModels(provider: LocalModelProvider, baseUrl: str
 
 /** Tests connectivity from this browser, not from Breezy's hosted backend. */
 export async function testLocalModelEndpoint(provider: LocalModelProvider, baseUrl: string, apiKey?: string, apiFormat: LocalApiFormat = 'openai'): Promise<string> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (provider === 'openai-compatible' && apiKey?.trim()) headers.Authorization = `Bearer ${apiKey.trim()}`;
   let response: Response;
   try {
-    response = await fetch(buildModelsEndpoint(provider, baseUrl), { method: 'GET', headers, credentials: 'omit' });
+    response = await fetch(buildModelsEndpoint(provider, baseUrl), {
+      method: 'GET', headers: localAuthHeaders(provider, apiKey, apiFormat), credentials: 'omit',
+    });
   } catch (error: any) {
     throw new Error('Could not reach the endpoint from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
   }
   if (!response.ok) throw new Error(await responseError(response));
-  return provider === 'ollama'
-    ? 'Connected to Ollama from this browser. This checks the server endpoint, not whether the selected model can generate a response.'
+  if (provider === 'ollama') return 'Connected to Ollama from this browser. This checks the server endpoint, not whether the selected model can generate a response.';
+  return apiFormat === 'anthropic'
+    ? 'Connected to the Anthropic-compatible models endpoint from this browser. This checks endpoint access, not model generation.'
     : 'Connected to the OpenAI-compatible models endpoint from this browser. This checks endpoint access, not model generation.';
 }
