@@ -161,7 +161,8 @@ export async function testLocalModelEndpoint(provider: LocalModelProvider, baseU
       method: 'GET', headers: localAuthHeaders(provider, apiKey, apiFormat), credentials: 'omit',
     }, MODEL_DISCOVERY_TIMEOUT_MS, 'The model server did not respond within 15 seconds. Check that it is running and awake, then try again.');
   } catch (error: any) {
-    if (error instanceof Error && error.message.includes('did not respond within 15 seconds')) throw error;\n    throw new Error('Could not reach the endpoint from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
+    if (error instanceof Error && error.message.includes('did not respond within 15 seconds')) throw error;
+    throw new Error('Could not reach the endpoint from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
   }
   if (!response.ok) throw new Error(await responseError(response));
   if (provider === 'ollama') return 'Connected to Ollama from this browser. This checks the server endpoint, not whether the selected model can generate a response.';
