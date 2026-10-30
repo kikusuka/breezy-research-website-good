@@ -18,22 +18,22 @@ function normalizeBaseUrl(baseUrl: string): URL {
 
 export function buildLocalChatEndpoint(provider: LocalModelProvider, baseUrl: string, apiFormat: LocalApiFormat = 'openai'): string {
   const parsed = normalizeBaseUrl(baseUrl);
-  let path = parsed.pathname.replace(/\\/+$/, '');
+  let path = parsed.pathname.replace(/\/+$/, '');
   if (provider === 'ollama' || apiFormat === 'openai') {
-    if (provider === 'ollama' && !/\\/v1$/i.test(path) && !/\\/chat\\/completions$/i.test(path)) path += '/v1';
-    if (!/\\/chat\\/completions$/i.test(path)) path += '/chat/completions';
+    if (provider === 'ollama' && !/\/v1$/i.test(path) && !/\/chat\/completions$/i.test(path)) path += '/v1';
+    if (!/\/chat\/completions$/i.test(path)) path += '/chat/completions';
   } else {
-    if (!/\\/v1$/i.test(path) && !/\\/messages$/i.test(path)) path += '/v1';
-    if (!/\\/messages$/i.test(path)) path += '/messages';
+    if (!/\/v1$/i.test(path) && !/\/messages$/i.test(path)) path += '/v1';
+    if (!/\/messages$/i.test(path)) path += '/messages';
   }
   return parsed.origin + path;
 }
 
 function buildModelsEndpoint(provider: LocalModelProvider, baseUrl: string): string {
   const parsed = normalizeBaseUrl(baseUrl);
-  let path = parsed.pathname.replace(/\\/+$/, '');
-  if (provider === 'ollama') path = path.replace(/\\/v1$/i, '') + '/api/tags';
-  else if (!/\\/models$/i.test(path)) path += '/models';
+  let path = parsed.pathname.replace(/\/+$/, '');
+  if (provider === 'ollama') path = path.replace(/\/v1$/i, '') + '/api/tags';
+  else if (!/\/models$/i.test(path)) path += '/models';
   return parsed.origin + path;
 }
 
@@ -65,7 +65,7 @@ export async function chatWithLocalModel(options: {
     ? {
         model: model.trim(),
         max_tokens: 1024,
-        system: messages.filter((message) => message.role === 'system').map((message) => message.content).join('\\n\\n') || undefined,
+        system: messages.filter((message) => message.role === 'system').map((message) => message.content).join('\n\n') || undefined,
         messages: messages.filter((message) => message.role !== 'system'),
       }
     : { model: model.trim(), messages, stream: false };
