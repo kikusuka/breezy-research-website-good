@@ -12,6 +12,9 @@ export function getResearchModelReadiness(
   serverGeminiConfigured: boolean,
 ): ResearchModelReadiness {
   if (!provider.trim() || !model.trim()) return 'unconfigured';
+  // These endpoints are called directly by the user's browser for Chat. Research
+  // generation runs on Breezy's backend, which cannot reach that browser's localhost.
+  if (provider === 'ollama' || provider === 'openai-compatible') return 'provider-unavailable';
   if (configuredProviders.includes(provider) || (provider === 'gemini' && serverGeminiConfigured)) {
     return 'ready';
   }
