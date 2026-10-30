@@ -114,7 +114,7 @@ export function FeedbackWidget({ expanded = true }: { expanded?: boolean }) {
         </form>
       </section>}
       <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} aria-label="Report a bug or suggest an idea" className={`flex items-center gap-2 border border-outline-variant/50 bg-surface-container-high font-label-md text-label-md text-on-surface transition hover:bg-surface-container-highest focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${expanded ? "w-full rounded-xl px-3 py-2.5 justify-start" : "mx-auto h-11 w-11 justify-center rounded-full px-0 py-0"}`}>
-        <span aria-hidden="true" className="material-symbols-rounded text-[20px]">feedback</span>{expanded && <span>Send feedback</span>}
+        <span aria-hidden="true" className="material-symbols-outlined text-[20px]">feedback</span>{expanded && <span>Send feedback</span>}
       </button>
     </div>
   );

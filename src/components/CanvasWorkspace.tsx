@@ -132,7 +132,7 @@ export const CanvasWorkspace: React.FC = () => {
       type: 'research',
       title: s.prompt || 'Untitled Research',
       content: brief.slice(0, 1500),
-      tags: ['Pinned-History', s.protocol || 'research'],
+      tags: ['Pinned-History', 'Research'],
       sourceSessionId: s.id,
       createdAt: Date.now(),
     };
@@ -199,7 +199,7 @@ export const CanvasWorkspace: React.FC = () => {
           <button
             onClick={() => setShowPinModal(true)}
             className="flex items-center gap-1 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high text-xs font-medium text-on-surface-variant border border-outline-variant/30 transition-colors"
-            title="Pin a research debate from history"
+            title="Pin a research result from history"
           >
             <span className="material-symbols-outlined text-sm text-tertiary">push_pin</span>
             <span className="hidden sm:inline">Pin from History</span>
@@ -482,7 +482,7 @@ export const CanvasWorkspace: React.FC = () => {
                         {s.prompt || 'Untitled Session'}
                       </p>
                       <p className="text-[10px] text-outline font-mono mt-0.5">
-                        {new Date(s.createdAt).toLocaleDateString()} · Protocol: {s.protocol || 'trio'}
+                        {new Date(s.createdAt).toLocaleDateString()} · Research · Single-model
                       </p>
                     </div>
                     <button
