@@ -320,18 +320,19 @@ export const VaultWorkspace: React.FC = () => {
                 else { setCustomOpen((state) => ({ ...state, architect: false })); const [provider, ...modelParts] = v.split('::'); setSeat('architect', provider, modelParts.join('::')); }
               }} className="w-full bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[44px] font-body-sm text-body-sm focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]">
                 <option value="">No model assigned</option>
-                {Object.entries(AVAILABLE_MODELS).map(([provider, models]) => <optgroup key={provider} label={providerLabel(provider)}>{models.map((model) => <option key={model.id} value={`${provider}::${model.id}`}>{model.name}</option>)}</optgroup>)}
+                {Object.entries(AVAILABLE_MODELS).filter(([provider]) => provider !== 'ollama' && provider !== 'openai-compatible').map(([provider, models]) => <optgroup key={provider} label={providerLabel(provider)}>{models.map((model) => <option key={model.id} value={`${provider}::${model.id}`}>{model.name}</option>)}</optgroup>)}
+                <optgroup label="Local browser connections — Chat only"><option value="ollama::" disabled>Ollama (not available to hosted Research)</option><option value="openai-compatible::" disabled>Custom local API (not available to hosted Research)</option></optgroup>
                 <option value={CUSTOM}>Custom model ID…</option>
               </select>
               {(customOpen.architect || isCustom) && <div className="grid grid-cols-5 gap-space-xs mt-space-xs">
-                <select aria-label="Research provider" value={cur?.provider || 'openrouter'} onChange={(e) => setSeat('architect', e.target.value, cur?.model || '')} className="col-span-2 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-body-sm text-body-sm focus:outline-none">{ALL_PROVIDERS.map((provider) => <option key={provider} value={provider}>{providerLabel(provider)}</option>)}</select>
+                <select aria-label="Research provider" value={cur?.provider || 'openrouter'} onChange={(e) => setSeat('architect', e.target.value, cur?.model || '')} className="col-span-2 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-body-sm text-body-sm focus:outline-none">{ALL_PROVIDERS.map((provider) => <option key={provider} value={provider} disabled={provider === 'ollama' || provider === 'openai-compatible'}>{providerLabel(provider)}{provider === 'ollama' || provider === 'openai-compatible' ? ' · Chat only' : ''}</option>)}</select>
                 <input aria-label="Research model ID" value={cur?.model || ''} onChange={(e) => setSeat('architect', cur?.provider || 'openrouter', e.target.value)} placeholder="exact model id" className="col-span-3 bg-surface-container-lowest rounded-xl hairline px-space-sm min-h-[44px] font-code-md text-code-md focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]" />
               </div>}
               <p className="font-body-sm text-body-sm text-outline mt-space-sm">{cur?.provider && cur?.model ? `Selected: ${providerLabel(cur.provider)} · ${cur.model}` : 'No research model selected. Choose a model and connect its provider above.'}</p>
             </>;
           })()}
         </div>
-        <p className="font-body-sm text-body-sm text-outline mt-space-sm">The model catalog can go out of date. Use “Custom model ID” for newer models.</p>
+        <p className="font-body-sm text-body-sm text-outline mt-space-sm">The model catalog can go out of date. Use “Custom model ID” for newer models. Browser-local Ollama and custom API connections are currently Chat-only: hosted Research cannot reach a model server running on your device. A selected legacy local Research model will remain saved but is marked unavailable until a browser-to-Research handoff is implemented.</p>
       </section>
 
       <section aria-labelledby="search-h" className="pb-space-xl"><div className="flex items-center justify-between mb-space-md"><h2 id="search-h" className="font-headline-md text-headline-md">Search keys <span className="font-body-sm text-body-sm text-outline">(optional)</span></h2></div>

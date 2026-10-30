@@ -22,4 +22,8 @@ describe('research model readiness', () => {
   it('does not treat server Gemini as availability for another selected provider', () => {
     expect(getResearchModelReadiness('groq', 'llama-3.3-70b-versatile', [], true)).toBe('provider-unavailable');
   });
+
+  it.each(['ollama', 'openai-compatible'])('keeps browser-local provider %s unavailable to backend Research', (provider) => {
+    expect(getResearchModelReadiness(provider, 'local-model', [provider], false)).toBe('provider-unavailable');
+  });
 });
