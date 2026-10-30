@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildLocalChatEndpoint, chatWithLocalModel, listLocalModels, testLocalModelEndpoint, testLocalModelGeneration } from '../src/services/localModelService';
 
 describe('local model endpoint handling', () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
   it('builds Ollama chat URL from its root URL', () => {
     expect(buildLocalChatEndpoint('ollama', 'http://localhost:11434')).toBe('http://localhost:11434/v1/chat/completions');
   });
@@ -92,6 +92,32 @@ describe('local model endpoint handling', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8080/v1/models', expect.objectContaining({
       headers: expect.objectContaining({ 'x-api-key': 'local-secret', 'anthropic-version': '2023-06-01' }),
     }));
+  });
+
+  it('stops model discovery after 15 seconds when the local server never responds', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const pending = listLocalModels('ollama', 'http://localhost:11434');
+    await vi.advanceTimersByTimeAsync(15_000);
+    await expect(pending).rejects.toThrow(/did not respond within 15 seconds/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves caller cancellation for local chat requests', async () => {
+    const controller = new AbortController();
+    const fetchMock = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const pending = chatWithLocalModel({
+      provider: 'ollama', baseUrl: 'http://localhost:11434', model: 'qwen2.5',
+      messages: [{ role: 'user', content: 'Hello' }], signal: controller.signal,
+    });
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
   });
 
   it('reports browser network/CORS failures clearly', async () => {
