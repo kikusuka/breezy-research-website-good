@@ -17,6 +17,7 @@ const ALL_PROVIDERS = ['gemini', 'anthropic', 'groq', 'sambanova', 'openrouter',
 const CUSTOM = '__custom__';
 
 type LocalModelProvider = 'ollama' | 'openai-compatible';
+type LocalApiFormat = 'openai' | 'anthropic';
 type LocalModelTestResult = { busy?: boolean; valid?: boolean; message?: string };
 function LocalModelList({ id, baseUrl, catalog, tests, onTest, onUse }: {
   id: LocalModelProvider;
@@ -61,6 +62,7 @@ export const VaultWorkspace: React.FC = () => {
   const [listingModels, setListingModels] = useState<string | null>(null);
   const [localModelTests, setLocalModelTests] = useState<Record<string, { busy?: boolean; valid?: boolean; message?: string }>>({});
   const [saved, setSaved] = useState(false); const [ollamaUrl, setOllamaUrl] = useState(config.ollamaBaseUrl || 'http://localhost:11434'); const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState(config.openaiCompatibleBaseUrl || '');
+  const [localApiFormat, setLocalApiFormat] = useState<LocalApiFormat>(config.localApiFormat || 'openai');
   const [customOpen, setCustomOpen] = useState<Partial<Record<Role, boolean>>>({});
   const timer = useRef<number | undefined>(undefined);
   const active = effectiveProviderService.getActiveRoutableModel();
@@ -69,6 +71,7 @@ export const VaultWorkspace: React.FC = () => {
     setConfig(current);
     setOllamaUrl(current.ollamaBaseUrl || 'http://localhost:11434');
     setOpenaiCompatibleUrl(current.openaiCompatibleBaseUrl || '');
+    setLocalApiFormat(current.localApiFormat || 'openai');
     setCustomDefaultModel(Boolean(current.defaultModel && !(AVAILABLE_MODELS[current.defaultProvider] || []).some((model) => model.id === current.defaultModel)));
     void effectiveProviderService.refreshServerHealth();
   }, []);
@@ -81,7 +84,7 @@ export const VaultWorkspace: React.FC = () => {
       const baseUrl = id === 'ollama' ? ollamaUrl : openaiCompatibleUrl;
       setTest({ id, busy: true });
       try {
-        const message = await testLocalModelEndpoint(id, baseUrl, (config.keys as any)[id] || '');
+        const message = await testLocalModelEndpoint(id, baseUrl, (config.keys as any)[id] || '', id === 'openai-compatible' ? localApiFormat : 'openai');
         setTest({ id, valid: true, message });
       } catch (e: any) {
         setTest({ id, valid: false, message: e?.message || 'Could not reach the local endpoint.' });
@@ -100,7 +103,7 @@ export const VaultWorkspace: React.FC = () => {
     setListingModels(id);
     setTest({ id, busy: true });
     try {
-      const models = await listLocalModels(id, baseUrl, (config.keys as any)[id] || '');
+      const models = await listLocalModels(id, baseUrl, (config.keys as any)[id] || '', id === 'openai-compatible' ? localApiFormat : 'openai');
       setLocalModels((current) => ({ ...current, [id]: { baseUrl: baseUrl.trim(), models } }));
       setTest({ id, valid: true, message: models.length ? 'Found ' + models.length + ' model ID(s) from this browser.' : 'The endpoint is reachable, but it reports no installed models.' });
     } catch (e: any) {
@@ -115,7 +118,7 @@ export const VaultWorkspace: React.FC = () => {
     const baseUrl = provider === 'ollama' ? ollamaUrl : openaiCompatibleUrl;
     setLocalModelTests((current) => ({ ...current, [key]: { busy: true } }));
     try {
-      const reply = await testLocalModelGeneration({ provider, baseUrl, model, apiKey: (config.keys as any)[provider] || '' });
+      const reply = await testLocalModelGeneration({ provider, baseUrl, model, apiKey: (config.keys as any)[provider] || '', apiFormat: provider === 'openai-compatible' ? localApiFormat : 'openai' });
       const compactReply = reply.replace(/\s+/g, ' ').trim();
       setLocalModelTests((current) => ({ ...current, [key]: { valid: true, message: 'Generation works. Reply: ' + compactReply.slice(0, 140) + (compactReply.length > 140 ? '…' : '') } }));
     } catch (error: any) {
@@ -132,6 +135,7 @@ export const VaultWorkspace: React.FC = () => {
       defaultModel: model,
       ollamaBaseUrl: provider === 'ollama' ? ollamaUrl.trim() : config.ollamaBaseUrl,
       openaiCompatibleBaseUrl: provider === 'openai-compatible' ? openaiCompatibleUrl.trim() : config.openaiCompatibleBaseUrl,
+      localApiFormat: provider === 'openai-compatible' ? localApiFormat : config.localApiFormat,
     };
     commit(next);
     setCustomDefaultModel(true);
@@ -277,8 +281,10 @@ export const VaultWorkspace: React.FC = () => {
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat can call this URL directly from your browser. Choose Ollama and enter the exact model ID under Default chat model. The hosted Research backend cannot reach a device-local URL, so use a server-reachable model for Research for now.</p>
           </div>
           <div className="bg-surface-container rounded-3xl p-space-lg coat">
-            <div className="flex items-center justify-between mb-space-md gap-space-sm"><div className="font-headline-sm text-headline-sm">Custom OpenAI-compatible server</div><span className="font-code-sm text-code-sm text-outline">Local or self-hosted</span></div>
+            <div className="flex items-center justify-between mb-space-md gap-space-sm"><div className="font-headline-sm text-headline-sm">Custom local API server</div><span className="font-code-sm text-code-sm text-outline">Local or self-hosted</span></div>
             <label htmlFor="openai-compatible-url" className="block font-label-md text-label-md text-on-surface-variant mb-space-xs">Base URL (include /v1 when required)</label>
+            <label htmlFor="local-api-format" className="block font-label-md text-label-md text-on-surface-variant mb-space-xs mt-space-sm">API format</label>
+            <select id="local-api-format" value={localApiFormat} onChange={(e) => { const value = e.target.value as LocalApiFormat; setLocalApiFormat(value); commit({ ...config, localApiFormat: value }); }} className="w-full bg-surface-container-lowest rounded-xl hairline px-space-md min-h-[44px] font-body-sm text-body-sm"><option value="openai">OpenAI Chat Completions</option><option value="anthropic">Anthropic Messages</option></select>
             <input id="openai-compatible-url" type="url" value={openaiCompatibleUrl} onChange={(e) => setOpenaiCompatibleUrl(e.target.value)} aria-label="OpenAI-compatible server base URL" placeholder="http://127.0.0.1:1234/v1" className="w-full min-w-0 bg-surface-container-lowest rounded-xl hairline px-space-md py-2.5 font-code-md text-code-md focus:outline-none focus:shadow-[inset_0_0_0_1px_rgba(76,214,251,0.5)]" />
             <div className="flex flex-wrap gap-space-xs mt-space-xs">
               <button type="button" onClick={() => commit({ ...config, openaiCompatibleBaseUrl: openaiCompatibleUrl.trim() })} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md transition-colors">Save URL</button>
@@ -288,7 +294,7 @@ export const VaultWorkspace: React.FC = () => {
             <Result id="openai-compatible" />
             <button type="button" onClick={() => void discoverModels('openai-compatible')} disabled={Boolean(listingModels) || !openaiCompatibleUrl.trim()} className="mt-space-xs px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40">{listingModels === 'openai-compatible' ? 'Loading models…' : 'Discover available models'}</button>
             <LocalModelList id="openai-compatible" baseUrl={openaiCompatibleUrl.trim()} catalog={localModels['openai-compatible']} tests={localModelTests} onTest={testLocalModel} onUse={useLocalModel} />
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat sends requests from this browser directly to this endpoint; Breezy does not proxy local URLs. Research still uses the configured Research model through the hosted backend and cannot use this device-local endpoint yet. The server must allow CORS requests from Breezy. If the server app and Breezy browser are on the same phone, try that phone’s loopback address (127.0.0.1) and the server port. If Breezy runs on another device, use the server-hosting device’s LAN IP and port; both devices must be on the same network.</p>
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat sends requests from this browser directly to this endpoint; Breezy does not proxy local URLs. Research still uses the configured Research model through the hosted backend and cannot use this device-local endpoint yet. The server must allow CORS requests from Breezy. Select the API format exposed by your server: OpenAI Chat Completions or Anthropic Messages. If the server app and Breezy browser are on the same phone, try that phone’s loopback address (127.0.0.1) and the server port. If Breezy runs on another device, use the server-hosting device’s LAN IP and port; both devices must be on the same network.</p>
             <p className="font-body-sm text-body-sm text-outline mt-space-xs">HTTPS pages may be blocked from calling some HTTP endpoints by browser security rules. A successful connection test checks the models endpoint only; it does not guarantee generation works.</p>
           </div>
         </div>
