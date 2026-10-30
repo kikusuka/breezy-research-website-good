@@ -96,6 +96,9 @@ export async function testLocalModelGeneration(options: {
 
 /** Tests connectivity from this browser, not from Breezy's hosted backend. */
 export async function listLocalModels(provider: LocalModelProvider, baseUrl: string, apiKey?: string, apiFormat: LocalApiFormat = 'openai'): Promise<string[]> {
+  if (provider === 'openai-compatible' && apiFormat === 'anthropic') {
+    throw new Error('Anthropic Messages does not define a standard model-list endpoint. Enter the exact model ID provided by your local server, then test generation in Chat.');
+  }
   let response: Response;
   try {
     response = await fetch(buildModelsEndpoint(provider, baseUrl), {
@@ -119,6 +122,9 @@ export async function listLocalModels(provider: LocalModelProvider, baseUrl: str
 
 /** Tests connectivity from this browser, not from Breezy's hosted backend. */
 export async function testLocalModelEndpoint(provider: LocalModelProvider, baseUrl: string, apiKey?: string, apiFormat: LocalApiFormat = 'openai'): Promise<string> {
+  if (provider === 'openai-compatible' && apiFormat === 'anthropic') {
+    throw new Error('Anthropic Messages does not define a standard model-list endpoint, so connection discovery is unavailable. Enter the exact model ID and use Test generation instead.');
+  }
   let response: Response;
   try {
     response = await fetch(buildModelsEndpoint(provider, baseUrl), {

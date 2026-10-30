@@ -85,13 +85,17 @@ describe('local model endpoint handling', () => {
       messages: [{ role: 'user', content: 'Hello' }],
     });
   });
-  it('uses Anthropic authentication headers when listing compatible models', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [{ id: 'local-model' }] }), { status: 200 }));
+  it('does not assume Anthropic Messages exposes a standard model-list endpoint', async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    await expect(listLocalModels('openai-compatible', 'http://127.0.0.1:8080/v1', 'local-secret', 'anthropic')).resolves.toEqual(['local-model']);
-    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8080/v1/models', expect.objectContaining({
-      headers: expect.objectContaining({ 'x-api-key': 'local-secret', 'anthropic-version': '2023-06-01' }),
-    }));
+    await expect(listLocalModels('openai-compatible', 'http://127.0.0.1:8080/v1', 'local-secret', 'anthropic')).rejects.toThrow(/does not define a standard model-list endpoint/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it('does not report Anthropic connection discovery as available without a model ID', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(testLocalModelEndpoint('openai-compatible', 'http://127.0.0.1:8080/v1', 'local-secret', 'anthropic')).rejects.toThrow(/connection discovery is unavailable/i);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('reports browser network/CORS failures clearly', async () => {
