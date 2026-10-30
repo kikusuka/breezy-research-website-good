@@ -123,7 +123,8 @@ export async function testLocalModelGeneration(options: {
 }): Promise<string> {
   const result = await chatWithLocalModel({
     ...options,
-    messages: [{ role: 'user', content: 'Reply with a short greeting.' }],\n    requestTimeoutMs: MODEL_TEST_TIMEOUT_MS,
+    messages: [{ role: 'user', content: 'Reply with a short greeting.' }],
+    requestTimeoutMs: MODEL_TEST_TIMEOUT_MS,
   });
   return result.text;
 }
@@ -136,7 +137,8 @@ export async function listLocalModels(provider: LocalModelProvider, baseUrl: str
       method: 'GET', headers: localAuthHeaders(provider, apiKey, apiFormat), credentials: 'omit',
     }, MODEL_DISCOVERY_TIMEOUT_MS, 'The model server did not respond within 15 seconds. Check that it is running and awake, then try again.');
   } catch (error: any) {
-    if (error instanceof Error && error.message.includes('did not respond within 15 seconds')) throw error;\n    throw new Error('Could not list models from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
+    if (error instanceof Error && error.message.includes('did not respond within 15 seconds')) throw error;
+    throw new Error('Could not list models from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
   }
   if (!response.ok) throw new Error(await responseError(response));
   let data: any;
@@ -155,9 +157,9 @@ export async function listLocalModels(provider: LocalModelProvider, baseUrl: str
 export async function testLocalModelEndpoint(provider: LocalModelProvider, baseUrl: string, apiKey?: string, apiFormat: LocalApiFormat = 'openai'): Promise<string> {
   let response: Response;
   try {
-    response = await fetch(buildModelsEndpoint(provider, baseUrl), {
+    response = await fetchWithTimeout(buildModelsEndpoint(provider, baseUrl), {
       method: 'GET', headers: localAuthHeaders(provider, apiKey, apiFormat), credentials: 'omit',
-    });
+    }, MODEL_DISCOVERY_TIMEOUT_MS, 'The model server did not respond within 15 seconds. Check that it is running and awake, then try again.');
   } catch (error: any) {
     if (error instanceof Error && error.message.includes('did not respond within 15 seconds')) throw error;\n    throw new Error('Could not reach the endpoint from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
   }
