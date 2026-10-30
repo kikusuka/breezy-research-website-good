@@ -51,7 +51,7 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpande
     return (
       <a key={n.id} href={`#${n.id}`} onClick={(e) => { e.preventDefault(); go(n.id); setProfileMenuOpen(false); onNavigate(); }} aria-current={active ? 'page' : undefined}
         title={!isExpanded ? n.label : undefined}
-        className={`relative flex items-center gap-space-md px-space-md py-[10px] rounded-xl transition-colors duration-150 ${isExpanded ? 'w-full' : 'w-11 justify-center'} ${active ? 'bg-surface-container-high text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'}`}>
+        className={`breezy-nav-link ${isExpanded ? 'w-full' : 'w-11 justify-center'} ${active ? 'text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'}`}>
         {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-circle bg-primary" />}
         <Icon name={n.icon} className="text-[20px] shrink-0" />
         {isExpanded && <span className="font-body-md text-body-md truncate">{n.label}</span>}

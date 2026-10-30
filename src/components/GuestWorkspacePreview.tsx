@@ -16,7 +16,7 @@ const DESCRIPTIONS: Record<ActiveTab, string> = {
 };
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <section className="rounded-2xl border border-outline-variant/35 bg-surface-container-low p-4 sm:p-5">
+  <section className="breezy-panel">
     <h3 className="font-headline-sm text-headline-sm text-on-surface mb-3">{title}</h3>
     {children}
   </section>
@@ -30,10 +30,10 @@ const DisabledLine = ({ label }: { label: string }) => (
 );
 
 export const GuestWorkspacePreview: React.FC<{ tab: ActiveTab }> = ({ tab }) => (
-  <div className="min-h-full max-w-5xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
+  <div className="breezy-page min-h-full">
     <div className="flex items-start justify-between gap-4 mb-8">
       <div className="min-w-0">
-        <div className="font-label-sm text-label-sm uppercase tracking-widest text-outline mb-2">Workspace preview</div>
+        <div className="breezy-eyebrow mb-2">Workspace preview</div>
         <h1 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">{TITLES[tab]}</h1>
         <p className="font-body-md text-body-md text-on-surface-variant mt-2 max-w-2xl">{DESCRIPTIONS[tab]}</p>
       </div>
@@ -42,7 +42,7 @@ export const GuestWorkspacePreview: React.FC<{ tab: ActiveTab }> = ({ tab }) => 
       </span>
     </div>
 
-    {tab === 'chat' && <div className="min-h-[420px] rounded-3xl border border-outline-variant/35 bg-surface-container-low flex flex-col items-center justify-center p-6 text-center">
+    {tab === 'chat' && <div className="breezy-card min-h-[420px] flex flex-col items-center justify-center p-6 text-center">
       <span className="w-14 h-14 rounded-2xl bg-surface-container-high flex items-center justify-center text-primary mb-4"><Icon name="chat_bubble_outline" className="text-[28px]" /></span>
       <h2 className="font-headline-md text-headline-md text-on-surface">A clear space to think</h2>
       <p className="font-body-md text-body-md text-on-surface-variant mt-2 max-w-md">Your conversations will appear here after you sign in and start using Breezy.</p>

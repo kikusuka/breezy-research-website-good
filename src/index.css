@@ -49,4 +49,21 @@
 .hairline { box-shadow: inset 0 0 0 1px rgba(65,133,175,.48); }
 .glow-primary { box-shadow: 0 0 0 1px rgba(76,214,251,.35), 0 8px 28px -8px rgba(0,180,216,.45); }
 .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { scrollbar-width: none; }
+
+/* Shared workspace primitives: one consistent visual language across tools. */
+@layer components {
+  .breezy-page { @apply w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10; }
+  .breezy-page--narrow { @apply max-w-3xl; }
+  .breezy-page-header { @apply flex flex-col md:flex-row md:items-end md:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8; }
+  .breezy-eyebrow { @apply font-code-sm text-code-sm uppercase tracking-wider text-outline; }
+  .breezy-card { @apply rounded-2xl border border-outline-variant/40 bg-surface-container p-4 sm:p-5; box-shadow: inset 0 1px 0 rgba(125,215,255,.06); }
+  .breezy-panel { @apply rounded-xl border border-outline-variant/30 bg-surface-container-low p-4; }
+  .breezy-control { @apply w-full min-h-11 rounded-xl border border-outline-variant/50 bg-surface-container-lowest px-3 py-2 text-sm text-on-surface placeholder:text-outline transition-colors; }
+  .breezy-control:focus-visible { @apply outline-none border-primary ring-2 ring-primary/20; }
+  .breezy-button { @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50; }
+  .breezy-button--primary { @apply bg-primary text-on-primary hover:brightness-105; }
+  .breezy-button--secondary { @apply border border-outline-variant/50 bg-surface-container text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface; }
+  .breezy-nav-link { @apply relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors; }
+  .breezy-nav-link[aria-current="page"] { @apply bg-surface-container-high text-primary; }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
