@@ -58,9 +58,11 @@ export default {
       },
       "borderRadius": {
         "DEFAULT": "0.125rem",
-        "lg": "0.25rem",
-        "xl": "0.5rem",
-        "full": "0.75rem",
+        "lg": "0.5rem",
+        "xl": "0.75rem",
+        "2xl": "1rem",
+        "3xl": "1.25rem",
+        "full": "9999px",
         "circle": "9999px"
       },
       "spacing": {
