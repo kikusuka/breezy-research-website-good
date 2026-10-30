@@ -16,6 +16,39 @@ const SEARCH_KEYS = [{ id: 'tavily', label: 'Tavily', placeholder: 'tvly-…' },
 const ALL_PROVIDERS = ['gemini', 'anthropic', 'groq', 'sambanova', 'openrouter', 'ollama', 'openai-compatible'];
 const CUSTOM = '__custom__';
 
+type LocalModelProvider = 'ollama' | 'openai-compatible';
+type LocalModelTestResult = { busy?: boolean; valid?: boolean; message?: string };
+function LocalModelList({ id, baseUrl, catalog, tests, onTest, onUse }: {
+  id: LocalModelProvider;
+  baseUrl: string;
+  catalog?: { baseUrl: string; models: string[] };
+  tests: Record<string, LocalModelTestResult>;
+  onTest: (provider: LocalModelProvider, model: string) => void;
+  onUse: (provider: LocalModelProvider, model: string) => void;
+}) {
+  // Keep this component at module scope so parent state updates do not remount
+  // the list, drop keyboard focus, or reset any in-progress interaction.
+  if (!catalog || catalog.baseUrl !== baseUrl || !catalog.models.length) return null;
+  return <div className="mt-space-sm rounded-xl bg-surface-container-low p-space-sm">
+    <p className="font-label-md text-label-md text-on-surface-variant mb-space-xs">Models reported by this server</p>
+    <div className="flex flex-col gap-space-xs">
+      {catalog.models.map((model) => {
+        const result = tests[id + ':' + model];
+        return <div key={model} className="rounded-lg bg-surface-container px-space-sm py-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs">
+            <code className="min-w-0 break-all font-code-sm text-code-sm">{model}</code>
+            <div className="flex flex-wrap gap-space-xs shrink-0">
+              <button type="button" onClick={() => onTest(id, model)} disabled={Boolean(result?.busy)} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40">{result?.busy ? 'Testing…' : 'Test generation'}</button>
+              <button type="button" onClick={() => onUse(id, model)} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md">Use in Chat</button>
+            </div>
+          </div>
+          {result?.message && <p role="status" className={`mt-space-xs font-body-sm text-body-sm break-words ${result.valid ? 'text-tertiary' : 'text-error'}`}>{result.message}</p>}
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
 export const VaultWorkspace: React.FC = () => {
   const [config, setConfig] = useState<CanonicalWorkspaceConfig>(providerConfigService.getConfig());
   const [customDefaultModel, setCustomDefaultModel] = useState(() => {
@@ -103,34 +136,6 @@ export const VaultWorkspace: React.FC = () => {
     commit(next);
     setCustomDefaultModel(true);
     setTest({ id: provider, valid: true, message: 'Selected ' + model + ' as the default Chat model.' });
-  };
-
-  const LocalModelList = ({ id }: { id: 'ollama' | 'openai-compatible' }) => {
-    const baseUrl = (id === 'ollama' ? ollamaUrl : openaiCompatibleUrl).trim();
-    const catalog = localModels[id];
-    // A model list belongs to the exact endpoint that returned it. URL edits or
-    // an older in-flight request must never make stale model IDs selectable.
-    if (!catalog || catalog.baseUrl !== baseUrl || !catalog.models.length) return null;
-    const models = catalog.models;
-    return <div className="mt-space-sm rounded-xl bg-surface-container-low p-space-sm">
-      <p className="font-label-md text-label-md text-on-surface-variant mb-space-xs">Models reported by this server</p>
-      <div className="flex flex-col gap-space-xs">
-        {models.map((model) => {
-          const key = id + ':' + model;
-          const result = localModelTests[key];
-          return <div key={model} className="rounded-lg bg-surface-container px-space-sm py-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs">
-              <code className="min-w-0 break-all font-code-sm text-code-sm">{model}</code>
-              <div className="flex flex-wrap gap-space-xs shrink-0">
-                <button type="button" onClick={() => void testLocalModel(id, model)} disabled={Boolean(result?.busy)} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40">{result?.busy ? 'Testing…' : 'Test generation'}</button>
-                <button type="button" onClick={() => useLocalModel(id, model)} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md">Use in Chat</button>
-              </div>
-            </div>
-            {result?.message && <p role="status" className={`mt-space-xs font-body-sm text-body-sm break-words ${result.valid ? 'text-tertiary' : 'text-error'}`}>{result.message}</p>}
-          </div>;
-        })}
-      </div>
-    </div>;
   };
 
   const Result = ({ id }: { id: string }) => test?.id === id && !test.busy && test.message ? <p role="status" className={`font-code-sm text-code-sm mt-space-xs ${test.valid ? 'text-tertiary' : 'text-error'}`}>{test.message}</p> : null;
@@ -267,7 +272,7 @@ export const VaultWorkspace: React.FC = () => {
               <button type="button" onClick={() => void verify('ollama')} disabled={test?.busy} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40 transition-colors">{test?.id === 'ollama' && test.busy ? 'Testing…' : 'Test connection'}</button></div>
             <Result id="ollama" />
             <button type="button" onClick={() => void discoverModels('ollama')} disabled={Boolean(listingModels)} className="mt-space-xs px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40">{listingModels === 'ollama' ? 'Loading models…' : 'Discover installed models'}</button>
-            <LocalModelList id="ollama" />
+            <LocalModelList id="ollama" baseUrl={ollamaUrl.trim()} catalog={localModels.ollama} tests={localModelTests} onTest={testLocalModel} onUse={useLocalModel} />
             <p className="font-body-sm text-body-sm text-outline mt-space-sm">Test generation sends one short greeting directly to the selected model; it may load the model and use your device’s CPU, GPU, memory, or battery.</p>
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat can call this URL directly from your browser. Choose Ollama and enter the exact model ID under Default chat model. The hosted Research backend cannot reach a device-local URL, so use a server-reachable model for Research for now.</p>
           </div>
@@ -282,7 +287,7 @@ export const VaultWorkspace: React.FC = () => {
             {keyField('openai-compatible', 'Optional bearer token')}
             <Result id="openai-compatible" />
             <button type="button" onClick={() => void discoverModels('openai-compatible')} disabled={Boolean(listingModels) || !openaiCompatibleUrl.trim()} className="mt-space-xs px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40">{listingModels === 'openai-compatible' ? 'Loading models…' : 'Discover available models'}</button>
-            <LocalModelList id="openai-compatible" />
+            <LocalModelList id="openai-compatible" baseUrl={openaiCompatibleUrl.trim()} catalog={localModels['openai-compatible']} tests={localModelTests} onTest={testLocalModel} onUse={useLocalModel} />
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat sends requests from this browser directly to this endpoint; Breezy does not proxy local URLs. Research still uses the configured Research model through the hosted backend and cannot use this device-local endpoint yet. The server must allow CORS requests from Breezy. If the server app and Breezy browser are on the same phone, try that phone’s loopback address (127.0.0.1) and the server port. If Breezy runs on another device, use the server-hosting device’s LAN IP and port; both devices must be on the same network.</p>
             <p className="font-body-sm text-body-sm text-outline mt-space-xs">HTTPS pages may be blocked from calling some HTTP endpoints by browser security rules. A successful connection test checks the models endpoint only; it does not guarantee generation works.</p>
           </div>
