@@ -5,7 +5,7 @@ import { apiClient } from '../services/apiClient';
 import { Icon } from '../shell/Icon';
 import { announceConfigChange } from '../lib/useModelState';
 import { PROVIDER_LABELS, providerLabel } from '../lib/providers';
-import { testLocalModelEndpoint } from '../services/localModelService';
+import { listLocalModels, testLocalModelEndpoint, testLocalModelGeneration } from '../services/localModelService';
 
 type Role = 'architect';
 const PROVIDERS = [
@@ -16,6 +16,39 @@ const SEARCH_KEYS = [{ id: 'tavily', label: 'Tavily', placeholder: 'tvly-…' },
 const ALL_PROVIDERS = ['gemini', 'anthropic', 'groq', 'sambanova', 'openrouter', 'ollama', 'openai-compatible'];
 const CUSTOM = '__custom__';
 
+type LocalModelProvider = 'ollama' | 'openai-compatible';
+type LocalModelTestResult = { busy?: boolean; valid?: boolean; message?: string };
+function LocalModelList({ id, baseUrl, catalog, tests, onTest, onUse }: {
+  id: LocalModelProvider;
+  baseUrl: string;
+  catalog?: { baseUrl: string; models: string[] };
+  tests: Record<string, LocalModelTestResult>;
+  onTest: (provider: LocalModelProvider, model: string) => void;
+  onUse: (provider: LocalModelProvider, model: string) => void;
+}) {
+  // Keep this component at module scope so parent state updates do not remount
+  // the list, drop keyboard focus, or reset any in-progress interaction.
+  if (!catalog || catalog.baseUrl !== baseUrl || !catalog.models.length) return null;
+  return <div className="mt-space-sm rounded-xl bg-surface-container-low p-space-sm">
+    <p className="font-label-md text-label-md text-on-surface-variant mb-space-xs">Models reported by this server</p>
+    <div className="flex flex-col gap-space-xs">
+      {catalog.models.map((model) => {
+        const result = tests[id + ':' + model];
+        return <div key={model} className="rounded-lg bg-surface-container px-space-sm py-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs">
+            <code className="min-w-0 break-all font-code-sm text-code-sm">{model}</code>
+            <div className="flex flex-wrap gap-space-xs shrink-0">
+              <button type="button" onClick={() => onTest(id, model)} disabled={Boolean(result?.busy)} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40">{result?.busy ? 'Testing…' : 'Test generation'}</button>
+              <button type="button" onClick={() => onUse(id, model)} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md">Use in Chat</button>
+            </div>
+          </div>
+          {result?.message && <p role="status" className={`mt-space-xs font-body-sm text-body-sm break-words ${result.valid ? 'text-tertiary' : 'text-error'}`}>{result.message}</p>}
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
 export const VaultWorkspace: React.FC = () => {
   const [config, setConfig] = useState<CanonicalWorkspaceConfig>(providerConfigService.getConfig());
   const [customDefaultModel, setCustomDefaultModel] = useState(() => {
@@ -24,6 +57,9 @@ export const VaultWorkspace: React.FC = () => {
   });
   const [show, setShow] = useState<Record<string, boolean>>({});
   const [test, setTest] = useState<{ id: string; busy?: boolean; valid?: boolean; message?: string } | null>(null);
+  const [localModels, setLocalModels] = useState<Record<string, { baseUrl: string; models: string[] }>>({});
+  const [listingModels, setListingModels] = useState<string | null>(null);
+  const [localModelTests, setLocalModelTests] = useState<Record<string, { busy?: boolean; valid?: boolean; message?: string }>>({});
   const [saved, setSaved] = useState(false); const [ollamaUrl, setOllamaUrl] = useState(config.ollamaBaseUrl || 'http://localhost:11434'); const [openaiCompatibleUrl, setOpenaiCompatibleUrl] = useState(config.openaiCompatibleBaseUrl || '');
   const [customOpen, setCustomOpen] = useState<Partial<Record<Role, boolean>>>({});
   const timer = useRef<number | undefined>(undefined);
@@ -57,6 +93,49 @@ export const VaultWorkspace: React.FC = () => {
     setTest({ id, busy: true });
     try { const r = await apiClient.verifyKey(id, key || ''); setTest({ id, valid: r.valid, message: r.message || (r.valid ? 'Key verified.' : 'Key rejected or network error.') }); }
     catch (e: any) { setTest({ id, valid: false, message: e?.message || 'Verification failed.' }); }
+  };
+
+  const discoverModels = async (id: 'ollama' | 'openai-compatible') => {
+    const baseUrl = id === 'ollama' ? ollamaUrl : openaiCompatibleUrl;
+    setListingModels(id);
+    setTest({ id, busy: true });
+    try {
+      const models = await listLocalModels(id, baseUrl, (config.keys as any)[id] || '');
+      setLocalModels((current) => ({ ...current, [id]: { baseUrl: baseUrl.trim(), models } }));
+      setTest({ id, valid: true, message: models.length ? 'Found ' + models.length + ' model ID(s) from this browser.' : 'The endpoint is reachable, but it reports no installed models.' });
+    } catch (e: any) {
+      setTest({ id, valid: false, message: e?.message || 'Could not list models from this endpoint.' });
+    } finally {
+      setListingModels(null);
+    }
+  };
+
+  const testLocalModel = async (provider: 'ollama' | 'openai-compatible', model: string) => {
+    const key = provider + ':' + model;
+    const baseUrl = provider === 'ollama' ? ollamaUrl : openaiCompatibleUrl;
+    setLocalModelTests((current) => ({ ...current, [key]: { busy: true } }));
+    try {
+      const reply = await testLocalModelGeneration({ provider, baseUrl, model, apiKey: (config.keys as any)[provider] || '' });
+      const compactReply = reply.replace(/\s+/g, ' ').trim();
+      setLocalModelTests((current) => ({ ...current, [key]: { valid: true, message: 'Generation works. Reply: ' + compactReply.slice(0, 140) + (compactReply.length > 140 ? '…' : '') } }));
+    } catch (error: any) {
+      setLocalModelTests((current) => ({ ...current, [key]: { valid: false, message: error?.message || 'Generation test failed.' } }));
+    }
+  };
+
+  const useLocalModel = (provider: 'ollama' | 'openai-compatible', model: string) => {
+    // Persist the exact endpoint used for discovery along with the selected model.
+    // Otherwise an unsaved URL edit could discover a model but Chat would call the old URL.
+    const next = {
+      ...config,
+      defaultProvider: provider,
+      defaultModel: model,
+      ollamaBaseUrl: provider === 'ollama' ? ollamaUrl.trim() : config.ollamaBaseUrl,
+      openaiCompatibleBaseUrl: provider === 'openai-compatible' ? openaiCompatibleUrl.trim() : config.openaiCompatibleBaseUrl,
+    };
+    commit(next);
+    setCustomDefaultModel(true);
+    setTest({ id: provider, valid: true, message: 'Selected ' + model + ' as the default Chat model.' });
   };
 
   const Result = ({ id }: { id: string }) => test?.id === id && !test.busy && test.message ? <p role="status" className={`font-code-sm text-code-sm mt-space-xs ${test.valid ? 'text-tertiary' : 'text-error'}`}>{test.message}</p> : null;
@@ -192,6 +271,9 @@ export const VaultWorkspace: React.FC = () => {
             <div className="flex items-center gap-space-xs mt-space-xs"><button type="button" onClick={() => commit({ ...config, ollamaBaseUrl: ollamaUrl.trim() })} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md transition-colors">Save URL</button>
               <button type="button" onClick={() => void verify('ollama')} disabled={test?.busy} className="px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40 transition-colors">{test?.id === 'ollama' && test.busy ? 'Testing…' : 'Test connection'}</button></div>
             <Result id="ollama" />
+            <button type="button" onClick={() => void discoverModels('ollama')} disabled={Boolean(listingModels)} className="mt-space-xs px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40">{listingModels === 'ollama' ? 'Loading models…' : 'Discover installed models'}</button>
+            <LocalModelList id="ollama" baseUrl={ollamaUrl.trim()} catalog={localModels.ollama} tests={localModelTests} onTest={testLocalModel} onUse={useLocalModel} />
+            <p className="font-body-sm text-body-sm text-outline mt-space-sm">Test generation sends one short greeting directly to the selected model; it may load the model and use your device’s CPU, GPU, memory, or battery.</p>
             <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat can call this URL directly from your browser. Choose Ollama and enter the exact model ID under Default chat model. The hosted Research backend cannot reach a device-local URL, so use a server-reachable model for Research for now.</p>
           </div>
           <div className="bg-surface-container rounded-3xl p-space-lg coat">
@@ -204,7 +286,9 @@ export const VaultWorkspace: React.FC = () => {
             </div>
             {keyField('openai-compatible', 'Optional bearer token')}
             <Result id="openai-compatible" />
-            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat sends requests from this browser directly to this endpoint; the hosted Breezy backend does not proxy local URLs. Research still runs through the hosted backend and cannot use this device-local endpoint yet. The server must allow browser CORS requests. Use a base URL such as http://127.0.0.1:1234/v1. For a phone-hosted server, use the phone’s LAN address and port when both devices are on the same network.</p>
+            <button type="button" onClick={() => void discoverModels('openai-compatible')} disabled={Boolean(listingModels) || !openaiCompatibleUrl.trim()} className="mt-space-xs px-space-sm min-h-[32px] rounded-lg bg-surface-container-high hover:bg-surface-container-highest font-label-md text-label-md disabled:opacity-40">{listingModels === 'openai-compatible' ? 'Loading models…' : 'Discover available models'}</button>
+            <LocalModelList id="openai-compatible" baseUrl={openaiCompatibleUrl.trim()} catalog={localModels['openai-compatible']} tests={localModelTests} onTest={testLocalModel} onUse={useLocalModel} />
+            <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Chat sends requests from this browser directly to this endpoint; Breezy does not proxy local URLs. Research still uses the configured Research model through the hosted backend and cannot use this device-local endpoint yet. The server must allow CORS requests from Breezy. If the server app and Breezy browser are on the same phone, try that phone’s loopback address (127.0.0.1) and the server port. If Breezy runs on another device, use the server-hosting device’s LAN IP and port; both devices must be on the same network.</p>
             <p className="font-body-sm text-body-sm text-outline mt-space-xs">HTTPS pages may be blocked from calling some HTTP endpoints by browser security rules. A successful connection test checks the models endpoint only; it does not guarantee generation works.</p>
           </div>
         </div>
