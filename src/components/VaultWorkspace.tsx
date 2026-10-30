@@ -213,7 +213,7 @@ export const VaultWorkspace: React.FC = () => {
       <section aria-labelledby="research-model-h">
         <div className="mb-space-md">
           <h2 id="research-model-h" className="font-headline-md text-headline-md">Research model</h2>
-          <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-2xl">Every investigation uses this one model for answer generation. Breezy does not run separate critic, verifier, or synthesizer calls. Source search and page retrieval still run when enabled.</p>
+          <p className="font-body-sm text-body-sm text-on-surface-variant mt-1 max-w-2xl">Every investigation uses this configured model for answer generation. Breezy handles source search and page retrieval separately when enabled.</p>
         </div>
         <div className="bg-surface-container rounded-3xl p-space-lg coat">
           <label htmlFor="research-model-select" className="block font-label-md text-label-md text-on-surface-variant mb-space-xs">Provider and model</label>
@@ -241,7 +241,7 @@ export const VaultWorkspace: React.FC = () => {
             </>;
           })()}
         </div>
-        <p className="font-body-sm text-body-sm text-outline mt-space-sm">The model catalog can go out of date. Use “Custom model ID” for newer models. Previous critic, verifier, and synthesizer assignments are no longer used by research.</p>
+        <p className="font-body-sm text-body-sm text-outline mt-space-sm">The model catalog can go out of date. Use “Custom model ID” for newer models.</p>
       </section>
 
       <section aria-labelledby="search-h" className="pb-space-xl"><div className="flex items-center justify-between mb-space-md"><h2 id="search-h" className="font-headline-md text-headline-md">Search keys <span className="font-body-sm text-body-sm text-outline">(optional)</span></h2></div>
