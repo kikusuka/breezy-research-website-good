@@ -100,9 +100,12 @@ export async function chatWithLocalModel(options: {
         messages: messages.filter((message) => message.role !== 'system'),
       }
     : { model: model.trim(), messages, stream: false };
-  const response = await fetch(buildLocalChatEndpoint(provider, baseUrl, apiFormat), {
-    method: 'POST', headers, body: JSON.stringify(requestBody), signal, credentials: 'omit',
-  });
+  const request = {
+    method: 'POST', headers, body: JSON.stringify(requestBody), signal, credentials: 'omit' as RequestCredentials,
+  };
+  const response = requestTimeoutMs
+    ? await fetchWithTimeout(buildLocalChatEndpoint(provider, baseUrl, apiFormat), request, requestTimeoutMs, 'The local model did not respond within 90 seconds. Check that the model is loaded and the device is awake.')
+    : await fetch(buildLocalChatEndpoint(provider, baseUrl, apiFormat), request);
   if (!response.ok) throw new Error(await responseError(response));
   const data = await response.json();
   const content = useAnthropic ? data?.content : data?.choices?.[0]?.message?.content;
@@ -129,9 +132,9 @@ export async function testLocalModelGeneration(options: {
 export async function listLocalModels(provider: LocalModelProvider, baseUrl: string, apiKey?: string, apiFormat: LocalApiFormat = 'openai'): Promise<string[]> {
   let response: Response;
   try {
-    response = await fetch(buildModelsEndpoint(provider, baseUrl), {
+    response = await fetchWithTimeout(buildModelsEndpoint(provider, baseUrl), {
       method: 'GET', headers: localAuthHeaders(provider, apiKey, apiFormat), credentials: 'omit',
-    });
+    }, MODEL_DISCOVERY_TIMEOUT_MS, 'The model server did not respond within 15 seconds. Check that it is running and awake, then try again.');
   } catch (error: any) {
     if (error instanceof Error && error.message.includes('did not respond within 15 seconds')) throw error;\n    throw new Error('Could not list models from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
   }
