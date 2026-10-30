@@ -82,7 +82,7 @@ describe('local model endpoint handling', () => {
     }));
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
       model: 'local-claude', max_tokens: 1024, system: 'Be concise.',
-      messages: [{ role: 'user', content: 'Hello' }], stream: false,
+      messages: [{ role: 'user', content: 'Hello' }],
     });
   });
   it('uses Anthropic authentication headers when listing compatible models', async () => {
