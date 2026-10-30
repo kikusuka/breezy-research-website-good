@@ -47,6 +47,37 @@ function localAuthHeaders(provider: LocalModelProvider, apiKey: string | undefin
   return headers;
 }
 
+const MODEL_DISCOVERY_TIMEOUT_MS = 15_000;
+const MODEL_TEST_TIMEOUT_MS = 90_000;
+
+/** Bound setup requests so a sleeping phone/server cannot leave the Models screen spinning forever. */
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMs: number,
+  timeoutLabel: string,
+): Promise<Response> {
+  const controller = new AbortController();
+  const externalSignal = init.signal;
+  let timedOut = false;
+  const forwardAbort = () => controller.abort(externalSignal?.reason);
+  if (externalSignal?.aborted) forwardAbort();
+  else externalSignal?.addEventListener('abort', forwardAbort, { once: true });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (timedOut) throw new Error(timeoutLabel);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    externalSignal?.removeEventListener('abort', forwardAbort);
+  }
+}
+
 async function responseError(response: Response): Promise<string> {
   const body = await response.text().catch(() => '');
   let detail = body;
@@ -55,9 +86,9 @@ async function responseError(response: Response): Promise<string> {
 }
 
 export async function chatWithLocalModel(options: {
-  provider: LocalModelProvider; baseUrl: string; model: string; messages: LocalChatMessage[]; apiKey?: string; signal?: AbortSignal; apiFormat?: LocalApiFormat;
+  provider: LocalModelProvider; baseUrl: string; model: string; messages: LocalChatMessage[]; apiKey?: string; signal?: AbortSignal; apiFormat?: LocalApiFormat; requestTimeoutMs?: number;
 }): Promise<{ text: string }> {
-  const { provider, baseUrl, model, messages, apiKey, signal, apiFormat = 'openai' } = options;
+  const { provider, baseUrl, model, messages, apiKey, signal, apiFormat = 'openai', requestTimeoutMs } = options;
   if (!model.trim()) throw new Error('Choose the exact model ID exposed by your local server.');
   const useAnthropic = provider === 'openai-compatible' && apiFormat === 'anthropic';
   const headers = { ...localAuthHeaders(provider, apiKey, apiFormat), 'Content-Type': 'application/json' };
@@ -89,7 +120,7 @@ export async function testLocalModelGeneration(options: {
 }): Promise<string> {
   const result = await chatWithLocalModel({
     ...options,
-    messages: [{ role: 'user', content: 'Reply with a short greeting.' }],
+    messages: [{ role: 'user', content: 'Reply with a short greeting.' }],\n    requestTimeoutMs: MODEL_TEST_TIMEOUT_MS,
   });
   return result.text;
 }
@@ -102,7 +133,7 @@ export async function listLocalModels(provider: LocalModelProvider, baseUrl: str
       method: 'GET', headers: localAuthHeaders(provider, apiKey, apiFormat), credentials: 'omit',
     });
   } catch (error: any) {
-    throw new Error('Could not list models from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
+    if (error instanceof Error && error.message.includes('did not respond within 15 seconds')) throw error;\n    throw new Error('Could not list models from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
   }
   if (!response.ok) throw new Error(await responseError(response));
   let data: any;
@@ -125,7 +156,7 @@ export async function testLocalModelEndpoint(provider: LocalModelProvider, baseU
       method: 'GET', headers: localAuthHeaders(provider, apiKey, apiFormat), credentials: 'omit',
     });
   } catch (error: any) {
-    throw new Error('Could not reach the endpoint from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
+    if (error instanceof Error && error.message.includes('did not respond within 15 seconds')) throw error;\n    throw new Error('Could not reach the endpoint from this browser. Check the address, server status, and CORS settings. ' + (error?.message || 'Network request failed.'));
   }
   if (!response.ok) throw new Error(await responseError(response));
   if (provider === 'ollama') return 'Connected to Ollama from this browser. This checks the server endpoint, not whether the selected model can generate a response.';
