@@ -77,6 +77,7 @@ export interface CanonicalWorkspaceConfig {
   heartbeatIntervalSec?: number;
   ollamaBaseUrl?: string;
   openaiCompatibleBaseUrl?: string;
+  localApiFormat?: 'openai' | 'anthropic';
 }
 
 const CANONICAL_STORAGE_KEY = 'breezy_canonical_provider_config';
@@ -153,6 +154,7 @@ export const providerConfigService = {
           heartbeatIntervalSec: typeof parsed.heartbeatIntervalSec === 'number' ? Math.min(300, Math.max(20, parsed.heartbeatIntervalSec)) : 60,
           ollamaBaseUrl: parsed.ollamaBaseUrl || 'http://localhost:11434',
           openaiCompatibleBaseUrl: parsed.openaiCompatibleBaseUrl || '',
+          localApiFormat: parsed.localApiFormat === 'anthropic' ? 'anthropic' : 'openai',
         };
       }
 
@@ -181,6 +183,7 @@ export const providerConfigService = {
         heartbeatIntervalSec: 60,
         ollamaBaseUrl: 'http://localhost:11434',
         openaiCompatibleBaseUrl: '',
+        localApiFormat: 'openai',
       };
 
       this.saveConfig(initialConfig);
@@ -201,6 +204,7 @@ export const providerConfigService = {
         heartbeatIntervalSec: 60,
         ollamaBaseUrl: 'http://localhost:11434',
         openaiCompatibleBaseUrl: '',
+        localApiFormat: 'openai',
       };
     }
   },

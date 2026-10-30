@@ -64,6 +64,36 @@ describe('local model endpoint handling', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: '' } }] }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
     await expect(chatWithLocalModel({ provider: 'ollama', baseUrl: 'http://localhost:11434', model: 'qwen2.5', messages: [{ role: 'user', content: 'Hello' }] })).rejects.toThrow(/no readable assistant text/i);
   });
+  it('builds Anthropic Messages URLs from a versioned API base URL', () => {
+    expect(buildLocalChatEndpoint('openai-compatible', 'http://127.0.0.1:8080/v1', 'anthropic')).toBe('http://127.0.0.1:8080/v1/messages');
+  });
+  it('sends Anthropic Messages headers and payload, and extracts text blocks', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ content: [{ type: 'text', text: 'Hello from Anthropic-compatible local.' }] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    const result = await chatWithLocalModel({
+      provider: 'openai-compatible', baseUrl: 'http://127.0.0.1:8080/v1', model: 'local-claude',
+      messages: [{ role: 'system', content: 'Be concise.' }, { role: 'user', content: 'Hello' }],
+      apiKey: 'local-secret', apiFormat: 'anthropic',
+    });
+    expect(result.text).toBe('Hello from Anthropic-compatible local.');
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8080/v1/messages', expect.objectContaining({
+      method: 'POST', credentials: 'omit',
+      headers: expect.objectContaining({ 'x-api-key': 'local-secret', 'anthropic-version': '2023-06-01' }),
+    }));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      model: 'local-claude', max_tokens: 1024, system: 'Be concise.',
+      messages: [{ role: 'user', content: 'Hello' }],
+    });
+  });
+  it('uses Anthropic authentication headers when listing compatible models', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [{ id: 'local-model' }] }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(listLocalModels('openai-compatible', 'http://127.0.0.1:8080/v1', 'local-secret', 'anthropic')).resolves.toEqual(['local-model']);
+    expect(fetchMock).toHaveBeenCalledWith('http://127.0.0.1:8080/v1/models', expect.objectContaining({
+      headers: expect.objectContaining({ 'x-api-key': 'local-secret', 'anthropic-version': '2023-06-01' }),
+    }));
+  });
+
   it('reports browser network/CORS failures clearly', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
     await expect(testLocalModelEndpoint('openai-compatible', 'http://localhost:1234/v1')).rejects.toThrow(/CORS settings/i);

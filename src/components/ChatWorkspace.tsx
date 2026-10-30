@@ -203,6 +203,7 @@ export const ChatWorkspace: React.FC = () => {
           model: active!.model,
           messages: chatHistory,
           apiKey: providerConfigService.getKey(active!.provider),
+          apiFormat: active!.provider === 'openai-compatible' ? modelState.config.localApiFormat || 'openai' : 'openai',
           signal: c.signal,
         });
         setMessages([...history, { role: 'assistant', content: res.text }]);
