@@ -1,20 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { LAB_NAV, MAIN_NAV, PROFILE_NAV, VALID_TABS, parseHash } from '../src/lib/nav';
+import { LAB_NAV, MAIN_NAV, PROFILE_NAV, VALID_TABS, parseHash, parseLibraryTab } from '../src/lib/nav';
 
 describe('workspace navigation', () => {
-  it('keeps everyday destinations in the main sidebar', () => {
-    const ids = MAIN_NAV.map((item) => item.id);
-    expect(ids).toContain('chat');
-    expect(ids).toContain('research');
-    expect(ids).toContain('history');
-    expect(ids).toContain('notes');
-    expect(ids).not.toContain('models');
-    expect(ids).not.toContain('settings');
-    expect(ids).not.toContain('docs');
+  it('keeps everyday destinations in the main navigation', () => {
+    expect(MAIN_NAV.map((item) => item.id)).toEqual(['chat', 'research', 'library', 'models']);
   });
 
-  it('keeps profile and configuration destinations in the profile menu', () => {
-    expect(PROFILE_NAV.map((item) => item.id)).toEqual(['profile', 'models', 'settings', 'docs']);
+  it('keeps account, settings and help in the profile menu', () => {
+    expect(PROFILE_NAV.map((item) => item.id)).toEqual(['profile', 'settings', 'docs']);
   });
 
   it('keeps Build and Canvas available as laboratory workspaces', () => {
@@ -43,5 +36,19 @@ describe('entry route', () => {
   it('preserves valid workspace routes', () => {
     window.location.hash = '#research';
     expect(parseHash()).toBe('research');
+  });
+});
+
+describe('legacy routes', () => {
+  it('sends #history and #notes to Library with the right sub-tab', () => {
+    window.location.hash = '#history';
+    expect(parseHash()).toBe('library');
+    expect(parseLibraryTab()).toBe('history');
+    window.location.hash = '#notes';
+    expect(parseHash()).toBe('library');
+    expect(parseLibraryTab()).toBe('notes');
+    window.location.hash = '#library/notes';
+    expect(parseHash()).toBe('library');
+    expect(parseLibraryTab()).toBe('notes');
   });
 });

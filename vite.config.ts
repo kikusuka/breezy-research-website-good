@@ -13,13 +13,13 @@ export default defineConfig(() => {
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'breezy-logo.svg'],
         manifest: {
           id: '/',
-          name: 'Breezy Research',
-          short_name: 'Breezy Research',
+          name: 'Breezy',
+          short_name: 'Breezy',
           description: 'Conversational AI and grounded research powered by your configured model.',
-          theme_color: '#0c0a09',
-          background_color: '#0c0a09',
+          theme_color: '#0c1728',
+          background_color: '#0c1728',
           display: 'standalone',
-          start_url: '/',
+          start_url: '/app',
           scope: '/',
           icons: [
             {
@@ -44,6 +44,7 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          navigateFallbackDenylist: [/^\/api\//],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

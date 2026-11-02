@@ -6,6 +6,6 @@ export default defineConfig({
     globals: true,
     // Only test the active root application. breezy-ui/ is an archived duplicate
     // with stale relative imports and its own obsolete test suite.
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.{ts,tsx}'],
   },
 });
