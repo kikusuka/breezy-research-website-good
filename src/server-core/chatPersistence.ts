@@ -10,6 +10,8 @@ const MAX_TITLE = 300;
 const MAX_PROMPT = 20_000;
 const MAX_OUTPUT = 2_000_000;
 const MAX_PAGE_SIZE = 100;
+/** Default per-account cap on stored message text. Override with the STORAGE_LIMIT_BYTES variable. */
+export const DEFAULT_STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
 const TERMINAL = new Set(['completed', 'interrupted', 'failed', 'cancelled']);
 
 type JsonResponseFactory = (data: unknown, status?: number, req?: Request, env?: BackendEnv) => Response;
@@ -30,6 +32,22 @@ function titleFromPrompt(prompt: string): string {
   const normalized = prompt.replace(/\s+/g, ' ').trim();
   return normalized.slice(0, MAX_TITLE) || 'New chat';
 }
+
+export function storageLimitBytes(env: BackendEnv): number {
+  const raw = Number(typeof env.STORAGE_LIMIT_BYTES === 'string' ? env.STORAGE_LIMIT_BYTES : NaN);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : DEFAULT_STORAGE_LIMIT_BYTES;
+}
+
+const byteLength = (value: string): number => new TextEncoder().encode(value).length;
+
+async function usedBytes(db: D1DatabaseBinding, ownerUid: string): Promise<number> {
+  const row = await db.prepare('SELECT bytes FROM storage_usage WHERE owner_uid = ?').bind(ownerUid).first<{ bytes: number }>();
+  return Math.max(0, Number(row?.bytes ?? 0));
+}
+
+const addUsage = (db: D1DatabaseBinding, ownerUid: string, delta: number, now: number) => db.prepare(
+  'INSERT INTO storage_usage (owner_uid, bytes, updated_at) VALUES (?, ?, ?) ON CONFLICT(owner_uid) DO UPDATE SET bytes = bytes + excluded.bytes, updated_at = excluded.updated_at'
+).bind(ownerUid, delta, now);
 
 async function readJson(req: Request): Promise<Record<string, unknown> | null> {
   try {
@@ -53,6 +71,21 @@ export async function handleChatPersistenceRequest(
   const db = dbFrom(env);
   if (!db) {
     return jsonError(respond, req, env, 503, 'CHAT_PERSISTENCE_UNAVAILABLE', 'Durable chat history is not configured on this backend yet. Your existing local chat remains separate.');
+  }
+
+  if (path === '/api/chat/storage' && req.method === 'GET') {
+    const used = await usedBytes(db, ownerUid);
+    const limit = storageLimitBytes(env);
+    return respond({ ok: true, usedBytes: used, limitBytes: limit, remainingBytes: Math.max(0, limit - used), full: used >= limit }, 200, req, env);
+  }
+
+  // Largest conversations first, so a full account can see what to delete.
+  if (path === '/api/chat/storage/conversations' && req.method === 'GET') {
+    const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 50, 1), MAX_PAGE_SIZE);
+    const result = await db.prepare(
+      'SELECT c.id, c.title, c.updated_at, COALESCE(SUM(LENGTH(CAST(m.content AS BLOB))), 0) AS bytes FROM conversations c LEFT JOIN chat_messages m ON m.conversation_id = c.id AND m.owner_uid = c.owner_uid WHERE c.owner_uid = ? AND c.deleted_at IS NULL GROUP BY c.id ORDER BY bytes DESC, c.updated_at DESC LIMIT ?'
+    ).bind(ownerUid, limit).all();
+    return respond({ ok: true, conversations: result.results || [], limit }, 200, req, env);
   }
 
   const root = '/api/chat/conversations';
@@ -120,6 +153,17 @@ export async function handleChatPersistenceRequest(
     ).bind(ownerUid, idempotencyKey).first<Record<string, unknown>>();
     if (existing) return respond({ ok: true, run: existing, duplicate: true }, 200, req, env);
 
+    const incomingBytes = byteLength(prompt);
+    const usedNow = await usedBytes(db, ownerUid);
+    const limitNow = storageLimitBytes(env);
+    if (usedNow + incomingBytes > limitNow) {
+      return respond({
+        ok: false, code: 'STORAGE_QUOTA_EXCEEDED',
+        error: 'Your Breezy server storage is full. Delete conversations or connect your own storage to keep saving.',
+        usedBytes: usedNow, limitBytes: limitNow,
+      }, 413, req, env);
+    }
+
     const messageId = crypto.randomUUID();
     const runId = crypto.randomUUID();
     // Allocate the sequence atomically. A MAX(sequence_no) read followed by a later
@@ -142,6 +186,7 @@ export async function handleChatPersistenceRequest(
       db.prepare(
         'INSERT INTO chat_runs (id, conversation_id, owner_uid, initiating_message_id, status, created_at, updated_at, finished_at, cancel_requested_at, partial_output, error_code, error_message, idempotency_key, retry_of_run_id) VALUES (?, ?, ?, ?, \'queued\', ?, ?, NULL, NULL, \'\', NULL, NULL, ?, NULL)'
       ).bind(runId, conversationId, ownerUid, messageId, now, now, idempotencyKey),
+      addUsage(db, ownerUid, incomingBytes, now),
     ]);
 
     return respond({
@@ -184,11 +229,19 @@ export async function handleChatPersistenceRequest(
       return respond({ ok: true, id: conversationId, title, updated_at: now }, 200, req, env);
     }
     if (req.method === 'DELETE') {
-      const result = await db.prepare(
-        'UPDATE conversations SET deleted_at = ?, updated_at = ? WHERE id = ? AND owner_uid = ? AND deleted_at IS NULL'
-      ).bind(now, now, conversationId, ownerUid).run();
-      if (!result.meta?.changes) return jsonError(respond, req, env, 404, 'CONVERSATION_NOT_FOUND', 'This conversation does not exist or is not available to this account.');
-      return respond({ ok: true, id: conversationId, deleted_at: now }, 200, req, env);
+      // Hard delete: the user asked for the data to go, and quota is only freed if the rows are really removed.
+      const owned = await db.prepare(
+        'SELECT c.id AS id, COALESCE(SUM(LENGTH(CAST(m.content AS BLOB))), 0) AS bytes FROM conversations c LEFT JOIN chat_messages m ON m.conversation_id = c.id AND m.owner_uid = c.owner_uid WHERE c.id = ? AND c.owner_uid = ? GROUP BY c.id'
+      ).bind(conversationId, ownerUid).first<{ id: string; bytes: number }>();
+      if (!owned) return jsonError(respond, req, env, 404, 'CONVERSATION_NOT_FOUND', 'This conversation does not exist or is not available to this account.');
+      const freed = Math.max(0, Number(owned.bytes) || 0);
+      await db.batch([
+        // Clear retry links first so the RESTRICT foreign key cannot block the cascade.
+        db.prepare('UPDATE chat_runs SET retry_of_run_id = NULL WHERE conversation_id = ? AND owner_uid = ?').bind(conversationId, ownerUid),
+        db.prepare('DELETE FROM conversations WHERE id = ? AND owner_uid = ?').bind(conversationId, ownerUid),
+        db.prepare('UPDATE storage_usage SET bytes = MAX(0, bytes - ?), updated_at = ? WHERE owner_uid = ?').bind(freed, now, ownerUid),
+      ]);
+      return respond({ ok: true, id: conversationId, freedBytes: freed }, 200, req, env);
     }
   }
 
@@ -237,6 +290,7 @@ export async function handleChatPersistenceRequest(
         'INSERT INTO chat_messages (id, conversation_id, owner_uid, sequence_no, role, content, status, created_at, provider, model) SELECT ?, conversation_id, owner_uid, ?, \'assistant\', ?, ?, ?, NULL, NULL FROM chat_runs WHERE id = ? AND owner_uid = ? AND status IN (\'queued\', \'running\')'
       ).bind(assistantId, sequenceNo, output, status === 'completed' ? 'complete' : 'partial', now, runId, ownerUid));
     }
+    if (assistantId) statements.push(addUsage(db, ownerUid, byteLength(output), now));
     statements.push(db.prepare(
       'UPDATE chat_runs SET status = ?, updated_at = ?, finished_at = ?, partial_output = ?, error_code = ?, error_message = ? WHERE id = ? AND owner_uid = ? AND status IN (\'queued\', \'running\')'
     ).bind(status, now, terminal ? now : null, output, errorCode, errorMessage, runId, ownerUid));

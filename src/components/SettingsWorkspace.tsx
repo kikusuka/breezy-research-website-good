@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { providerConfigService, CanonicalWorkspaceConfig } from '../services/providerConfigService';
 import { Page, Card, fieldCls } from '../ui/Page';
 import { Icon } from '../shell/Icon';
+import { AppearanceSettings } from './AppearanceSettings';
+import { StorageSettings } from './StorageSettings';
 import { announceConfigChange } from '../lib/useModelState';
 import { accountStorage, DataSaveCategory, getDataSavePreferences, setDataSavePreference, shouldSaveDataCategory } from '../services/accountStorage';
 import { deleteSessionsFromIDB, loadSessions, loadSessionsFromIDB, replaceSessionsInIDB, saveSessions } from '../services/sessionStorage';
@@ -88,8 +90,12 @@ export const SettingsWorkspace: React.FC = () => {
     } finally { setBackupBusy(false); setRestoreInputKey((n) => n + 1); }
   };
   return (
-    <Page crumb="Settings" title="Settings" subtitle="How research runs search the web and reason. Changes save instantly on this device." narrow
+    <Page crumb="Settings" title="Settings" subtitle="Appearance, research behavior and your data. Changes save instantly on this device." narrow
       right={<span className={`flex items-center gap-1 font-code-sm text-code-sm text-tertiary transition-opacity ${saved ? 'opacity-100' : 'opacity-0'}`} aria-live="polite"><Icon name="check" className="text-[16px]" />Saved</span>}>
+      <AppearanceSettings />
+
+      <StorageSettings />
+
       <Card><h2 className="font-headline-md text-headline-md">Web search</h2><p className="font-body-sm text-body-sm text-on-surface-variant mb-space-md">Used by research runs to gather sources before the configured model generates an answer.</p>
         <div className="grid sm:grid-cols-2 gap-space-sm" role="radiogroup" aria-label="Search engine">{ENGINES.map(([id, name, note]) => { const on = (config.searchEngine || 'duckduckgo') === id; return (
           <button key={id} type="button" role="radio" aria-checked={on} onClick={() => change({ searchEngine: id as any })} className={`text-left rounded-2xl p-space-md min-h-[64px] transition-colors ${on ? 'bg-surface-container-high ring-1 ring-primary/50' : 'bg-surface-container-low hover:bg-surface-container-high'}`}>

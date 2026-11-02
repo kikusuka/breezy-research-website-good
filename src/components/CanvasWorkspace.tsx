@@ -360,7 +360,7 @@ export const CanvasWorkspace: React.FC = () => {
 
       {/* Create / Edit Card Modal */}
       {isCreating && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <form
             onSubmit={handleSaveCard}
             className="w-full max-w-lg bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-2xl space-y-4"
@@ -454,7 +454,7 @@ export const CanvasWorkspace: React.FC = () => {
 
       {/* Pin from History Modal */}
       {showPinModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-lg bg-surface-container-low border border-outline-variant/30 rounded-2xl p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-2 border-b border-outline-variant/30">
               <span className="font-bold text-sm text-on-surface">Pin Research from History</span>

@@ -5,28 +5,27 @@ import { ResearchWorkspace } from './components/ResearchWorkspace';
 import { ChatWorkspace } from './components/ChatWorkspace';
 import { BuildWorkspace } from './components/BuildWorkspace';
 import { CanvasWorkspace } from './components/CanvasWorkspace';
-import { NotesWorkspace } from './components/NotesWorkspace';
+import { LibraryWorkspace } from './components/LibraryWorkspace';
 import { VaultWorkspace } from './components/VaultWorkspace';
-import { HistoryWorkspace } from './components/HistoryWorkspace';
 import { DocsWorkspace } from './components/DocsWorkspace';
 import { SettingsWorkspace } from './components/SettingsWorkspace';
 import { ProfileWorkspace } from './components/ProfileWorkspace';
 import { apiClient } from './services/apiClient';
 import { authService, AuthUser } from './services/authService';
+import { DEV_SKIP_SIGNIN, activateDevSkip, clearDevSkip, isDevSkipActive } from './lib/devSkip';
 import { AuthView } from './components/AuthView';
 import { userProfileService } from './services/userProfileService';
-import { GuestWorkspacePreview } from './components/GuestWorkspacePreview';
 import { prepareAccountStorage, setActiveAccountUid } from './services/accountStorage';
 import { researchStore } from './lib/researchStore';
 
 /**
- * Review access is enabled by default so the UI can be evaluated without sign-in.
- * Set VITE_BREEZY_REQUIRE_AUTH=true to restore the frontend sign-in gate.
+ * Sign-in is required by default. For local development without Firebase, set
+ * VITE_BREEZY_REQUIRE_AUTH=false in .env.local.
  *
  * This is only a frontend gate. Backend endpoints still enforce Firebase tokens;
  * never treat this flag as authorization or expose private user data through APIs.
  */
-const AUTH_REQUIRED = import.meta.env.VITE_BREEZY_REQUIRE_AUTH === 'true';
+const AUTH_REQUIRED = import.meta.env.VITE_BREEZY_REQUIRE_AUTH !== 'false';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>(parseHash);
@@ -36,6 +35,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [authOpen, setAuthOpen] = useState(false);
   const [authStorageError, setAuthStorageError] = useState<string | null>(null);
+  const [devSkip, setDevSkip] = useState<boolean>(isDevSkipActive);
 
   // Restore the signed-in account's local namespace before mounting any workspace.
   useEffect(() => authService.onAuthChange((user) => {
@@ -124,8 +124,10 @@ export default function App() {
       setEndpointName(active.name);
     };
 
+    // One check on load and one when the connection returns. No polling: every ping costs a Worker request,
+    // and real requests already update status through apiClient.subscribe below.
     checkBackend();
-    const interval = setInterval(checkBackend, 30000);
+    window.addEventListener('online', checkBackend);
 
     const unsub = apiClient.subscribe((state) => {
       setBackendOnline(state.isOnline);
@@ -133,7 +135,7 @@ export default function App() {
     });
 
     return () => {
-      clearInterval(interval);
+      window.removeEventListener('online', checkBackend);
       unsub();
     };
   }, []);
@@ -145,39 +147,54 @@ export default function App() {
 
   // In review mode, mount the real workspaces without requiring an account.
   // Their local data uses the unscoped browser namespace until auth is restored.
-  const workspaceEnabled = !AUTH_REQUIRED || Boolean(authUser);
-  const showAuthGate = AUTH_REQUIRED && !authUser;
+  const workspaceEnabled = !AUTH_REQUIRED || Boolean(authUser) || devSkip;
+  const showAuthGate = AUTH_REQUIRED && !authUser && !devSkip;
+
+  if (showAuthGate) {
+    if (authLoading) return <div className="min-h-[100dvh] grid place-items-center bg-background text-on-surface-variant" role="status">Checking your session…</div>;
+    if (authStorageError) return (
+      <div className="min-h-[100dvh] grid place-items-center bg-background p-5 text-center">
+        <div className="max-w-md" role="alert">
+          <h1 className="font-headline-md text-headline-md text-on-surface">Account setup needs attention</h1>
+          <p className="font-body-md text-body-md text-on-surface-variant mt-2 mb-6">{authStorageError}</p>
+          <button type="button" onClick={retryAccountStorage} className="min-h-12 rounded-xl bg-primary px-6 text-on-primary font-label-md text-label-md">Try again</button>
+        </div>
+      </div>
+    );
+    return <AuthView onSkip={DEV_SKIP_SIGNIN ? () => { activateDevSkip(); setDevSkip(true); } : undefined} />;
+  }
 
   return (
     <>
-      <Shell tab={activeTab} go={navigateTo} backendOnline={backendOnline} endpointName={endpointName} previewMode={showAuthGate}>
+      <Shell tab={activeTab} go={navigateTo} backendOnline={backendOnline} endpointName={endpointName} previewMode={false}>
         <div className="relative min-h-full">
-          <div key={authUser?.uid || 'local'} className={showAuthGate ? 'pointer-events-none select-none blur-[1px]' : ''} aria-hidden={showAuthGate}>
+          {devSkip && !authUser && (
+            <div role="status" className="flex flex-wrap items-center gap-2 border-b border-tertiary/40 bg-tertiary/10 px-4 py-2 font-body-sm text-body-sm text-on-surface-variant">
+              <span className="flex-1 min-w-[200px]">Preview mode: sign-in skipped. Research and server features will not work until you sign in. Remove this before deploying.</span>
+              <button type="button" onClick={() => { clearDevSkip(); setDevSkip(false); }} className="text-primary underline underline-offset-4">Sign in</button>
+            </div>
+          )}
+          {authUser && authUser.providerId === 'password' && !authUser.emailVerified && (
+            <div role="status" className="flex flex-wrap items-center gap-2 border-b border-outline-variant/40 bg-surface-container-low px-4 py-2 font-body-sm text-body-sm text-on-surface-variant">
+              <span className="flex-1 min-w-[200px]">Confirm your email address using the link we sent to {authUser.email}.</span>
+              <button type="button" onClick={() => void authService.resendVerificationEmail()} className="text-primary underline underline-offset-4">Resend email</button>
+            </div>
+          )}
+          <div key={authUser?.uid || 'local'}>
             {workspaceEnabled ? <>
               {activeTab === 'research' && <ResearchWorkspace />}
               {activeTab === 'chat' && <ChatWorkspace />}
               {activeTab === 'build' && <BuildWorkspace />}
               {activeTab === 'canvas' && <CanvasWorkspace />}
-              {activeTab === 'notes' && <NotesWorkspace />}
+              {activeTab === 'library' && <LibraryWorkspace />}
               {activeTab === 'models' && <VaultWorkspace />}
-              {activeTab === 'history' && <HistoryWorkspace />}
               {activeTab === 'docs' && <DocsWorkspace />}
               {activeTab === 'settings' && <SettingsWorkspace />}
               {activeTab === 'profile' && <ProfileWorkspace />}
-            </> : <GuestWorkspacePreview tab={activeTab} />}
+            </> : null}
           </div>
-          {showAuthGate && <div className="absolute inset-0 z-40 flex items-center justify-center p-5 bg-surface/35" aria-live="polite">
-            <section className="w-full max-w-md rounded-3xl border border-outline-variant/60 bg-surface-container-low/95 backdrop-blur-xl p-6 sm:p-8 shadow-2xl text-center">
-              <div className="mx-auto mb-4 w-12 h-12 rounded-2xl bg-surface-container-high flex items-center justify-center text-primary"><span className="material-symbols-outlined text-[26px]">lock</span></div>
-              <h2 className="font-headline-md text-headline-md text-on-surface">{authLoading ? 'Checking your session' : authStorageError ? 'Account setup needs attention' : 'Your Breezy workspace'}</h2>
-              <p className="font-body-md text-body-md text-on-surface-variant mt-2 mb-6">{authLoading ? 'One moment while we check whether you’re signed in.' : authStorageError || 'You’re viewing a guest preview. Sign in to use chat, research, Build and your personal workspace.'}</p>
-              {!authLoading && <button type="button" onClick={authStorageError ? retryAccountStorage : () => setAuthOpen(true)} className="w-full min-h-12 rounded-xl bg-primary text-on-primary font-label-md text-label-md hover:brightness-105 transition">{authStorageError ? 'Retry account setup' : 'Sign in to use Breezy'}</button>}
-              <p className="font-body-sm text-body-sm text-outline mt-4">Your preview is read-only. No guest workspace is created.</p>
-            </section>
-          </div>}
         </div>
       </Shell>
-      {showAuthGate && authOpen && <AuthView onClose={() => setAuthOpen(false)} />}
     </>
   );
 }

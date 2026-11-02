@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from './Icon';
 import { BreezyLogo } from '../components/BreezyLogo';
-import { ActiveTab, LAB_NAV, MAIN_NAV, PROFILE_NAV } from '../lib/nav';
+import { ActiveTab, LAB_NAV, MAIN_NAV, NavItem, PROFILE_NAV, TITLES } from '../lib/nav';
 import { userProfileService, UserProfile } from '../services/userProfileService';
 import { FeedbackWidget } from '../components/FeedbackWidget';
 
@@ -30,10 +30,12 @@ function Avatar({ name, photo, size = 'w-8 h-8' }: { name: string; photo?: strin
   );
 }
 
-function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpanded, onNavigate }: {
-  tab: ActiveTab; go: (t: ActiveTab) => void; isExpanded: boolean; mobileOpen: boolean; previewMode: boolean;
-  onToggleExpanded: () => void; onNavigate: () => void;
+function Sidebar({ tab, go, isExpanded: expandedPref, previewMode, onToggleExpanded, onNavigate, variant = 'desktop', onClose }: {
+  tab: ActiveTab; go: (t: ActiveTab) => void; isExpanded: boolean; previewMode: boolean;
+  onToggleExpanded: () => void; onNavigate: () => void; variant?: 'desktop' | 'drawer'; onClose?: () => void;
 }) {
+  const drawer = variant === 'drawer';
+  const isExpanded = drawer || expandedPref; // the drawer always shows labels
   const profile = useProfile(previewMode);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const name = profile.displayName.trim() || 'Guest';
@@ -52,7 +54,6 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpande
       <a key={n.id} href={`#${n.id}`} onClick={(e) => { e.preventDefault(); go(n.id); setProfileMenuOpen(false); onNavigate(); }} aria-current={active ? 'page' : undefined}
         title={!isExpanded ? n.label : undefined}
         className={`breezy-nav-link ${isExpanded ? 'w-full' : 'w-11 justify-center'} ${active ? 'text-primary' : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'}`}>
-        {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-0.5 rounded-circle bg-primary" />}
         <Icon name={n.icon} className="text-[20px] shrink-0" />
         {isExpanded && <span className="font-body-md text-body-md truncate">{n.label}</span>}
       </a>
@@ -68,32 +69,42 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpande
   );
 
   return (
-    <aside id="breezy-sidebar" className={`fixed inset-y-0 left-0 z-[70] flex flex-col justify-between bg-surface/90 backdrop-blur-xl border-r border-outline-variant/30 transition-[width,transform] duration-200 ease-out ${isExpanded ? 'w-64' : 'w-[4.25rem]'} ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
+    <aside id={drawer ? 'breezy-drawer' : 'breezy-sidebar'} aria-label={drawer ? 'Navigation menu' : undefined}
+      className={drawer
+        ? 'fixed inset-y-0 left-0 z-[90] flex w-72 max-w-[85vw] flex-col justify-between border-r border-outline-variant/40 bg-surface pt-safe pb-safe lg:hidden'
+        : `fixed inset-y-0 left-0 z-[70] hidden lg:flex flex-col justify-between border-r border-outline-variant/30 bg-surface transition-[width] duration-200 ease-out ${isExpanded ? 'w-64' : 'w-[4.5rem]'}`}>
       <div className="flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
-        <div className={`relative flex items-center h-16 shrink-0 px-2 gap-1 ${isExpanded ? 'lg:px-space-md lg:gap-space-sm' : 'justify-between lg:justify-center'}`}>
-          <button type="button" onClick={() => { go('chat'); onNavigate(); }} aria-label="Go to chat" title="Go to chat" className="w-8 h-8 shrink-0 flex items-center justify-center rounded-xl hover:bg-surface-container-high transition-colors">
+        <div className={isExpanded ? 'flex h-16 shrink-0 items-center gap-space-sm px-space-md' : 'flex shrink-0 flex-col items-center gap-1 pb-2 pt-3'}>
+          <button type="button" onClick={() => { go('chat'); onNavigate(); }} aria-label="Go to chat" title="Go to chat" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl hover:bg-surface-container-high transition-colors">
             <BreezyLogo size={30} />
           </button>
           {isExpanded && <button type="button" onClick={() => { go('chat'); onNavigate(); }} className="font-headline-sm text-headline-sm tracking-tight text-on-surface">Breezy</button>}
-          <button type="button" onClick={onToggleExpanded} aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'} title={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'} className={`hidden lg:flex shrink-0 items-center justify-center rounded-lg transition-colors ${isExpanded ? 'ml-auto w-8 h-8 hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface' : 'w-7 h-8 hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface'}`}>
-            <Icon name={isExpanded ? 'left_panel_close' : 'left_panel_open'} className="text-[18px]" />
-          </button>
+          {drawer ? (
+            <button type="button" onClick={onClose} aria-label="Close menu" className="ml-auto flex h-10 w-10 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors"><Icon name="close" className="text-[20px]" /></button>
+          ) : (
+            <button type="button" onClick={onToggleExpanded} aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'} title={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+              className={`flex shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors ${isExpanded ? 'ml-auto h-8 w-8' : 'h-9 w-9'}`}>
+              <Icon name={isExpanded ? 'left_panel_close' : 'left_panel_open'} className="text-[18px]" />
+            </button>
+          )}
         </div>
         <nav className={`py-space-sm flex flex-col gap-space-xs ${isExpanded ? 'px-space-md' : 'items-center px-1'}`} aria-label="Main navigation">
           {MAIN_NAV.map(item)}
         </nav>
-        <div className={isExpanded ? 'px-space-md pt-space-md' : 'w-full pt-space-md'}>
-          {isExpanded && <div className="px-space-md pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Laboratories</div>}
-          <nav className={`flex flex-col gap-space-xs ${isExpanded ? '' : 'items-center px-1'}`} aria-label="Laboratories">{LAB_NAV.map(item)}</nav>
+        <div className={isExpanded ? 'px-space-md pt-space-md' : 'w-full'}>
+          {isExpanded
+            ? <div className="px-space-md pb-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Labs</div>
+            : <div aria-hidden="true" className="mx-auto my-space-sm h-px w-8 bg-outline-variant/50" />}
+          <nav className={`flex flex-col gap-space-xs ${isExpanded ? '' : 'items-center px-1'}`} aria-label="Labs">{LAB_NAV.map(item)}</nav>
         </div>
       </div>
       <div className={`relative flex flex-col ${isExpanded ? 'p-space-md gap-space-sm' : 'items-center pb-space-md gap-space-md'}`}>
         <FeedbackWidget expanded={isExpanded} />
-        {profileMenuOpen && <div role="menu" aria-label="Profile menu" className={`absolute z-[90] bottom-full mb-space-sm rounded-2xl border border-outline-variant/60 bg-surface-container-low p-space-xs shadow-2xl coat ${isExpanded ? 'left-space-md right-space-md' : 'left-full ml-space-sm w-52'}`}>
+        {profileMenuOpen && <div role="menu" aria-label="Profile menu" className={`absolute z-[90] bottom-full mb-space-sm rounded-2xl border border-outline-variant/60 bg-surface-container-low p-space-xs shadow-2xl ${isExpanded ? 'left-space-md right-space-md' : 'left-full ml-space-sm w-52'}`}>
           {PROFILE_NAV.map(profileItem)}
         </div>}
         <button type="button" aria-haspopup="menu" aria-expanded={profileMenuOpen} onClick={() => setProfileMenuOpen((open) => !open)}
-          className={`text-left flex items-center transition-colors ${isExpanded ? 'w-full gap-space-md p-space-sm bg-surface-container rounded-2xl hover:bg-surface-container-high' : 'w-11 h-11 justify-center rounded-full hover:bg-surface-container-high'} ${tab === 'profile' ? 'ring-1 ring-primary/40' : ''}`}>
+          className={`text-left flex items-center transition-colors ${isExpanded ? 'w-full gap-space-md p-space-sm bg-surface-container rounded-2xl hover:bg-surface-container-high' : 'w-11 h-11 justify-center rounded-full border border-outline-variant/50 bg-surface-container-high hover:bg-surface-container-highest'} ${tab === 'profile' ? 'ring-1 ring-primary/40' : ''}`}>
           <Avatar name={name} photo={profile.photoURL} />
           {isExpanded && <span className="flex flex-col min-w-0 flex-1"><span className="font-label-md text-label-md text-on-surface truncate">{name}</span><span className="font-label-sm text-label-sm text-on-surface-variant truncate">{role}</span></span>}
           {isExpanded && <Icon name={profileMenuOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_up'} className="text-[18px] text-on-surface-variant" />}
@@ -103,41 +114,84 @@ function Sidebar({ tab, go, isExpanded, mobileOpen, previewMode, onToggleExpande
   );
 }
 
+const PALETTE_ITEMS: NavItem[] = [...MAIN_NAV, ...LAB_NAV, ...PROFILE_NAV];
+
+/** Ctrl/Cmd+K: jump to any destination from the keyboard. */
+function CommandPalette({ open, onClose, go, tab }: { open: boolean; onClose: () => void; go: (t: ActiveTab) => void; tab: ActiveTab }) {
+  const [q, setQ] = useState('');
+  const [idx, setIdx] = useState(0);
+  const items = PALETTE_ITEMS.filter((i) => i.label.toLowerCase().includes(q.trim().toLowerCase()));
+  useEffect(() => { if (open) { setQ(''); setIdx(0); } }, [open]);
+  useEffect(() => { setIdx(0); }, [q]);
+  if (!open) return null;
+  const pick = (i: NavItem | undefined) => { if (!i) return; go(i.id); onClose(); };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') onClose();
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setIdx((n) => Math.min(n + 1, Math.max(items.length - 1, 0))); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setIdx((n) => Math.max(n - 1, 0)); }
+    else if (e.key === 'Enter') pick(items[idx]);
+  };
+  return (
+    <div className="fixed inset-0 z-[100] flex items-start justify-center bg-black/50 p-4 pt-[15vh]" onMouseDown={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Go to" className="w-full max-w-md overflow-hidden rounded-2xl border border-outline-variant/60 bg-surface-container shadow-2xl" onMouseDown={(e) => e.stopPropagation()} onKeyDown={onKey}>
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Go to…" aria-label="Go to" className="w-full bg-transparent px-4 py-3 text-on-surface placeholder:text-outline outline-none border-b border-outline-variant/40" />
+        <ul role="listbox" className="max-h-72 overflow-y-auto p-1">
+          {items.map((i, n) => (
+            <li key={i.id} role="option" aria-selected={n === idx}>
+              <button type="button" onMouseEnter={() => setIdx(n)} onClick={() => pick(i)} className={`flex w-full items-center gap-3 rounded-xl px-3 min-h-11 text-left ${n === idx ? 'bg-surface-container-high text-on-surface' : 'text-on-surface-variant'}`}>
+                <Icon name={i.icon} className="text-[20px]" /><span className="flex-1 font-body-md text-body-md">{i.label}</span>{tab === i.id && <span className="font-code-sm text-code-sm text-primary">current</span>}
+              </button>
+            </li>
+          ))}
+          {!items.length && <li className="px-3 py-4 font-body-sm text-body-sm text-outline">Nothing matches “{q}”.</li>}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
 export function Shell({ tab, go, children, previewMode = false }: ShellProps) {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   useEffect(() => {
-    const updateForViewport = () => {
-      if (window.matchMedia('(min-width: 1024px)').matches) setMobileOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen((o) => !o); }
+      if (e.key === 'Escape') setDrawerOpen(false);
     };
-    updateForViewport();
-    window.addEventListener('resize', updateForViewport);
-    return () => window.removeEventListener('resize', updateForViewport);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Keep the mobile drawer dismissible without requiring a tap on the backdrop.
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMobileOpen(false);
-    };
-    window.addEventListener('keydown', closeOnEscape);
-    return () => window.removeEventListener('keydown', closeOnEscape);
-  }, [mobileOpen]);
-
-  const closeMobile = () => setMobileOpen(false);
-
   return (
-    <div className="h-[100dvh] w-full flex bg-surface text-on-surface overflow-hidden">
-      {mobileOpen && <button type="button" aria-label="Close navigation" onClick={closeMobile} className="lg:hidden fixed inset-0 z-[60] bg-black/45 backdrop-blur-[2px]" />}
-      <Sidebar tab={tab} go={go} isExpanded={sidebarExpanded} mobileOpen={mobileOpen} previewMode={previewMode} onToggleExpanded={() => setSidebarExpanded((open) => !open)} onNavigate={closeMobile} />
-      <div className={`flex-1 min-w-0 flex flex-col transition-[padding-left] duration-200 ease-out ${sidebarExpanded ? 'lg:pl-64' : 'lg:pl-[4.25rem]'}`}>
-        <main className="relative flex-1 min-h-0 overflow-y-auto splatter-soft pt-14 lg:pt-0" id="main">
-          <button type="button" aria-label="Open navigation" aria-controls="breezy-sidebar" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)} className="lg:hidden fixed z-50 left-3 top-2 w-10 h-10 flex items-center justify-center rounded-xl bg-surface-container-low border border-outline-variant/60 text-on-surface shadow-lg shadow-black/30 hover:bg-surface-container-high transition-colors" title="Open navigation"><Icon name="menu" className="text-[21px]" /></button>
+    <div className="h-[100dvh] w-full flex flex-col lg:flex-row bg-surface text-on-surface overflow-hidden">
+      <Sidebar tab={tab} go={go} isExpanded={sidebarExpanded} previewMode={previewMode} onToggleExpanded={() => setSidebarExpanded((o) => !o)} onNavigate={() => undefined} />
+
+      <header className="lg:hidden flex h-14 shrink-0 items-center gap-2 border-b border-outline-variant/40 bg-surface px-2 pt-safe box-content">
+        <button type="button" onClick={() => setDrawerOpen(true)} aria-label="Open menu" aria-expanded={drawerOpen} aria-controls="breezy-drawer" className="flex h-11 w-11 items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container-high transition-colors">
+          <Icon name="menu" className="text-[24px]" />
+        </button>
+        <BreezyLogo size={26} />
+        <span className="font-headline-sm text-headline-sm truncate">{TITLES[tab]}</span>
+        <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Go to…" className="ml-auto flex h-11 w-11 items-center justify-center rounded-xl text-on-surface-variant hover:bg-surface-container-high transition-colors">
+          <Icon name="search" className="text-[22px]" />
+        </button>
+      </header>
+
+      {drawerOpen && (
+        <>
+          <div className="lg:hidden fixed inset-0 z-[85] bg-black/50" onClick={() => setDrawerOpen(false)} aria-hidden="true" />
+          <Sidebar variant="drawer" tab={tab} go={go} isExpanded previewMode={previewMode} onToggleExpanded={() => undefined} onNavigate={() => setDrawerOpen(false)} onClose={() => setDrawerOpen(false)} />
+        </>
+      )}
+
+      <div className={`flex-1 min-h-0 min-w-0 flex flex-col transition-[padding-left] duration-200 ease-out ${sidebarExpanded ? 'lg:pl-64' : 'lg:pl-[4.5rem]'}`}>
+        <main className="relative flex-1 min-h-0 overflow-y-auto bg-background" id="main">
           {children}
         </main>
       </div>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} go={go} tab={tab} />
     </div>
   );
 }

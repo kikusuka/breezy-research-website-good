@@ -1,3 +1,4 @@
+@import './styles/themes.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,19 +6,19 @@
 /* ───────────── Breezy × Stitch base ───────────── */
 @layer base {
   html, body, #root { height: 100%; }
-  html { background-color: #0c1424; color-scheme: dark; }
-  body { margin: 0; background-color: #0c1424; color: #e6edf8; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
-  ::selection { background: rgba(76,214,251,.28); }
-  :focus-visible { outline: 2px solid rgba(76,214,251,.7); outline-offset: 2px; border-radius: 6px; }
+  html { background-color: rgb(var(--c-background)); }
+  body { margin: 0; background-color: rgb(var(--c-background)); color: rgb(var(--c-on-surface)); font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  ::selection { background: rgb(var(--c-primary) / .28); }
+  :focus-visible { outline: 2px solid rgb(var(--c-primary) / .7); outline-offset: 2px; border-radius: 6px; }
   button, [role="button"] { cursor: pointer; }
   input, textarea, select { font-family: inherit; }
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 }
-* { scrollbar-width: thin; scrollbar-color: #344b67 transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgb(var(--c-outline-variant)) transparent; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #344b67; border-radius: 8px; }
-::-webkit-scrollbar-thumb:hover { background: #4b7097; }
+::-webkit-scrollbar-thumb { background: rgb(var(--c-outline-variant)); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-outline)); }
 ::-webkit-scrollbar-track { background: transparent; }
 
 .material-symbols-outlined {
@@ -29,25 +30,11 @@
 }
 .material-symbols-outlined.fill { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
 
-/* Blue splatter: soft cyan + sky-blue washes (Stitch Models/Research background, extended). */
-.splatter {
-  background-color: #0c1424;
-  background-image:
-    radial-gradient(ellipse at 12% 0%, rgba(35, 117, 174, .34) 0%, transparent 42%),
-    radial-gradient(ellipse at 88% 18%, rgba(0, 190, 225, .20) 0%, transparent 38%),
-    radial-gradient(ellipse at 48% 100%, rgba(35, 93, 157, .24) 0%, transparent 48%);
-  background-attachment: fixed;
-}
-.splatter-soft {
-  background-color: #0c1424;
-  background-image:
-    radial-gradient(ellipse at 48% 0%, rgba(38, 101, 163, .30) 0%, transparent 56%),
-    radial-gradient(ellipse at 100% 38%, rgba(0, 190, 225, .18) 0%, transparent 44%);
-  background-attachment: fixed;
-}
-.coat { background-image: linear-gradient(145deg, rgba(54,145,205,.13), rgba(18,46,72,.04) 48%, rgba(255,255,255,0) 80%); box-shadow: inset 0 1px 0 rgba(125,215,255,.09), 0 8px 24px -12px rgba(0,0,0,.62); }
-.hairline { box-shadow: inset 0 0 0 1px rgba(65,133,175,.48); }
-.glow-primary { box-shadow: 0 0 0 1px rgba(76,214,251,.35), 0 8px 28px -8px rgba(0,180,216,.45); }
+/* Flat surfaces: legacy decoration classes kept as no-ops so old markup stays valid. */
+.splatter, .splatter-soft { background-color: rgb(var(--c-background)); }
+.coat { box-shadow: none; }
+.hairline { box-shadow: inset 0 0 0 1px rgb(var(--c-outline-variant)); }
+.glow-primary { box-shadow: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; } .no-scrollbar { scrollbar-width: none; }
 
 /* Shared workspace primitives: one consistent visual language across tools. */
@@ -56,7 +43,7 @@
   .breezy-page--narrow { @apply max-w-3xl; }
   .breezy-page-header { @apply flex flex-col md:flex-row md:items-end md:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8; }
   .breezy-eyebrow { @apply font-code-sm text-code-sm uppercase tracking-wider text-outline; }
-  .breezy-card { @apply rounded-2xl border border-outline-variant/40 bg-surface-container p-4 sm:p-5; box-shadow: inset 0 1px 0 rgba(125,215,255,.06); }
+  .breezy-card { @apply rounded-2xl border border-outline-variant/40 bg-surface-container p-4 sm:p-5; }
   .breezy-panel { @apply rounded-xl border border-outline-variant/30 bg-surface-container-low p-4; }
   .breezy-control { @apply w-full min-h-11 rounded-xl border border-outline-variant/50 bg-surface-container-lowest px-3 py-2 text-sm text-on-surface placeholder:text-outline transition-colors; }
   .breezy-control:focus-visible { @apply outline-none border-primary ring-2 ring-primary/20; }

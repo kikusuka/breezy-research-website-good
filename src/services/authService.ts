@@ -11,6 +11,7 @@ import {
   GithubAuthProvider,
   OAuthProvider,
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   linkWithPopup,
@@ -148,7 +149,15 @@ export const authService = {
   /** Create a Breezy account with email and password. */
   async createAccountWithEmail(email: string, password: string): Promise<void> {
     if (!isFirebaseConfigured) throw new Error('Firebase Authentication is unconfigured.');
-    await createUserWithEmailAndPassword(auth, email.trim(), password);
+    const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    // Best effort: a failed verification email must not undo a created account.
+    try { await sendEmailVerification(credential.user); } catch (error) { console.warn('Verification email could not be sent.', error); }
+  },
+
+  /** Re-send the verification email to the signed-in user. */
+  async resendVerificationEmail(): Promise<void> {
+    if (!isFirebaseConfigured || !auth.currentUser) throw new Error('Sign in first.');
+    await sendEmailVerification(auth.currentUser);
   },
 
   /** Send a password reset email. */
@@ -157,15 +166,6 @@ export const authService = {
     await sendPasswordResetEmail(auth, email.trim());
   },
 
-  /** Sign in with Discord through a Firebase Authentication OIDC provider. */
-  async signInWithDiscord(): Promise<void> {
-    if (!isFirebaseConfigured) throw new Error('Firebase Authentication is unconfigured.');
-    // Configure provider ID oidc.discord in Firebase Authentication / Identity Platform.
-    const provider = new OAuthProvider('oidc.discord');
-    provider.addScope('identify');
-    provider.addScope('email');
-    await signInWithPopup(auth, provider);
-  },
   /**
    * Request incremental Google Workspace scopes (Drive, Gmail, Calendar, Docs, Sheets) when the user opens the feature
    */

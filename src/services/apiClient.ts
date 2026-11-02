@@ -16,6 +16,9 @@
 import { authService } from './authService';
 import { assertResearchStreamTerminated, readSseJsonEvents } from './sseJsonStream';
 
+export interface ServerStorageUsage { usedBytes: number; limitBytes: number; remainingBytes: number; full: boolean }
+export interface ServerConversationSize { id: string; title: string; updated_at: number; bytes: number }
+
 export interface BackendEndpoint {
   id: 'cloudflare' | 'deno' | 'render' | 'local';
   name: string;
@@ -300,6 +303,41 @@ class ApiClient {
     }
 
     throw new Error(parsedMsg);
+  }
+
+  // ---- Server storage (D1 lives on the primary backend only, so these never fail over) ----
+
+  private async fetchPrimary(path: string, options: RequestInit = {}): Promise<Response> {
+    const idToken = await authService.getIdToken();
+    if (!idToken) throw new Error('Sign in to Breezy before using this feature.');
+    return fetch(`${this.endpoints[0].url}${path}`, {
+      ...options,
+      headers: { ...options.headers, 'X-Breezy-Client': 'web-spa', Authorization: `Bearer ${idToken}` },
+    });
+  }
+
+  /** Returns null when this deployment has no durable history configured (D1 binding missing). */
+  public async getServerStorage(): Promise<ServerStorageUsage | null> {
+    const res = await this.fetchPrimary('/api/chat/storage');
+    if (res.status === 503) return null;
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.ok) throw new Error(body?.error || `Could not read server storage (${res.status}).`);
+    return { usedBytes: body.usedBytes, limitBytes: body.limitBytes, remainingBytes: body.remainingBytes, full: !!body.full };
+  }
+
+  public async listServerConversationSizes(): Promise<ServerConversationSize[]> {
+    const res = await this.fetchPrimary('/api/chat/storage/conversations?limit=50');
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.ok) throw new Error(body?.error || `Could not list server conversations (${res.status}).`);
+    return body.conversations as ServerConversationSize[];
+  }
+
+  /** Permanently deletes one server-side conversation. Resolves with the bytes freed. */
+  public async deleteServerConversation(id: string): Promise<number> {
+    const res = await this.fetchPrimary(`/api/chat/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.ok) throw new Error(body?.error || `Could not delete the conversation (${res.status}).`);
+    return Number(body.freedBytes) || 0;
   }
 
   /**

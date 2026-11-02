@@ -1,22 +1,37 @@
-export type ActiveTab = 'research' | 'chat' | 'build' | 'canvas' | 'notes' | 'models' | 'history' | 'docs' | 'settings' | 'profile';
+export type ActiveTab = 'research' | 'chat' | 'build' | 'canvas' | 'library' | 'models' | 'docs' | 'settings' | 'profile';
+export type LibraryTab = 'history' | 'notes';
 
 export const VALID_TABS: ActiveTab[] = [
-  'research', 'chat', 'build', 'canvas', 'notes', 'models', 'history', 'docs', 'settings', 'profile',
+  'research', 'chat', 'build', 'canvas', 'library', 'models', 'docs', 'settings', 'profile',
 ];
 
+/** Old routes keep working: bookmarks and in-app links to #history / #notes land in Library. */
+const ALIASES: Record<string, ActiveTab> = { history: 'library', notes: 'library' };
+
+const rawRoute = (): string[] =>
+  window.location.hash.replace(/^#\/?/, '').split('?')[0].toLowerCase().split('/').filter(Boolean);
+
 export const parseHash = (): ActiveTab => {
-  const hash = window.location.hash.replace(/^#\/?/, '').split('?')[0].toLowerCase() as ActiveTab;
-  return VALID_TABS.includes(hash) ? hash : 'chat';
+  const first = rawRoute()[0] ?? '';
+  const tab = (ALIASES[first] ?? first) as ActiveTab;
+  return VALID_TABS.includes(tab) ? tab : 'chat';
+};
+
+/** #library/notes, #notes and #history all resolve to a Library sub-tab. */
+export const parseLibraryTab = (): LibraryTab => {
+  const [first, second] = rawRoute();
+  if (first === 'notes' || second === 'notes') return 'notes';
+  return 'history';
 };
 
 export type NavItem = { id: ActiveTab; label: string; icon: string };
 
-/** Keep the main navigation focused on everyday work. */
+/** Everyday destinations: always visible, same set in the sidebar and the mobile tab bar. */
 export const MAIN_NAV: NavItem[] = [
   { id: 'chat', label: 'Chat', icon: 'chat_bubble_outline' },
   { id: 'research', label: 'Research', icon: 'travel_explore' },
-  { id: 'history', label: 'History', icon: 'history' },
-  { id: 'notes', label: 'Notes', icon: 'sticky_note_2' },
+  { id: 'library', label: 'Library', icon: 'collections_bookmark' },
+  { id: 'models', label: 'Models', icon: 'hub' },
 ];
 
 export const LAB_NAV: NavItem[] = [
@@ -24,12 +39,11 @@ export const LAB_NAV: NavItem[] = [
   { id: 'canvas', label: 'Canvas', icon: 'draw' },
 ];
 
-/** Less-frequent configuration destinations live in the profile menu. */
+/** Account and configuration live in the profile menu. */
 export const PROFILE_NAV: NavItem[] = [
-  { id: 'profile', label: 'Profile', icon: 'person_outline' },
-  { id: 'models', label: 'Models', icon: 'hub' },
+  { id: 'profile', label: 'Account', icon: 'person_outline' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
-  { id: 'docs', label: 'Documentation', icon: 'menu_book' },
+  { id: 'docs', label: 'Help', icon: 'menu_book' },
 ];
 
 export const TITLES: Record<ActiveTab, string> = {
@@ -37,10 +51,9 @@ export const TITLES: Record<ActiveTab, string> = {
   chat: 'Chat',
   build: 'Build',
   canvas: 'Canvas',
-  notes: 'Notes',
+  library: 'Library',
   models: 'Models',
-  history: 'History',
-  docs: 'Docs',
+  docs: 'Help',
   settings: 'Settings',
-  profile: 'Profile',
+  profile: 'Account',
 };
