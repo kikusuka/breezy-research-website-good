@@ -8,6 +8,7 @@ export default {
   "theme": {
     "extend": {
       "colors": {
+        "warning": "rgb(var(--c-warning) / <alpha-value>)",
         "surface-container-high": "rgb(var(--c-surface-container-high) / <alpha-value>)",
         "on-secondary": "rgb(var(--c-on-secondary) / <alpha-value>)",
         "on-surface": "rgb(var(--c-on-surface) / <alpha-value>)",

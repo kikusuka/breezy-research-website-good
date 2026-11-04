@@ -83,3 +83,41 @@ describe('storage quota', () => {
     expect(batches).toHaveLength(0);
   });
 });
+
+const syncReq = (body: unknown) => new Request('https://example.test/api/chat/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const msg = (over: Record<string, unknown> = {}) => ({ id: 'msg_aaaaaaaa', role: 'user', content: 'hello', position: 0, createdAt: 1000, ...over });
+
+describe('chat sync', () => {
+  it('upserts a turn in one batch and counts the new bytes', async () => {
+    const { db, batches } = fakeDb((sql) => (sql.includes('FROM storage_usage') ? { bytes: 10 } : null));
+    const res = await handleChatPersistenceRequest(syncReq({ conversationId: 'conv_12345678', messages: [msg(), msg({ id: 'msg_bbbbbbbb', role: 'assistant', content: 'hi there', position: 1 })] }), { DB: db as any }, 'owner', respond);
+    expect(res!.status).toBe(200);
+    expect(await res!.json()).toMatchObject({ ok: true, conversationId: 'conv_12345678', usedBytes: 10 + 5 + 8 });
+    expect(batches).toHaveLength(1);
+    expect(batches[0].filter((s) => s.sql.includes('INSERT INTO chat_messages'))).toHaveLength(2);
+    expect(batches[0].find((s) => s.sql.includes('INSERT INTO storage_usage'))?.values[1]).toBe(13);
+  });
+
+  it('refuses a conversation id owned by someone else without writing', async () => {
+    const { db, batches } = fakeDb((sql) => (sql.includes('SELECT owner_uid FROM conversations') ? { owner_uid: 'someone-else' } : null));
+    const res = await handleChatPersistenceRequest(syncReq({ conversationId: 'conv_12345678', messages: [msg()] }), { DB: db as any }, 'owner', respond);
+    expect(res!.status).toBe(404);
+    expect(batches).toHaveLength(0);
+  });
+
+  it('returns 413 when the sync would exceed the limit', async () => {
+    const { db, batches } = fakeDb((sql) => (sql.includes('FROM storage_usage') ? { bytes: 998 } : null));
+    const res = await handleChatPersistenceRequest(syncReq({ conversationId: 'conv_12345678', messages: [msg({ content: 'too long' })] }), { DB: db as any, STORAGE_LIMIT_BYTES: '1000' }, 'owner', respond);
+    expect(res!.status).toBe(413);
+    expect((await res!.json()).code).toBe('STORAGE_QUOTA_EXCEEDED');
+    expect(batches).toHaveLength(0);
+  });
+
+  it('rejects malformed input', async () => {
+    const { db } = fakeDb(() => null);
+    for (const body of [{ conversationId: 'x', messages: [] }, { conversationId: 'conv_12345678', messages: [msg({ role: 'system' })] }, { conversationId: 'conv_12345678', messages: [msg({ position: -1 })] }]) {
+      const res = await handleChatPersistenceRequest(syncReq(body), { DB: db as any }, 'owner', respond);
+      expect(res!.status).toBe(400);
+    }
+  });
+});
