@@ -1,5 +1,6 @@
 /* Theme tokens: RGB channels so Tailwind opacity modifiers (bg-primary/20) keep working. Generated; edit values, not structure. */
 :root, [data-theme="ocean"] {
+  --c-warning: 245 158 11;
   color-scheme: dark;
   --c-surface-container-high: 25 51 75;
   --c-on-secondary: 0 53 74;
@@ -50,6 +51,7 @@
   --c-on-primary-fixed-variant: 0 78 95;
 }
 [data-theme="slate"] {
+  --c-warning: 245 158 11;
   color-scheme: dark;
   --c-background: 17 19 25;
   --c-surface: 17 19 25;
@@ -71,6 +73,7 @@
   --c-inverse-on-surface: 27 31 41;
 }
 [data-theme="paper"] {
+  --c-warning: 146 83 0;
   color-scheme: light;
   --c-background: 246 245 241;
   --c-surface: 246 245 241;
@@ -82,18 +85,18 @@
   --c-surface-container: 255 255 255;
   --c-surface-container-high: 239 237 231;
   --c-surface-container-highest: 230 227 218;
-  --c-outline: 107 114 128;
+  --c-outline: 91 98 112;
   --c-outline-variant: 207 203 192;
   --c-on-surface: 27 31 36;
   --c-on-background: 27 31 36;
   --c-on-surface-variant: 75 85 99;
-  --c-surface-tint: 11 122 148;
-  --c-primary: 11 122 148;
+  --c-surface-tint: 8 106 128;
+  --c-primary: 8 106 128;
   --c-on-primary: 255 255 255;
   --c-primary-container: 205 239 247;
   --c-on-primary-container: 0 50 61;
   --c-primary-fixed: 205 239 247;
-  --c-primary-fixed-dim: 11 122 148;
+  --c-primary-fixed-dim: 8 106 128;
   --c-secondary: 10 106 136;
   --c-on-secondary: 255 255 255;
   --c-secondary-container: 213 236 245;
@@ -111,6 +114,7 @@
   --c-on-error-container: 65 14 11;
 }
 [data-theme="sage"] {
+  --c-warning: 245 158 11;
   color-scheme: dark;
   --c-background: 15 21 18;
   --c-surface: 15 21 18;

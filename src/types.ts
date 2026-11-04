@@ -221,6 +221,9 @@ export interface Attachment {
 }
 
 export interface ChatMessage {
+  /** Stable id (assigned on first save) so server sync can be idempotent. */
+  id?: string;
+  createdAt?: number;
   role: 'user' | 'assistant' | 'system';
   content: string;
   attachments?: Attachment[];

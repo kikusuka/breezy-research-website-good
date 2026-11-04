@@ -13,7 +13,7 @@ export interface ThemeInfo { id: ThemeId; label: string; note: string; mode: 'da
 export const THEMES: ThemeInfo[] = [
   { id: 'ocean', label: 'Ocean', note: 'Default. Deep blue with a cyan accent.', mode: 'dark', bg: '#0c1728', surface: '#19334b', accent: '#4cd6fb', text: '#e6edf8' },
   { id: 'slate', label: 'Slate Ink', note: 'Neutral dark. The logo is the only colour.', mode: 'dark', bg: '#111319', surface: '#1b1f29', accent: '#4cd6fb', text: '#e6e9f0' },
-  { id: 'paper', label: 'Paper', note: 'Light and warm. Easiest for long reading.', mode: 'light', bg: '#f6f5f1', surface: '#ffffff', accent: '#0b7a94', text: '#1b1f24' },
+  { id: 'paper', label: 'Paper', note: 'Light and warm. Easiest for long reading.', mode: 'light', bg: '#f6f5f1', surface: '#ffffff', accent: '#086a80', text: '#1b1f24' },
   { id: 'sage', label: 'Sage', note: 'Dark green-grey with a mint accent.', mode: 'dark', bg: '#0f1512', surface: '#1a2520', accent: '#6fd3a0', text: '#e5eee9' },
 ];
 

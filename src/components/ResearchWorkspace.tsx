@@ -121,7 +121,7 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
       </div>
 
       {warnings.map((warning, index) => (
-        <div key={index} className="flex items-start gap-space-sm rounded-xl border border-[#F59E0B]/20 bg-[#F59E0B]/5 p-space-md font-body-sm text-body-sm text-[#F59E0B]">
+        <div key={index} className="flex items-start gap-space-sm rounded-xl border border-warning/20 bg-warning/5 p-space-md font-body-sm text-body-sm text-warning">
           <Icon name="warning" className="mt-0.5 shrink-0 text-[18px]" /><span>{warning}</span>
         </div>
       ))}
@@ -186,7 +186,7 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
                     ? { label: 'Model-assessed support', icon: 'check_circle', tone: 'text-tertiary' }
                     : claim.status === 'contradicted'
                       ? { label: 'Model-assessed contradiction', icon: 'report', tone: 'text-error' }
-                      : { label: 'Unresolved', icon: 'help', tone: 'text-[#F59E0B]' };
+                      : { label: 'Unresolved', icon: 'help', tone: 'text-warning' };
                   return <button key={claim.id} type="button" onClick={() => onPanelChange('map')} className="flex min-w-0 items-start gap-space-sm rounded-2xl bg-surface-container-low p-space-md text-left hover:bg-surface-container-high">
                     <Icon name={status.icon} className={`mt-0.5 shrink-0 text-[19px] ${status.tone}`} />
                     <span className="min-w-0"><span className="block font-body-sm text-body-sm text-on-surface">{claim.claim}</span><span className={`mt-1 block font-code-sm text-code-sm ${status.tone}`}>{status.label}</span></span>
@@ -241,7 +241,7 @@ function Results({ s, running, events, plan, warnings, panel, onPanelChange }: {
             <h3 className="font-headline-sm text-headline-sm">Activity log</h3>
             {plan?.plan?.length > 0 && <div className="mt-space-md rounded-xl bg-surface-container-low p-space-md"><p className="font-label-sm text-label-sm uppercase tracking-wider text-outline">Research plan</p><ol className="mt-space-sm list-decimal space-y-1 pl-space-lg font-body-sm text-body-sm text-on-surface-variant">{plan.plan.map((item: string, index: number) => <li key={index}>{item}</li>)}</ol></div>}
             <div className="mt-space-md flex max-h-[560px] flex-col gap-space-sm overflow-y-auto">
-              {events.length ? events.map((event, index) => <div key={index} className="flex min-w-0 gap-space-sm font-code-sm text-code-sm"><span className="shrink-0 text-outline-variant">{new Date(event.at).toLocaleTimeString([], { hour12: false })}</span><span className={`min-w-0 break-words ${event.kind === 'error' ? 'text-error' : event.kind === 'warn' ? 'text-[#F59E0B]' : event.kind === 'done' ? 'text-tertiary' : 'text-on-surface-variant'}`}>{event.message}</span></div>) : <p className="font-body-sm text-body-sm text-on-surface-variant">No activity events were recorded for this session.</p>}
+              {events.length ? events.map((event, index) => <div key={index} className="flex min-w-0 gap-space-sm font-code-sm text-code-sm"><span className="shrink-0 text-outline-variant">{new Date(event.at).toLocaleTimeString([], { hour12: false })}</span><span className={`min-w-0 break-words ${event.kind === 'error' ? 'text-error' : event.kind === 'warn' ? 'text-warning' : event.kind === 'done' ? 'text-tertiary' : 'text-on-surface-variant'}`}>{event.message}</span></div>) : <p className="font-body-sm text-body-sm text-on-surface-variant">No activity events were recorded for this session.</p>}
             </div>
           </section>
         </div>
@@ -370,7 +370,7 @@ export const ResearchWorkspace: React.FC<{ initialPrompt?: string }> = ({ initia
                 </div>
                 <p className="mt-0.5 break-words font-body-md text-body-md text-on-surface">{researchModelLabel}</p>
                 <p className="mt-1 max-w-2xl font-body-sm text-body-sm text-on-surface-variant">Breezy plans and gathers sources separately, then this configured model generates the research answer in one call.</p>
-                {modelReadiness !== 'ready' && <p role="status" className="mt-space-xs font-body-sm text-body-sm text-[#F59E0B]">{modelReadiness === 'unconfigured' ? 'Choose a research model in Models before starting an investigation.' : 'This research model is selected, but its provider connection is not configured yet.'}</p>}
+                {modelReadiness !== 'ready' && <p role="status" className="mt-space-xs font-body-sm text-body-sm text-warning">{modelReadiness === 'unconfigured' ? 'Choose a research model in Models before starting an investigation.' : 'This research model is selected, but its provider connection is not configured yet.'}</p>}
                 <button type="button" onClick={() => { window.location.hash = '#models'; }} className="mt-space-xs min-h-[32px] font-label-md text-label-md text-primary">Configure model <Icon name="arrow_forward" className="text-[16px] align-middle" /></button>
               </div>
             </div>

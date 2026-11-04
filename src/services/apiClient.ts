@@ -316,6 +316,27 @@ class ApiClient {
     });
   }
 
+  /** Raw result so the sync service can react to 413 (full), 409 (conflict) and 503 (not enabled). */
+  public async postChatSync(payload: unknown): Promise<{ status: number; body: any }> {
+    const res = await this.fetchPrimary('/api/chat/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    return { status: res.status, body: await res.json().catch(() => null) };
+  }
+
+  public async listServerConversations(limit = 20): Promise<Array<{ id: string; title: string; updated_at: number }>> {
+    const res = await this.fetchPrimary(`/api/chat/conversations?limit=${limit}`);
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.ok) throw new Error(body?.error || `Could not list saved chats (${res.status}).`);
+    return body.conversations;
+  }
+
+  public async getServerMessages(id: string, before?: number): Promise<Array<{ id: string; role: 'user' | 'assistant'; content: string; sequence_no: number; created_at: number }>> {
+    const q = before !== undefined ? `&before=${before}` : '';
+    const res = await this.fetchPrimary(`/api/chat/conversations/${encodeURIComponent(id)}/messages?limit=100${q}`);
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.ok) throw new Error(body?.error || `Could not load saved messages (${res.status}).`);
+    return body.messages;
+  }
+
   /** Returns null when this deployment has no durable history configured (D1 binding missing). */
   public async getServerStorage(): Promise<ServerStorageUsage | null> {
     const res = await this.fetchPrimary('/api/chat/storage');

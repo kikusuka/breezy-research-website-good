@@ -75,7 +75,7 @@ export const ProfileWorkspace: React.FC = () => {
         </div></Card>
 
       <Card><div className="flex items-center justify-between mb-space-sm"><h2 className="font-headline-md text-headline-md">Storage on this device</h2><span className="font-code-sm text-code-sm text-on-surface-variant">{quota ? `${formatStorageSize(quota.usedMB)} of ${formatStorageSize(quota.limitMB)}` : 'Unavailable'}</span></div>
-        <div className="h-2 rounded-circle bg-surface-container-highest overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><div className={`h-full rounded-circle ${pct >= 80 ? 'bg-[#F59E0B]' : 'bg-primary'}`} style={{ width: `${Math.max(pct, quota ? 2 : 0)}%` }} /></div>
+        <div className="h-2 rounded-circle bg-surface-container-highest overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><div className={`h-full rounded-circle ${pct >= 80 ? 'bg-warning' : 'bg-primary'}`} style={{ width: `${Math.max(pct, quota ? 2 : 0)}%` }} /></div>
         <p className="font-body-sm text-body-sm text-on-surface-variant mt-space-sm">Sessions, chat, notes, Canvas cards, settings and keys are kept in this browser. Clearing site data removes them.</p></Card>
 
       <div className="rounded-3xl bg-error-container/20 p-space-lg flex flex-col sm:flex-row sm:items-center justify-between gap-space-md mb-space-xl"><div><h2 className="font-headline-sm text-headline-sm text-error">Erase this account’s local data</h2><p className="font-body-sm text-body-sm text-on-surface-variant">Removes this account’s keys, history, chat, notes, Canvas cards and research database from this browser.</p></div>

@@ -176,7 +176,7 @@ export const CanvasWorkspace: React.FC = () => {
       case 'research':
         return 'text-tertiary border-tertiary/40 bg-tertiary/10';
       case 'code':
-        return 'text-[#f59e0b] border-[#f59e0b]/40 bg-[#f59e0b]/10';
+        return 'text-warning border-warning/40 bg-warning/10';
       case 'task':
         return 'text-secondary border-secondary/40 bg-secondary/10';
     }

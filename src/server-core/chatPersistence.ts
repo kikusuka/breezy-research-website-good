@@ -73,6 +73,74 @@ export async function handleChatPersistenceRequest(
     return jsonError(respond, req, env, 503, 'CHAT_PERSISTENCE_UNAVAILABLE', 'Durable chat history is not configured on this backend yet. Your existing local chat remains separate.');
   }
 
+  // One call per finished turn. Idempotent: the client sends messages it created (with its own ids) and
+  // the server upserts them, so retries and offline catch-up never duplicate anything.
+  if (path === '/api/chat/sync' && req.method === 'POST') {
+    const body = await readJson(req) as any;
+    const ID = /^[A-Za-z0-9_-]{8,64}$/;
+    const conversationId = typeof body?.conversationId === 'string' ? body.conversationId : '';
+    if (!ID.test(conversationId)) return jsonError(respond, req, env, 400, 'INVALID_CONVERSATION_ID', 'conversationId must be 8-64 letters, digits, dashes or underscores.');
+    const messages: any[] = Array.isArray(body?.messages) ? body.messages : [];
+    const deleteIds: string[] = Array.isArray(body?.deleteIds) ? body.deleteIds : [];
+    const replace = body?.replace === true;
+    if (messages.length > 100 || deleteIds.length > 100) return jsonError(respond, req, env, 400, 'TOO_MANY_ITEMS', 'Send at most 100 messages and 100 deletions per sync.');
+    let incomingBytes = 0;
+    let maxPosition = -1;
+    for (const m of messages) {
+      const okShape = m && ID.test(String(m.id)) && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
+        && m.content.length <= MAX_OUTPUT && Number.isInteger(m.position) && m.position >= 0 && m.position < 100_000;
+      if (!okShape) return jsonError(respond, req, env, 400, 'INVALID_MESSAGE', 'Each message needs a valid id, role (user or assistant), content and position.');
+      incomingBytes += byteLength(m.content);
+      maxPosition = Math.max(maxPosition, m.position);
+    }
+    if (deleteIds.some((id) => !ID.test(String(id)))) return jsonError(respond, req, env, 400, 'INVALID_MESSAGE', 'deleteIds contains an invalid id.');
+    if (incomingBytes > 4 * 1024 * 1024) return jsonError(respond, req, env, 413, 'PAYLOAD_TOO_LARGE', 'This sync is too large; send fewer messages at a time.');
+
+    const existing = await db.prepare('SELECT owner_uid FROM conversations WHERE id = ?').bind(conversationId).first<{ owner_uid: string }>();
+    if (existing && existing.owner_uid !== ownerUid) return jsonError(respond, req, env, 404, 'CONVERSATION_NOT_FOUND', 'This conversation does not exist or is not available to this account.');
+
+    // Bytes already stored for the rows this call touches, so the quota delta is exact.
+    let replacedBytes = 0;
+    if (replace) {
+      const r = await db.prepare('SELECT COALESCE(SUM(LENGTH(CAST(content AS BLOB))), 0) AS bytes FROM chat_messages WHERE conversation_id = ? AND owner_uid = ?').bind(conversationId, ownerUid).first<{ bytes: number }>();
+      replacedBytes = Number(r?.bytes) || 0;
+    } else {
+      const touched = Array.from(new Set([...messages.map((m) => String(m.id)), ...deleteIds.map(String)]));
+      if (touched.length) {
+        const r = await db.prepare(`SELECT COALESCE(SUM(LENGTH(CAST(content AS BLOB))), 0) AS bytes FROM chat_messages WHERE conversation_id = ? AND owner_uid = ? AND id IN (${touched.map(() => '?').join(',')})`).bind(conversationId, ownerUid, ...touched).first<{ bytes: number }>();
+        replacedBytes = Number(r?.bytes) || 0;
+      }
+    }
+    const delta = incomingBytes - replacedBytes;
+    const usedNow = await usedBytes(db, ownerUid);
+    const limitNow = storageLimitBytes(env);
+    if (delta > 0 && usedNow + delta > limitNow) {
+      return respond({ ok: false, code: 'STORAGE_QUOTA_EXCEEDED', error: 'Your Breezy server storage is full. Delete conversations or connect your own storage to keep saving.', usedBytes: usedNow, limitBytes: limitNow }, 413, req, env);
+    }
+
+    const now = Date.now();
+    const title = titleFromPrompt(typeof body?.title === 'string' && body.title.trim() ? body.title : (messages.find((m) => m.role === 'user')?.content || 'New chat'));
+    const statements = [
+      db.prepare('INSERT INTO conversations (id, owner_uid, title, created_at, updated_at, last_message_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, NULL) ON CONFLICT(id) DO UPDATE SET title = excluded.title, updated_at = excluded.updated_at, last_message_at = excluded.last_message_at WHERE owner_uid = excluded.owner_uid')
+        .bind(conversationId, ownerUid, title, now, now, now),
+    ];
+    if (replace) statements.push(db.prepare('DELETE FROM chat_messages WHERE conversation_id = ? AND owner_uid = ?').bind(conversationId, ownerUid));
+    for (const id of deleteIds) statements.push(db.prepare('DELETE FROM chat_messages WHERE id = ? AND conversation_id = ? AND owner_uid = ?').bind(String(id), conversationId, ownerUid));
+    for (const m of messages) {
+      statements.push(db.prepare(
+        "INSERT INTO chat_messages (id, conversation_id, owner_uid, sequence_no, role, content, status, created_at, provider, model) VALUES (?, ?, ?, ?, ?, ?, 'complete', ?, ?, ?) ON CONFLICT(id) DO UPDATE SET content = excluded.content, role = excluded.role, sequence_no = excluded.sequence_no, provider = excluded.provider, model = excluded.model WHERE owner_uid = excluded.owner_uid AND conversation_id = excluded.conversation_id"
+      ).bind(String(m.id), conversationId, ownerUid, m.position, m.role, m.content, Number.isFinite(m.createdAt) ? Math.floor(m.createdAt) : now, typeof m.provider === 'string' ? m.provider.slice(0, 80) : null, typeof m.model === 'string' ? m.model.slice(0, 120) : null));
+    }
+    if (maxPosition >= 0) statements.push(db.prepare('UPDATE conversations SET next_sequence = MAX(next_sequence, ?) WHERE id = ? AND owner_uid = ?').bind(maxPosition + 1, conversationId, ownerUid));
+    if (delta > 0) statements.push(addUsage(db, ownerUid, delta, now));
+    else if (delta < 0) statements.push(db.prepare('UPDATE storage_usage SET bytes = MAX(0, bytes - ?), updated_at = ? WHERE owner_uid = ?').bind(-delta, now, ownerUid));
+    try { await db.batch(statements); }
+    catch { return jsonError(respond, req, env, 409, 'SYNC_CONFLICT', 'The saved copy differs from this device. Retry with replace=true to overwrite it.'); }
+
+    const used = Math.max(0, usedNow + delta);
+    return respond({ ok: true, conversationId, usedBytes: used, limitBytes: limitNow, full: used >= limitNow }, 200, req, env);
+  }
+
   if (path === '/api/chat/storage' && req.method === 'GET') {
     const used = await usedBytes(db, ownerUid);
     const limit = storageLimitBytes(env);

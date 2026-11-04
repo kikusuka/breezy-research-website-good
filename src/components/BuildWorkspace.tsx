@@ -1,9 +1,9 @@
 import { accountStorage } from '../services/accountStorage';
 import React, { useState, useEffect, useRef } from 'react';
+import { pythonSandbox, pythonFilesFrom } from '../services/sandboxRunner';
 import {
   GitHubIde,
   IdeWorkspace,
-  runPython,
   runJavaScript,
   buildPreviewDoc,
   askIdeAgent,
@@ -230,8 +230,11 @@ export const BuildWorkspace: React.FC = () => {
     try {
       let res: RunResult;
       if (lang === 'python') {
-        setConsoleLogs((prev) => `${prev}\n[Pyodide]: Initializing Python runtime (may take a few seconds on first run)...`);
-        res = await runPython(activeFile.content);
+        res = await pythonSandbox.run(
+          activeFile.content,
+          pythonFilesFrom(openFiles.map((f) => ({ path: f.path, content: f.content }))),
+          (status) => setConsoleLogs((prev) => `${prev}\n[Python]: ${status}`),
+        );
       } else {
         res = await runJavaScript(activeFile.content, 5000);
       }
@@ -329,7 +332,7 @@ export const BuildWorkspace: React.FC = () => {
             >
               <span className="material-symbols-outlined text-sm text-primary">save</span>
               <span className="hidden sm:inline">Save</span>
-              {workspace.isDirty(activePath) && <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]"></span>}
+              {workspace.isDirty(activePath) && <span className="w-1.5 h-1.5 rounded-full bg-warning"></span>}
             </button>
           )}
 
@@ -343,6 +346,12 @@ export const BuildWorkspace: React.FC = () => {
                 {languageOf(activePath!) === 'html' ? 'visibility' : 'play_arrow'}
               </span>
               <span>{languageOf(activePath!) === 'html' ? 'Preview' : isRunning ? 'Running...' : 'Run'}</span>
+            </button>
+          )}
+          {isRunning && languageOf(activePath!) === 'python' && (
+            <button type="button" onClick={() => pythonSandbox.stop('Stopped by you.')} className="flex items-center gap-1 px-3 py-1.5 rounded border border-error/60 text-error hover:bg-error/10 text-xs font-semibold transition-colors cursor-pointer">
+              <span className="material-symbols-outlined text-sm font-bold">stop</span>
+              <span>Stop</span>
             </button>
           )}
 
@@ -414,7 +423,7 @@ export const BuildWorkspace: React.FC = () => {
             {!token && (
               <div className="rounded-lg bg-surface-container-low px-2.5 py-2">
                 <p className="text-xs leading-relaxed text-on-surface-variant">Connect your GitHub token once in Profile. Build uses that saved connection.</p>
-                <a href="#profile" onClick={() => setDrawerOpen(false)} className="mt-1 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-[#8fe4ff] hover:text-white transition-colors">
+                <a href="#profile" onClick={() => setDrawerOpen(false)} className="mt-1 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-primary hover:text-on-surface transition-colors">
                   Manage GitHub connection <span aria-hidden="true">→</span>
                 </a>
               </div>
@@ -515,7 +524,7 @@ export const BuildWorkspace: React.FC = () => {
 
                   {!isDir && (
                     <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100">
-                      {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]"></span>}
+                      {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-warning"></span>}
                       {isOpen && (
                         <button
                           onClick={(e) => {
@@ -570,7 +579,7 @@ export const BuildWorkspace: React.FC = () => {
                     `}
                   >
                     <span>{file.path.split('/').pop()}</span>
-                    {dirty && <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]"></span>}
+                    {dirty && <span className="w-1.5 h-1.5 rounded-full bg-warning"></span>}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -675,7 +684,7 @@ export const BuildWorkspace: React.FC = () => {
           {consoleTab === 'console' && (
             <div className="flex-1 flex flex-col p-3 overflow-hidden bg-surface-container-lowest">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-outline-variant/30 text-[11px] font-mono text-outline">
-                <span>Pyodide & Worker Runtime</span>
+                <span>Python (Pyodide) and JavaScript workers</span>
                 <button
                   onClick={() => setConsoleLogs('Console cleared.\n')}
                   className="hover:text-on-surface"
@@ -687,7 +696,7 @@ export const BuildWorkspace: React.FC = () => {
                 {consoleLogs}
               </pre>
               <div className="pt-2 border-t border-outline-variant/30 text-[10px] text-outline font-mono">
-                Note: Browser sandbox only. Python downloads on first run and long loops may freeze the tab.
+                Browser sandbox. Python runs in a background worker, so a long loop can be stopped. Python downloads on first run; open .py files can be imported.
               </div>
             </div>
           )}

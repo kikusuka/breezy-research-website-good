@@ -36,7 +36,7 @@ export const MAIN_NAV: NavItem[] = [
 
 export const LAB_NAV: NavItem[] = [
   { id: 'build', label: 'Build', icon: 'terminal' },
-  { id: 'canvas', label: 'Canvas', icon: 'draw' },
+  { id: 'canvas', label: 'Board', icon: 'dashboard_customize' },
 ];
 
 /** Account and configuration live in the profile menu. */
@@ -50,7 +50,7 @@ export const TITLES: Record<ActiveTab, string> = {
   research: 'Research',
   chat: 'Chat',
   build: 'Build',
-  canvas: 'Canvas',
+  canvas: 'Board',
   library: 'Library',
   models: 'Models',
   docs: 'Help',

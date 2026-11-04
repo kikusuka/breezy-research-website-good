@@ -11,11 +11,21 @@ import { CHAT_STARTERS } from '../lib/starters';
 import { providerLabel } from '../lib/providers';
 import { puterService, PuterModel, PuterChatMessage } from '../services/puterService';
 import { chatWithLocalModel } from '../services/localModelService';
-
-const CHAT_STORAGE_KEY = 'breezy_chat_history_v1';
+import { chatStore, newId } from '../services/chatStore';
+import { chatSyncService } from '../services/chatSyncService';
+import { ChatThreadBar } from './ChatThreadBar';
+import { CanvasPanel } from './CanvasPanel';
+import { AssistantContent } from './AssistantContent';
+import { CanvasDocs, applyModelBlock, applyUserEdit, canvasStore, docFromMessage, restoreVersion } from '../services/canvasStore';
+import { parseCanvas, withCanvasHint } from '../lib/canvas';
 
 export const ChatWorkspace: React.FC = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>(() => { try { const s = accountStorage.getItem(CHAT_STORAGE_KEY); return s ? JSON.parse(s) : []; } catch { return []; } });
+  const [threadId, setThreadId] = useState<string>(() => chatStore.init());
+  const [threadsVersion, setThreadsVersion] = useState(0);
+  const [canvasOn, setCanvasOn] = useState<boolean>(() => accountStorage.getItem('breezy_canvas_enabled_v1') !== 'off');
+  const [docs, setDocs] = useState<CanvasDocs>(() => canvasStore.load(chatStore.getActiveId() || ''));
+  const [openDocId, setOpenDocId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => chatStore.loadMessages(chatStore.getActiveId() || chatStore.init()));
   const [storageError, setStorageError] = useState(false);
   const [input, setInput] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null); const [copied, setCopied] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null); const [exportMenuOpen, setExportMenuOpen] = useState(false); const toastTimer = useRef<number | undefined>(undefined);
@@ -58,7 +68,26 @@ export const ChatWorkspace: React.FC = () => {
     return () => { document.removeEventListener('mousedown', closeOnOutside); window.removeEventListener('keydown', closeOnEscape); };
   }, [modelMenuOpen]);
 
-  useEffect(() => { try { accountStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages)); setStorageError(false); } catch { setStorageError(true); } end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, busy]);
+  useEffect(() => {
+    if (messages.length) { try { chatStore.saveMessages(threadId, messages); setStorageError(false); } catch { setStorageError(true); } }
+    if (!busy && messages.length) chatSyncService.schedule(threadId, messages); // one request per finished turn, never per token
+    end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [messages, busy, threadId]);
+  useEffect(() => { setDocs(canvasStore.load(threadId)); setOpenDocId(null); }, [threadId]);
+  useEffect(() => {
+    if (busy) return;
+    let next = docs;
+    for (const m of messages) {
+      if (m.role !== 'assistant' || !m.id || !m.content.includes('<breezy-canvas')) continue;
+      for (const seg of parseCanvas(m.content)) if (seg.type === 'canvas') next = applyModelBlock(next, seg.block, m.id);
+    }
+    if (next !== docs) { setDocs(next); canvasStore.save(threadId, next); }
+  }, [messages, busy]); // eslint-disable-line react-hooks/exhaustive-deps
+  const editDoc = (id: string, content: string) => setDocs((cur) => { const n = applyUserEdit(cur, id, content); if (n !== cur) canvasStore.save(threadId, n); return n; });
+  const restoreDoc = (id: string, index: number) => setDocs((cur) => { const n = restoreVersion(cur, id, index); canvasStore.save(threadId, n); return n; });
+  const openReplyInCanvas = (m: ChatMessage) => { if (!m.id) return; const r = docFromMessage(docs, m.id, m.content); if (r.docs !== docs) { setDocs(r.docs); canvasStore.save(threadId, r.docs); } setOpenDocId(r.id); };
+  const toggleCanvas = () => setCanvasOn((on) => { const next = !on; accountStorage.setItem('breezy_canvas_enabled_v1', next ? 'on' : 'off'); return next; });
+  useEffect(() => { void chatSyncService.restoreMissing().then((n) => { if (n > 0) { setThreadsVersion((v) => v + 1); showToast(`${n} chat${n === 1 ? '' : 's'} restored from your account.`); } }); }, []);
   const grow = () => { const el = ta.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 180)}px`; } };
   useEffect(grow, [input]);
 
@@ -174,25 +203,27 @@ export const ChatWorkspace: React.FC = () => {
     }
 
     setError(null); setBusy(true); const c = new AbortController(); ctrl.current = c;
+    const sendHistory = canvasOn ? withCanvasHint(history) : history;
+    const aid = newId(); const mk = (content: string): ChatMessage => ({ id: aid, createdAt: Date.now(), role: 'assistant', content });
     try {
       if (chatMode === 'puter') {
         let streamedText = '';
-        const puterHistory = history.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })) as PuterChatMessage[];
-        setMessages([...history, { role: 'assistant', content: '' }]);
+        const puterHistory = sendHistory.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })) as PuterChatMessage[];
+        setMessages([...history, mk('')]);
         await puterService.streamChat(puterHistory, {
           model: puterModel,
           signal: c.signal,
           onText: (chunk) => {
             streamedText += chunk;
-            setMessages([...history, { role: 'assistant', content: streamedText }]);
+            setMessages([...history, mk(streamedText)]);
           },
         });
-        if (!streamedText.trim()) setMessages([...history, { role: 'assistant', content: 'The selected Puter model returned no readable text.' }]);
+        if (!streamedText.trim()) setMessages([...history, mk('The selected Puter model returned no readable text.')]);
         return;
       }
 
-      const last = history[history.length - 1];
-      const chatHistory = history.map((m) => ({ role: m.role, content: m.content }));
+      const last = sendHistory[sendHistory.length - 1];
+      const chatHistory = sendHistory.map((m) => ({ role: m.role, content: m.content }));
       if (active!.provider === 'ollama' || active!.provider === 'openai-compatible') {
         const baseUrl = active!.provider === 'ollama'
           ? modelState.config.ollamaBaseUrl || 'http://localhost:11434'
@@ -206,15 +237,15 @@ export const ChatWorkspace: React.FC = () => {
           apiFormat: active!.provider === 'openai-compatible' ? modelState.config.localApiFormat || 'openai' : 'openai',
           signal: c.signal,
         });
-        setMessages([...history, { role: 'assistant', content: res.text }]);
+        setMessages([...history, mk(res.text)]);
         return;
       }
       const res = await apiClient.chatBreezy({ prompt: last.content, history: chatHistory, provider: active!.provider, model: active!.model, apiKey: providerConfigService.getKeys()[active!.provider] }, { signal: c.signal } as any);
-      setMessages([...history, { role: 'assistant', content: res.text || 'The model returned an empty response.' }]);
+      setMessages([...history, mk(res.text || 'The model returned an empty response.')]);
     } catch (e: any) {
       if (chatMode === 'puter') {
         // Keep the user's prompt visible if Puter fails; never erase it as a side effect of a failed response.
-        setMessages([...history, { role: 'assistant', content: 'The response was interrupted. Your prompt is still here; try again when ready.' }]);
+        setMessages([...history, mk('The response was interrupted. Your prompt is still here; try again when ready.')]);
       }
       if (e?.name !== 'AbortError') {
         setError(e?.message || 'The model did not respond.');
@@ -226,11 +257,17 @@ export const ChatWorkspace: React.FC = () => {
     if (chatMode === 'provider' && !active) { showToast('You don’t have a model connected yet.'); return; }
     if (chatMode === 'puter' && !puterSignedIn) { setError('Connect your Puter account before sending a message.'); return; }
     if (chatMode === 'puter' && !puterModel) { setError('Choose a model from Puter’s live model catalog before sending a message.'); return; }
-    setInput(''); const next = [...messages, { role: 'user' as const, content: t }]; setMessages(next); void run(next);
+    setInput(''); const next = [...messages, { id: newId(), createdAt: Date.now(), role: 'user' as const, content: t }]; setMessages(next); void run(next);
   };
   const regenerate = () => { if (busy) return; const i = messages.map((m) => m.role).lastIndexOf('user'); if (i < 0) return; const next = messages.slice(0, i + 1); setMessages(next); void run(next); };
   const copy = (text: string, i: number) => { void navigator.clipboard.writeText(text).then(() => { setCopied(i); window.setTimeout(() => setCopied(null), 1500); }).catch(() => {}); };
-  const clear = () => { if (window.confirm('Clear this conversation from this device?')) { setMessages([]); accountStorage.removeItem(CHAT_STORAGE_KEY); } };
+  const clear = () => {
+    if (!window.confirm('Delete this conversation? It is removed from this device and from your Breezy account.')) return;
+    void chatSyncService.deleteRemote(threadId); chatStore.deleteThread(threadId); canvasStore.remove(threadId);
+    const id = chatStore.createThread(); setThreadId(id); setMessages([]); setThreadsVersion((v) => v + 1);
+  };
+  const switchThread = (id: string) => { if (busy || id === threadId) return; chatStore.setActiveId(id); setThreadId(id); setMessages(chatStore.loadMessages(id)); setError(null); };
+  const newChat = () => { if (busy || messages.length === 0) return; const id = chatStore.createThread(); setThreadId(id); setMessages([]); setError(null); setThreadsVersion((v) => v + 1); };
   const exportChat = (format: 'markdown' | 'text' | 'json') => {
     const date = new Date().toISOString().slice(0, 10);
     const body = format === 'json'
@@ -246,12 +283,14 @@ export const ChatWorkspace: React.FC = () => {
   const lastIsAssistant = messages.length > 0 && messages[messages.length - 1].role === 'assistant';
 
   return (
-    <div className="relative h-full flex flex-col">
+    <div className="relative h-full flex">
+    <div className="relative min-w-0 flex-1 h-full flex flex-col">
+      <ChatThreadBar threadId={threadId} busy={busy} onSwitch={switchThread} onNew={newChat} refreshKey={threadsVersion + messages.length} canvasOn={canvasOn} onToggleCanvas={toggleCanvas} />
       {toast && <div role="status" aria-live="polite" className="fixed z-[100] bottom-24 lg:bottom-6 left-1/2 -translate-x-1/2 max-w-[min(92vw,28rem)] rounded-xl border border-outline-variant/60 bg-surface-container-low/95 px-4 py-3 text-sm text-on-surface shadow-xl">{toast}</div>}
       {storageError && <div role="alert" className="mx-gutter mt-space-sm rounded-xl border border-error/40 bg-error-container/30 px-space-md py-space-sm text-error font-body-sm text-body-sm">This conversation could not be saved to this browser. It may disappear after a refresh. Free up browser storage and copy or export anything important.</div>}
-      {messages.length > 0 && <div className="absolute top-3 right-3 lg:right-5 z-20 flex items-center gap-space-xs"><div className="relative"><button type="button" onClick={() => setExportMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={exportMenuOpen} className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:bg-surface-container-high font-label-md text-label-md transition-colors"><Icon name="download" className="text-[18px]" /><span>Export</span></button>{exportMenuOpen && <><button type="button" aria-label="Close export menu" className="fixed inset-0 z-20 cursor-default" onClick={() => setExportMenuOpen(false)} /><div role="menu" className="absolute right-0 mt-1 w-48 z-30 rounded-xl border border-outline-variant/60 bg-surface-container-low p-1 shadow-xl">{([['Markdown (.md)', 'markdown'], ['Plain text (.txt)', 'text'], ['JSON (.json)', 'json']] as const).map(([label, format]) => <button key={format} type="button" role="menuitem" onClick={() => exportChat(format)} className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-on-surface hover:bg-surface-container-high">{label}</button>)}</div></>}</div><button type="button" onClick={clear} title="Clear conversation" aria-label="Clear conversation" className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors"><Icon name="delete_sweep" className="text-[18px]" /><span className="hidden sm:inline">Clear</span></button></div>}
+      {messages.length > 0 && <div className="absolute top-3 right-3 lg:right-5 z-20 flex items-center gap-space-xs"><div className="relative"><button type="button" onClick={() => setExportMenuOpen((open) => !open)} aria-haspopup="menu" aria-expanded={exportMenuOpen} className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:bg-surface-container-high font-label-md text-label-md transition-colors"><Icon name="download" className="text-[18px]" /><span>Export</span></button>{exportMenuOpen && <><button type="button" aria-label="Close export menu" className="fixed inset-0 z-20 cursor-default" onClick={() => setExportMenuOpen(false)} /><div role="menu" className="absolute right-0 mt-1 w-48 z-30 rounded-xl border border-outline-variant/60 bg-surface-container-low p-1 shadow-xl">{([['Markdown (.md)', 'markdown'], ['Plain text (.txt)', 'text'], ['JSON (.json)', 'json']] as const).map(([label, format]) => <button key={format} type="button" role="menuitem" onClick={() => exportChat(format)} className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-on-surface hover:bg-surface-container-high">{label}</button>)}</div></>}</div><button type="button" onClick={clear} title="Delete conversation" aria-label="Delete conversation" className="flex items-center gap-space-xs px-space-sm min-h-[36px] rounded-xl bg-surface-container border border-outline-variant/60 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-colors"><Icon name="delete_sweep" className="text-[18px]" /><span className="hidden sm:inline">Delete</span></button></div>}
 
-      <div className={`flex-1 min-h-0 overflow-y-auto ${messages.length > 0 ? 'pt-14' : ''}`}>
+      <div className="flex-1 min-h-0 overflow-y-auto pt-14">
         <div className="max-w-3xl mx-auto px-gutter lg:px-space-lg pb-space-lg flex flex-col gap-space-lg min-h-full">
           {messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center gap-space-lg py-space-xl">
@@ -273,9 +312,10 @@ export const ChatWorkspace: React.FC = () => {
           ) : (
             <div key={i} className="flex gap-space-md group">
               <span className="w-8 h-8 flex items-center justify-center shrink-0 mt-0.5"><BreezyLogo size={20} imageClassName="mix-blend-screen" /></span>
-              <div className="min-w-0 flex-1"><Markdown>{m.content}</Markdown>
+              <div className="min-w-0 flex-1"><AssistantContent content={m.content} activeDocId={openDocId} onOpen={setOpenDocId} />
                 <div className="flex items-center gap-space-xs mt-space-xs opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button type="button" onClick={() => copy(m.content, i)} className="flex items-center gap-1 px-space-sm min-h-[32px] rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md"><Icon name={copied === i ? 'check' : 'content_copy'} className="text-[16px]" />{copied === i ? 'Copied' : 'Copy'}</button>
+                  {canvasOn && m.id && m.content.length > 200 && <button type="button" onClick={() => openReplyInCanvas(m)} className="flex items-center gap-1 px-space-sm min-h-[32px] rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md"><Icon name="edit_note" className="text-[16px]" /> Open in Canvas</button>}
                   {i === messages.length - 1 && <button type="button" onClick={regenerate} disabled={busy} className="flex items-center gap-1 px-space-sm min-h-[32px] rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md disabled:opacity-40"><Icon name="refresh" className="text-[16px]" />Regenerate</button>}
                 </div></div>
             </div>))}
@@ -300,7 +340,7 @@ export const ChatWorkspace: React.FC = () => {
               <span className="min-w-0 text-left flex flex-col leading-tight"><span className="text-[12px] leading-4 sm:font-label-md sm:text-label-md truncate">{chatMode === 'puter' ? 'Puter.js' : active ? active.model : 'Choose a model'}</span><span className="text-[10px] leading-4 sm:font-code-sm sm:text-code-sm text-on-surface-variant truncate">{chatMode === 'puter' ? (puterSignedIn ? (puterModel || 'Select a model') : 'Account not connected') : active ? providerLabel(active.provider) : (selectableModels.length ? 'Select a connected model' : 'No connected models')}</span></span>
               <Icon name={modelMenuOpen ? 'keyboard_arrow_down' : 'keyboard_arrow_up'} className="text-[18px] text-on-surface-variant shrink-0" />
             </button>
-            <span className="hidden sm:inline font-code-sm text-code-sm text-outline-variant">Shift + Return for a new line</span>
+            <span className="hidden sm:inline font-code-sm text-code-sm text-outline">Shift + Return for a new line</span>
             {modelMenuOpen && <div role="menu" aria-label="Choose model" className="absolute bottom-full left-0 mb-space-sm w-[min(26rem,calc(100vw-2rem))] max-h-[min(65vh,28rem)] overflow-y-auto rounded-2xl border border-outline-variant/50 bg-surface-container-low shadow-2xl coat p-space-sm z-40">
               {chatMode === 'provider' ? <>
                 <div className="px-space-sm py-space-xs font-label-sm text-label-sm uppercase tracking-wider text-outline">Connected models</div>
@@ -324,9 +364,11 @@ export const ChatWorkspace: React.FC = () => {
           </div>
           </div>
           {puterError && chatMode === 'puter' && <p role="alert" className="mt-space-xs text-error font-body-sm text-body-sm">{puterError}</p>}
-          <p className="font-code-sm text-code-sm text-outline-variant">Replies are not checked against sources.</p>
+          <p className="font-code-sm text-code-sm text-outline">Replies are not checked against sources.</p>
         </div>
       </div>
+    </div>
+    {openDocId && docs[openDocId] && <CanvasPanel doc={docs[openDocId]} onEdit={(c) => editDoc(openDocId, c)} onRestore={(i) => restoreDoc(openDocId, i)} onClose={() => setOpenDocId(null)} />}
     </div>
   );
 };
