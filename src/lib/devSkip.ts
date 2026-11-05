@@ -9,7 +9,7 @@
  * App.tsx and AuthView.tsx). `npm run build` fails on Cloudflare Pages / CI while this is true
  * (see scripts/check-release.mjs).
  */
-export const DEV_SKIP_SIGNIN = true;
+export const DEV_SKIP_SIGNIN = false;
 
 const KEY = 'breezy.devSkipSignin';
 
