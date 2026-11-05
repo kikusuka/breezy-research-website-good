@@ -26,4 +26,5 @@
 - Python now runs in a Web Worker (`src/services/sandboxRunner.ts`) instead of the main thread: Stop button, 30 s run timeout, .py files you have open can be imported.
 - Canvas code documents in Python or JavaScript get a Run button and an output pane, using the same engine as Build.
 - NOT verified end to end: the sandbox I work in cannot reach the Pyodide CDN, so loading and running real Python was not tested here. Helpers and types are tested; the worker itself needs a run in a real browser.
-- Build still commits straight to the repo's default branch when you save. A "save to new branch / open PR" option is a good change before launch.
+- Build now saves to a work branch (`breezy/work`) by default and has an "Open PR" button. Committing straight to the default branch is an opt-in choice in the "Save to" menu next to Save. The branch is created from the default branch on first save.
+- Limits: one fixed work branch name; the file explorer still shows the default branch, so files deleted or changed on the work branch only appear changed there after the PR is merged. Tested against mocked GitHub responses, not a real repo.
