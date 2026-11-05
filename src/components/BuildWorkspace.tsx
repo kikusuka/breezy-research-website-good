@@ -25,6 +25,12 @@ export const BuildWorkspace: React.FC = () => {
   const [repoInput, setRepoInput] = useState<string>(() => { try { return accountStorage.getItem('breezy:ide:last-repo') || ''; } catch { return ''; } });
   const [connectedRepo, setConnectedRepo] = useState<string | null>(null);
   const [defaultBranch, setDefaultBranch] = useState<string>('main');
+  // Safer default: save to a work branch and open a pull request. Committing straight to the default branch is opt-in.
+  const WORK_BRANCH = 'breezy/work';
+  const [saveTarget, setSaveTarget] = useState<'branch' | 'default'>(() => { try { return accountStorage.getItem('breezy:ide:save-target') === 'default' ? 'default' : 'branch'; } catch { return 'branch'; } });
+  const [hasBranchCommits, setHasBranchCommits] = useState<boolean>(false);
+  const targetBranch = saveTarget === 'branch' ? WORK_BRANCH : undefined;
+  const chooseTarget = (t: 'branch' | 'default') => { setSaveTarget(t); try { accountStorage.setItem('breezy:ide:save-target', t); } catch { /* choice lasts this session */ } };
   const [treeEntries, setTreeEntries] = useState<TreeEntry[]>([]);
   const [treeLoading, setTreeLoading] = useState<boolean>(false);
   const [treeError, setTreeError] = useState<string | null>(null);
@@ -130,7 +136,7 @@ export const BuildWorkspace: React.FC = () => {
   };
 
   const handleDeleteFile = async (path: string) => {
-    const confirmed = window.confirm(`Permanently delete "${path}" on branch ${defaultBranch}?`);
+    const confirmed = window.confirm(`Permanently delete "${path}" on branch ${targetBranch ?? defaultBranch}?`);
     if (!confirmed) return;
     const file = workspace.get(path);
     if (file?.isNew) {
@@ -143,11 +149,13 @@ export const BuildWorkspace: React.FC = () => {
       return;
     }
     try {
-      await GitHubIde.deleteFile(token, connectedRepo, path, file.sha);
+      if (targetBranch) await GitHubIde.ensureBranch(token, connectedRepo, targetBranch, defaultBranch);
+      await GitHubIde.deleteFile(token, connectedRepo, path, file.sha, undefined, targetBranch);
       workspace.close(path);
       syncWorkspaceState();
-      setConsoleLogs((prev) => `${prev}\n[Deleted]: ${path} on branch ${defaultBranch}`);
-      await loadRepository(connectedRepo);
+      if (targetBranch) setHasBranchCommits(true);
+      setConsoleLogs((prev) => `${prev}\n[Deleted]: ${path} on branch ${targetBranch ?? defaultBranch}${targetBranch ? ' (it stays in the explorer until the pull request is merged)' : ''}`);
+      if (!targetBranch) await loadRepository(connectedRepo);
     } catch (err: any) {
       alert(`Delete failed: ${err.message}`);
     }
@@ -155,16 +163,32 @@ export const BuildWorkspace: React.FC = () => {
 
   const handleSaveActiveFile = async () => {
     if (!activePath || !token || !connectedRepo) return;
-    setSaveStatus('Saving to GitHub default branch...');
+    setSaveStatus(`Saving to ${targetBranch ?? defaultBranch}...`);
     try {
-      await workspace.save(token, connectedRepo, activePath);
+      if (targetBranch) await GitHubIde.ensureBranch(token, connectedRepo, targetBranch, defaultBranch);
+      await workspace.save(token, connectedRepo, activePath, undefined, targetBranch);
+      if (targetBranch) setHasBranchCommits(true);
       syncWorkspaceState();
       setSaveStatus('Saved and committed successfully!');
       setTimeout(() => setSaveStatus(null), 3000);
-      setConsoleLogs((prev) => `${prev}\n[Committed]: ${activePath} to branch ${defaultBranch}`);
+      setConsoleLogs((prev) => `${prev}\n[Committed]: ${activePath} to branch ${targetBranch ?? defaultBranch}`);
     } catch (err: any) {
       setSaveStatus(null);
       alert(`Save failed: ${err.message}`);
+    }
+  };
+
+  const handleOpenPullRequest = async () => {
+    if (!token || !connectedRepo) return;
+    setSaveStatus('Opening pull request...');
+    try {
+      const pr = await GitHubIde.openPullRequest(token, connectedRepo, WORK_BRANCH, defaultBranch, 'Changes from Breezy Build', 'Opened from Breezy Build.');
+      setSaveStatus(null);
+      setConsoleLogs((prev) => `${prev}\n[Pull request${pr.existing ? ' (already open)' : ''}]: ${pr.url}`);
+      window.open(pr.url, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      setSaveStatus(null);
+      alert(`Pull request failed: ${err.message}`);
     }
   };
 
@@ -324,11 +348,26 @@ export const BuildWorkspace: React.FC = () => {
           )}
 
           {activePath && (
+            <label className="flex items-center gap-1 text-[11px] text-outline">
+              <span className="hidden md:inline">Save to</span>
+              <select value={saveTarget} onChange={(e) => chooseTarget(e.target.value as 'branch' | 'default')} aria-label="Save target" className="rounded border border-outline-variant/40 bg-surface-container-low px-1.5 py-1 text-on-surface">
+                <option value="branch">{WORK_BRANCH} (safe)</option>
+                <option value="default">{defaultBranch} (direct)</option>
+              </select>
+            </label>
+          )}
+          {activePath && targetBranch && hasBranchCommits && (
+            <button type="button" onClick={handleOpenPullRequest} className="flex items-center gap-1 px-3 py-1.5 rounded border border-primary/50 text-primary hover:bg-primary/10 text-xs font-semibold transition-colors cursor-pointer">
+              <span className="material-symbols-outlined text-sm">merge</span>
+              <span className="hidden sm:inline">Open PR</span>
+            </button>
+          )}
+          {activePath && (
             <button
               onClick={handleSaveActiveFile}
               disabled={!workspace.isDirty(activePath)}
               className="flex items-center gap-1 px-3 py-1.5 rounded bg-surface-container hover:bg-surface-container-high text-xs font-medium text-on-surface border border-outline-variant/40 disabled:opacity-40 transition-colors"
-              title="Commit file changes to GitHub default branch"
+              title={targetBranch ? `Commit to ${targetBranch}, then open a pull request` : `Commit directly to ${defaultBranch}`}
             >
               <span className="material-symbols-outlined text-sm text-primary">save</span>
               <span className="hidden sm:inline">Save</span>
@@ -612,7 +651,7 @@ export const BuildWorkspace: React.FC = () => {
               <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-outline">
                 <span className="material-symbols-outlined text-4xl mb-2 text-outline-variant">code</span>
                 <p className="text-sm font-sans">Select a file from the explorer or create a new file to start editing.</p>
-                <p className="text-xs font-mono text-primary mt-2">Commits will be committed directly to default branch ({defaultBranch})</p>
+                <p className="text-xs font-mono text-primary mt-2">{targetBranch ? `Saves go to ${targetBranch}. Use Open PR to merge them into ${defaultBranch}.` : `Saves commit directly to ${defaultBranch}.`}</p>
               </div>
             )}
           </div>

@@ -43,6 +43,9 @@ export function languageOf(path: string): Language {
 export const isRunnable = (path: string) => ['python', 'javascript', 'html'].includes(languageOf(path));
 
 /* ───────────────────────────── GitHub ───────────────────────────── */
+const encodePath = (p: string): string => p.split('/').map(encodeURIComponent).join('/');
+const toBase64 = (text: string): string => { const bytes = new TextEncoder().encode(text); let bin = ''; bytes.forEach((b) => { bin += String.fromCharCode(b); }); return btoa(bin); };
+
 export const GitHubIde = {
   /** Entire repo tree in one request. Throws a readable error (the old service swallowed failures). */
   async getTree(token: string, repo: string): Promise<{ entries: TreeEntry[]; truncated: boolean; branch: string }> {
@@ -62,19 +65,71 @@ export const GitHubIde = {
     return gitHubService.fetchFileDetails(token, repo, path); // { content, sha }
   },
 
-  /** Commit a change. Pass the sha from readFile when updating; omit it to create a new file. */
-  async saveFile(token: string, repo: string, path: string, content: string, sha: string | undefined, message?: string): Promise<{ sha: string }> {
-    const res = await gitHubService.updateFileContent(token, repo, path, content, sha || '', message || `${sha ? 'Update' : 'Create'} ${path} via Breezy`);
-    return { sha: res?.content?.sha };
+  /** Commit a change. Pass the sha from readFile when updating; omit it to create a new file. With `branch`, commits there instead of the default branch. */
+  async saveFile(token: string, repo: string, path: string, content: string, sha: string | undefined, message?: string, branch?: string): Promise<{ sha: string }> {
+    if (!branch) {
+      const res = await gitHubService.updateFileContent(token, repo, path, content, sha || '', message || `${sha ? 'Update' : 'Create'} ${path} via Breezy`);
+      return { sha: res?.content?.sha };
+    }
+    const branchSha = await GitHubIde.shaOn(token, repo, path, branch); // the file may differ on the work branch
+    const res = await fetch(`${API}/repos/${repo}/contents/${encodePath(path)}`, {
+      method: 'PUT',
+      headers: { ...headers(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: message || `${branchSha ? 'Update' : 'Create'} ${path} via Breezy`, content: toBase64(content), branch, ...(branchSha ? { sha: branchSha } : {}) }),
+    });
+    if (!res.ok) throw new Error(`Failed to save ${path} to ${branch} (${res.status}): ${await res.text()}`);
+    return { sha: (await res.json())?.content?.sha };
   },
 
-  async deleteFile(token: string, repo: string, path: string, sha: string, message?: string): Promise<void> {
-    const res = await fetch(`${API}/repos/${repo}/contents/${path}`, {
+  async deleteFile(token: string, repo: string, path: string, sha: string, message?: string, branch?: string): Promise<void> {
+    const useSha = branch ? (await GitHubIde.shaOn(token, repo, path, branch)) || sha : sha;
+    const res = await fetch(`${API}/repos/${repo}/contents/${encodePath(path)}`, {
       method: 'DELETE',
       headers: { ...headers(token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: message || `Delete ${path} via Breezy`, sha }),
+      body: JSON.stringify({ message: message || `Delete ${path} via Breezy`, sha: useSha, ...(branch ? { branch } : {}) }),
     });
     if (!res.ok) throw new Error(`Failed to delete ${path} (${res.status}): ${await res.text()}`);
+  },
+
+  /** The file's sha on a branch, or undefined when it does not exist there. */
+  async shaOn(token: string, repo: string, path: string, branch: string): Promise<string | undefined> {
+    const res = await fetch(`${API}/repos/${repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(branch)}`, { headers: headers(token) });
+    if (res.status === 404) return undefined;
+    if (!res.ok) throw new Error(`Could not check ${path} on ${branch} (${res.status}).`);
+    return (await res.json())?.sha;
+  },
+
+  /** Creates `branch` from `base` if it does not exist yet. Returns true when it was created. */
+  async ensureBranch(token: string, repo: string, branch: string, base: string): Promise<boolean> {
+    const existing = await fetch(`${API}/repos/${repo}/git/ref/heads/${encodePath(branch)}`, { headers: headers(token) });
+    if (existing.ok) return false;
+    if (existing.status !== 404) throw new Error(`Could not check branch ${branch} (${existing.status}).`);
+    const baseRef = await fetch(`${API}/repos/${repo}/git/ref/heads/${encodePath(base)}`, { headers: headers(token) });
+    if (!baseRef.ok) throw new Error(`Could not read branch ${base} (${baseRef.status}).`);
+    const baseSha = (await baseRef.json())?.object?.sha;
+    const created = await fetch(`${API}/repos/${repo}/git/refs`, {
+      method: 'POST', headers: { ...headers(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha }),
+    });
+    if (!created.ok) throw new Error(`Could not create branch ${branch} (${created.status}): ${await created.text()}`);
+    return true;
+  },
+
+  /** Opens a pull request, or returns the one already open for this branch. */
+  async openPullRequest(token: string, repo: string, head: string, base: string, title: string, body = ''): Promise<{ url: string; existing: boolean }> {
+    const res = await fetch(`${API}/repos/${repo}/pulls`, {
+      method: 'POST', headers: { ...headers(token), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, head, base, body }),
+    });
+    if (res.ok) return { url: (await res.json()).html_url, existing: false };
+    if (res.status === 422) {
+      const owner = repo.split('/')[0];
+      const list = await fetch(`${API}/repos/${repo}/pulls?head=${encodeURIComponent(`${owner}:${head}`)}&state=open`, { headers: headers(token) });
+      const first = list.ok ? (await list.json())?.[0] : null;
+      if (first?.html_url) return { url: first.html_url, existing: true };
+      throw new Error('GitHub did not open a pull request. There may be no changes between the branches yet.');
+    }
+    throw new Error(`Could not open a pull request (${res.status}): ${await res.text()}`);
   },
 };
 
@@ -106,10 +161,10 @@ export class IdeWorkspace {
     if (this.active === path) this.active = this.list().at(-1)?.path ?? null;
   }
   /** Commit one file and mark it clean. */
-  async save(token: string, repo: string, path: string, message?: string) {
+  async save(token: string, repo: string, path: string, message?: string, branch?: string) {
     const f = this.files.get(path);
     if (!f) throw new Error(`${path} is not open.`);
-    const { sha } = await GitHubIde.saveFile(token, repo, path, f.content, f.sha, message);
+    const { sha } = await GitHubIde.saveFile(token, repo, path, f.content, f.sha, message, branch);
     f.sha = sha; f.original = f.content; f.isNew = false;
     return f;
   }
