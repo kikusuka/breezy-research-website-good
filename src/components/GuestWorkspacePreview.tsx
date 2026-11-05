@@ -7,9 +7,8 @@ const DESCRIPTIONS: Record<ActiveTab, string> = {
   chat: 'A focused workspace for conversations with your chosen model.',
   build: 'Edit and preview projects. Connecting GitHub is optional and only needed for GitHub-specific actions.',
   canvas: 'Organize ideas, findings and code into a visual board.',
-  notes: 'Keep a personal Markdown scratchpad alongside your work.',
+  library: 'Review previous conversations and keep notes in one place.',
   models: 'Configure your own providers and choose the model Breezy should use.',
-  history: 'Review your previous conversations and research sessions.',
   docs: 'Learn how the Breezy workspaces fit together.',
   settings: 'Adjust research behavior and workspace preferences.',
   profile: 'Manage your Breezy account and external integrations.',
@@ -63,11 +62,12 @@ export const GuestWorkspacePreview: React.FC<{ tab: ActiveTab }> = ({ tab }) => 
 
     {tab === 'canvas' && <Section title="Your board"><div className="min-h-64 flex flex-col items-center justify-center text-center"><Icon name="dashboard" className="text-[30px] text-outline" /><p className="font-body-md text-body-md text-on-surface-variant mt-3">Your board starts empty. Add cards when you’re signed in.</p></div></Section>}
 
-    {tab === 'notes' && <div className="grid sm:grid-cols-[220px_1fr] gap-4 min-h-[340px]"><Section title="Notes"><p className="font-body-sm text-body-sm text-on-surface-variant">No guest notes are created.</p></Section><Section title="Markdown editor"><div className="min-h-56 rounded-xl bg-surface px-4 py-3 font-code-sm text-code-sm text-outline">Your note preview appears here.</div></Section></div>}
+    {tab === 'library' && <div className="grid sm:grid-cols-2 gap-4 min-h-[340px]">
+      <Section title="Saved history"><div className="min-h-56 flex flex-col items-center justify-center text-center"><Icon name="history" className="text-[30px] text-outline" /><p className="font-body-md text-body-md text-on-surface-variant mt-3">Your own history appears here after sign-in.</p></div></Section>
+      <Section title="Notes"><p className="font-body-sm text-body-sm text-on-surface-variant">No guest notes are created.</p><div className="min-h-40 rounded-xl bg-surface px-4 py-3 font-code-sm text-code-sm text-outline mt-3">Your note preview appears here.</div></Section>
+    </div>}
 
     {tab === 'models' && <div className="grid sm:grid-cols-2 gap-4"><Section title="Model providers"><DisabledLine label="Google Gemini" /><DisabledLine label="Anthropic" /><DisabledLine label="Groq" /><DisabledLine label="OpenRouter" /></Section><Section title="Default model"><p className="font-body-md text-body-md text-on-surface-variant">No model is selected in this preview. Sign in to connect a provider and choose a model.</p></Section></div>}
-
-    {tab === 'history' && <Section title="Saved history"><div className="min-h-56 flex flex-col items-center justify-center text-center"><Icon name="history" className="text-[30px] text-outline" /><p className="font-body-md text-body-md text-on-surface-variant mt-3">Your own history appears here after sign-in.</p></div></Section>}
 
     {tab === 'docs' && <Section title="Breezy documentation"><p className="font-body-md text-body-md text-on-surface-variant">Workspace guides explain Chat, Research, Build, Canvas, Notes and model configuration.</p><div className="mt-3"><DisabledLine label="Workspace guides" /><DisabledLine label="Provider setup" /><DisabledLine label="Privacy and data" /></div></Section>}
 
